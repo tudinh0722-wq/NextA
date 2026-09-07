@@ -1,49 +1,123 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.nexta.ui
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.nexta.data.model.Event
-import com.nexta.domain.ScheduleStateEngine
-import java.time.Duration
-import java.time.LocalDateTime
 
 @Composable
-fun MainScreen(events: List<Event>) {
-    var now by remember { mutableStateOf(LocalDateTime.now()) }
+fun MainScreen(
+    events: kotlin.collections.List<Event>,
+    onAddEvent: () -> Unit = {}
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text("NextA")
+                }
+            )
+        }
+    ) { innerPadding ->
 
-    // Update time every minute
-    LaunchedEffect(Unit) {
-        while (true) {
-            kotlinx.coroutines.delay(1000 * 60)
-            now = LocalDateTime.now()
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
+                .padding(
+                    horizontal = 16.dp,
+                    vertical = 16.dp
+                ),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+
+            Text(
+                text = "Lịch của bạn",
+                style = MaterialTheme.typography.headlineSmall
+            )
+
+            Text(
+                text = "Hôm nay và các sự kiện sắp tới",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            Spacer(
+                modifier = Modifier.height(8.dp)
+            )
+
+            Button(
+                onClick = onAddEvent,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("+ Thêm sự kiện")
+            }
+
+            Spacer(
+                modifier = Modifier.height(8.dp)
+            )
+
+            if (events.isEmpty()) {
+
+                Text(
+                    text = "Chưa có sự kiện nào.",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+
+            } else {
+
+                events
+                    .take(5)
+                    .forEach { event ->
+                        EventCard(event)
+                    }
+            }
         }
     }
+}
 
-    val result = ScheduleStateEngine.calculateResult(events, now)
+@Composable
+private fun EventCard(
+    event: Event
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+    ) {
 
-    Column(modifier = Modifier.padding(16.dp)) {
-        val currentText = result.current?.let {
-            val minutesLeft = Duration.between(now, it.endTime.atDate(now.toLocalDate())).toMinutes()
-            "CURRENT: ${it.title} còn $minutesLeft phút"
-        } ?: "CURRENT: —"
+        Text(
+            text = event.title,
+            style = MaterialTheme.typography.titleMedium
+        )
 
-        val nextText = result.next?.let {
-            val nextStart = it.occurrences.asSequence()
-                .map { date -> date.atTime(it.startTime) }
-                .filter { start -> start.isAfter(now) }
-                .minOrNull()
+        Text(
+            text = "${event.startDateTime} → ${event.endDateTime}",
+            style = MaterialTheme.typography.bodyMedium
+        )
 
-            if (nextStart != null) {
-                val minutesWait = Duration.between(now, nextStart).toMinutes()
-                "NEXT: ${it.title} sau $minutesWait phút"
-            } else "NEXT: —"
-        } ?: "NEXT: —"
-
-        Text(text = currentText)
-        Text(text = nextText)
+        if (event.location.isNotBlank()) {
+            Text(
+                text = event.location,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
     }
 }
