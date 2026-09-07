@@ -3,32 +3,30 @@ package com.nexta.data.repository
 import com.nexta.data.local.EventDao
 import com.nexta.data.local.EventEntity
 import com.nexta.data.model.Event
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import com.nexta.data.model.EventType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import java.time.LocalDate
-import java.time.LocalTime
+import java.time.LocalDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class EventRepository @Inject constructor(
-    private val eventDao: EventDao,
-    private val gson: Gson
+    private val eventDao: EventDao
 ) {
+
     fun getAllEvents(): Flow<List<Event>> {
         return eventDao.getAll().map { entities ->
-            entities.map { it.toDomain(gson) }
+            entities.map { it.toDomain() }
         }
     }
 
     suspend fun getEventById(id: String): Event? {
-        return eventDao.getById(id)?.toDomain(gson)
+        return eventDao.getById(id)?.toDomain()
     }
 
     suspend fun saveEvent(event: Event) {
-        eventDao.insert(event.toEntity(gson))
+        eventDao.insert(event.toEntity())
     }
 
     suspend fun deleteEvent(id: String) {
@@ -36,30 +34,28 @@ class EventRepository @Inject constructor(
     }
 }
 
-fun EventEntity.toDomain(gson: Gson): Event {
-    val type = object : TypeToken<List<LocalDate>>() {}.type
-    val occurrences: List<LocalDate> = gson.fromJson(occurrencesJson, type)
+private fun EventEntity.toDomain(): Event {
     return Event(
         id = id,
         title = title,
+        type = EventType.valueOf(type),
+        startDateTime = LocalDateTime.parse(startDateTime),
+        endDateTime = LocalDateTime.parse(endDateTime),
         location = location,
-        occurrences = occurrences,
-        startTime = LocalTime.parse(startTime),
-        endTime = LocalTime.parse(endTime),
-        notifyBeforeMinutes = notifyBeforeMinutes,
-        note = note
+        note = note,
+        priority = priority
     )
 }
 
-fun Event.toEntity(gson: Gson): EventEntity {
+private fun Event.toEntity(): EventEntity {
     return EventEntity(
         id = id,
         title = title,
+        type = type.name,
+        startDateTime = startDateTime.toString(),
+        endDateTime = endDateTime.toString(),
         location = location,
-        occurrencesJson = gson.toJson(occurrences),
-        startTime = startTime.toString(),
-        endTime = endTime.toString(),
-        notifyBeforeMinutes = notifyBeforeMinutes,
-        note = note
+        note = note,
+        priority = priority
     )
 }
