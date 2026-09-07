@@ -36,7 +36,7 @@ fun MainScreen(events: List<Event>) {
                 .map { date -> date.atTime(it.startTime) }
                 .filter { start -> start.isAfter(now) }
                 .minOrNull()
-            
+
             if (nextStart != null) {
                 val minutesWait = Duration.between(now, nextStart).toMinutes()
                 "NEXT: ${it.title} sau $minutesWait phút"

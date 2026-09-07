@@ -23,7 +23,7 @@ class ScheduleStateEngineTest {
     fun `calculateResult - current event exists`() {
         val today = LocalDate.of(2023, 10, 27)
         val now = LocalDateTime.of(today, LocalTime.of(10, 30))
-        
+
         val event = Event(
             id = "1",
             title = "Class",
@@ -43,7 +43,7 @@ class ScheduleStateEngineTest {
     fun `calculateResult - next event exists`() {
         val today = LocalDate.of(2023, 10, 27)
         val now = LocalDateTime.of(today, LocalTime.of(9, 0))
-        
+
         val event = Event(
             id = "1",
             title = "Class",
@@ -64,7 +64,7 @@ class ScheduleStateEngineTest {
     fun `calculateResult - pick smallest endTime for current`() {
         val today = LocalDate.of(2023, 10, 27)
         val now = LocalDateTime.of(today, LocalTime.of(10, 30))
-        
+
         val event1 = Event(
             id = "1",
             title = "Class 1",
@@ -75,7 +75,7 @@ class ScheduleStateEngineTest {
             notifyBeforeMinutes = 10,
             note = ""
         )
-        
+
         val event2 = Event(
             id = "2",
             title = "Class 2",
@@ -129,7 +129,7 @@ class ScheduleStateEngineTest {
             notifyBeforeMinutes = 10,
             note = ""
         )
-        
+
         val next = Event(
             id = "2",
             title = "Next",

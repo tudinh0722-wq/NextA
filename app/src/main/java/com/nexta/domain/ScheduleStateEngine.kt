@@ -7,7 +7,7 @@ import java.time.LocalDateTime
 object ScheduleStateEngine {
     fun calculateResult(events: List<Event>, now: LocalDateTime): ScheduleResult {
         val today = now.toLocalDate()
-        
+
         val current = events.filter { event ->
             event.occurrences.contains(today) &&
                     !now.toLocalTime().isBefore(event.startTime) &&
