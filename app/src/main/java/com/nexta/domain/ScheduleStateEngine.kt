@@ -5,30 +5,28 @@ import com.nexta.data.model.ScheduleResult
 import java.time.LocalDateTime
 
 object ScheduleStateEngine {
-    fun calculateResult(events: List<Event>, now: LocalDateTime): ScheduleResult {
-        val today = now.toLocalDate()
 
-        val current = events.filter { event ->
-            event.occurrences.contains(today) &&
-                    !now.toLocalTime().isBefore(event.startTime) &&
-                    now.toLocalTime().isBefore(event.endTime)
-        }.minByOrNull { it.endTime }
+    fun calculateResult(
+        events: List<Event>,
+        now: LocalDateTime
+    ): ScheduleResult {
 
-        val next = events.asSequence()
-            .flatMap { event ->
-                event.occurrences.map { date ->
-                    date.atTime(event.startTime)
-                }
+        val current = events
+            .filter { event ->
+                !now.isBefore(event.startDateTime) &&
+                    now.isBefore(event.endDateTime)
             }
-            .filter { it.isAfter(now) }
-            .minByOrNull { it }
-            ?.let { nextStart ->
-                events.find { event ->
-                    event.occurrences.contains(nextStart.toLocalDate()) &&
-                            event.startTime == nextStart.toLocalTime()
-                }
-            }
+            .minByOrNull { it.endDateTime }
 
-        return ScheduleResult(current, next)
+        val next = events
+            .filter { event ->
+                event.startDateTime.isAfter(now)
+            }
+            .minByOrNull { it.startDateTime }
+
+        return ScheduleResult(
+            current = current,
+            next = next
+        )
     }
 }
