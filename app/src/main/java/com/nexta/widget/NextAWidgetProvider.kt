@@ -127,11 +127,11 @@ class NextAWidgetProvider : AppWidgetProvider() {
 
             if (card == null) {
                 views.setTextViewText(status, "KHÔNG CÓ LỊCH")
-                views.setTextColor(status, 0xFFE53935.toInt())
+                views.setTextColor(status, 0xFFFFFFFF.toInt())
                 views.setTextViewText(title, "Trống")
                 views.setTextViewText(time, "")
                 views.setTextViewText(countdown, "—")
-                views.setTextColor(countdown, 0xFFE53935.toInt())
+                views.setTextColor(countdown, 0xFFFFFFFF.toInt())
                 views.setTextViewText(location, "")
                 views.setViewVisibility(note, View.GONE)
                 return
@@ -141,11 +141,10 @@ class NextAWidgetProvider : AppWidgetProvider() {
             val current = card.second
             val target = if (current) event.endDateTime else event.startDateTime
             val minutes = Duration.between(now, target).toMinutes().coerceAtLeast(0)
-            val statusColor = if (current) 0xFF16A34A.toInt() else 0xFFF59E0B.toInt()
-            val countdownColor = if (minutes <= URGENT_MINUTES) 0xFFE53935.toInt() else statusColor
+            val countdownColor = if (minutes <= URGENT_MINUTES) 0xFFFFFFFF.toInt() else 0xFFFFFFFF.toInt()
 
             views.setTextViewText(status, if (current) "ĐANG DIỄN RA" else "TIẾP THEO")
-            views.setTextColor(status, statusColor)
+            views.setTextColor(status, 0xFFFFFFFF.toInt())
             views.setTextViewText(title, event.title)
             views.setTextViewText(
                 time,
@@ -178,43 +177,34 @@ class NextAWidgetProvider : AppWidgetProvider() {
             val target = when {
                 boundary == null -> null
                 boundary.isBefore(minuteTick) -> boundary
-                else -> minuteTick
-            }
-
+                else -> minOf(boundary, minuteTick)
+            } ?: return
             val alarmManager = context.getSystemService(AlarmManager::class.java)
             val pendingIntent = refreshPendingIntent(context)
             alarmManager.cancel(pendingIntent)
-            if (target != null) {
-                val delay = Duration.between(now, target).toMillis().coerceAtLeast(1_000L)
-                alarmManager.setAndAllowWhileIdle(
-                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                    SystemClock.elapsedRealtime() + delay,
-                    pendingIntent
-                )
-            }
+            val delay = Duration.between(now, target).toMillis().coerceAtLeast(1_000L)
+            alarmManager.setAndAllowWhileIdle(
+                AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                SystemClock.elapsedRealtime() + delay,
+                pendingIntent
+            )
         }
 
-        private fun cancelRefresh(context: Context) {
-            context.getSystemService(AlarmManager::class.java)
-                .cancel(refreshPendingIntent(context))
-        }
+        private fun cancelRefresh(context: Context) = context.getSystemService(AlarmManager::class.java)
+            .cancel(refreshPendingIntent(context))
 
-        private fun refreshPendingIntent(context: Context): PendingIntent = PendingIntent.getBroadcast(
+        private fun refreshPendingIntent(context: Context) = PendingIntent.getBroadcast(
             context,
             REQUEST_CODE,
             Intent(context, NextAWidgetProvider::class.java).apply { action = ACTION_REFRESH },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        private fun formatDuration(minutes: Long): String {
-            if (minutes < 1) return "<1m"
-            val hours = minutes / 60
-            val remaining = minutes % 60
-            return when {
-                hours > 0 && remaining > 0 -> "${hours}h ${remaining}m"
-                hours > 0 -> "${hours}h"
-                else -> "${minutes}m"
-            }
+        private fun formatDuration(minutes: Long): String = when {
+            minutes >= 24 * 60 -> "${minutes / (24 * 60)} ngày"
+            minutes >= 60 -> "${minutes / 60}h ${minutes % 60}m".replace(" 0m", "")
+            minutes > 0 -> "${minutes}m"
+            else -> "<1m"
         }
     }
 }
