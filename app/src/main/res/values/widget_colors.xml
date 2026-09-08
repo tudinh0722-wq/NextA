@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Material You-inspired fallback palette. -->
-    <color name="nexta_widget_container">#F7F2FA</color>
-    <color name="nexta_widget_on_container">#1D192B</color>
-    <color name="nexta_widget_secondary">#625B71</color>
-    <color name="nexta_widget_accent">#6750A4</color>
-    <color name="nexta_widget_badge">#E8DEF8</color>
-    <color name="nexta_widget_badge_text">#4A4458</color>
+    <!-- NextA ivory / blue widget palette. -->
+    <color name="nexta_widget_container">#FFFFFAF0</color>
+    <color name="nexta_widget_on_container">#000000</color>
+    <color name="nexta_widget_secondary">#555555</color>
+    <color name="nexta_widget_accent">#0040FF</color>
+    <color name="nexta_widget_badge">#D6E0FF</color>
+    <color name="nexta_widget_badge_text">#0040FF</color>
     <color name="nexta_widget_warning_container">#FFDAD6</color>
     <color name="nexta_widget_warning_text">#410002</color>
 </resources>
