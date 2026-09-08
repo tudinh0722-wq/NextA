@@ -4,7 +4,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -13,7 +12,6 @@ import com.nexta.ui.AddEventScreen
 import com.nexta.ui.MainScreen
 import com.nexta.ui.MainUiState
 import com.nexta.ui.MainViewModel
-import com.nexta.widget.NextAWidgetProvider
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -29,10 +27,6 @@ class MainActivity : ComponentActivity() {
             val uiState by viewModel.uiState.collectAsState()
             val scheduleResult by viewModel.scheduleResult.collectAsState()
             val saveMessage by viewModel.saveMessage.collectAsState()
-
-            LaunchedEffect(saveMessage) {
-                NextAWidgetProvider.requestUpdate(this@MainActivity)
-            }
 
             if (showAddEvent) {
                 AddEventScreen(
