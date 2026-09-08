@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="nexta_widget_muted">#625B71</color>
+    <color name="nexta_widget_container_morning">#F8F4EA</color>
+    <color name="nexta_widget_container_day">#F4F0E6</color>
+    <color name="nexta_widget_container_evening">#E9E7E0</color>
+    <color name="nexta_widget_container_night">#DCE5F2</color>
 </resources>
