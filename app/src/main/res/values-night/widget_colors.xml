@@ -4,4 +4,6 @@
     <color name="nexta_widget_on_container">#F7F2FA</color>
     <color name="nexta_widget_secondary">#CAC4D0</color>
     <color name="nexta_widget_accent">#D0BCFF</color>
+    <color name="nexta_widget_badge">#4A4458</color>
+    <color name="nexta_widget_badge_text">#E8DEF8</color>
 </resources>
