@@ -7,10 +7,12 @@ import com.nexta.data.repository.EventRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 @HiltViewModel
@@ -33,13 +35,11 @@ class MainViewModel @Inject constructor(
                 )
             )
         }
-        .let { flow ->
-            MutableStateFlow<MainUiState>(MainUiState.Loading).also { state ->
-                viewModelScope.launch {
-                    flow.collect { state.value = it }
-                }
-            }
-        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = MainUiState.Loading
+        )
 
     fun addEvent(event: Event) {
         viewModelScope.launch {
