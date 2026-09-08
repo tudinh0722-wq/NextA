@@ -20,7 +20,6 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 class NextAFocusWidgetProvider : AppWidgetProvider() {
-
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
             ACTION_REFRESH,
@@ -51,6 +50,7 @@ class NextAFocusWidgetProvider : AppWidgetProvider() {
     companion object {
         const val ACTION_REFRESH = "com.nexta.widget.ACTION_FOCUS_REFRESH"
         private const val REQUEST_CODE = 7422
+        private const val COUNTDOWN_DAYS_LIMIT = 14L
         private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
         fun requestUpdate(context: Context) = refreshWidgets(context)
@@ -102,6 +102,7 @@ class NextAFocusWidgetProvider : AppWidgetProvider() {
             now: LocalDateTime
         ) {
             val views = RemoteViews(context.packageName, R.layout.nexta_focus_widget)
+            views.setInt(R.id.focus_widget_root, "setBackgroundResource", backgroundForHour(now.hour))
             views.setOnClickPendingIntent(R.id.focus_widget_root, openAppPendingIntent(context))
 
             val event = current ?: next
@@ -114,13 +115,13 @@ class NextAFocusWidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(R.id.focus_next, "Mở NextA để thêm sự kiện")
             } else {
                 val target = if (current != null) event.endDateTime else event.startDateTime
-                val minutes = Duration.between(now, target).toMinutes().coerceAtLeast(0)
+                val duration = Duration.between(now, target)
                 views.setTextViewText(R.id.focus_status, if (current != null) "LIVE" else "NEXT")
                 views.setTextViewText(
                     R.id.focus_location,
                     event.location.takeIf { it.isNotBlank() } ?: "SCHEDULE"
                 )
-                views.setTextViewText(R.id.focus_countdown, formatCountdown(minutes))
+                views.setTextViewText(R.id.focus_countdown, formatCountdown(duration))
                 views.setTextViewText(R.id.focus_title, event.title)
                 views.setTextViewText(
                     R.id.focus_time,
@@ -147,11 +148,11 @@ class NextAFocusWidgetProvider : AppWidgetProvider() {
             now: LocalDateTime
         ) {
             val boundary = current?.endDateTime ?: next?.startDateTime
-            val minuteTick = now.plusMinutes(1).withSecond(0).withNano(0)
             val target = when {
                 boundary == null -> null
-                boundary.isBefore(minuteTick) -> boundary
-                else -> minuteTick
+                Duration.between(now, boundary).toDays() > COUNTDOWN_DAYS_LIMIT -> now.plusDays(COUNTDOWN_DAYS_LIMIT)
+                boundary.isBefore(now.plusMinutes(1)) -> boundary
+                else -> now.plusMinutes(1).withSecond(0).withNano(0)
             }
 
             val alarmManager = context.getSystemService(AlarmManager::class.java)
@@ -168,6 +169,13 @@ class NextAFocusWidgetProvider : AppWidgetProvider() {
             }
         }
 
+        private fun backgroundForHour(hour: Int): Int = when (hour) {
+            in 5..10 -> R.drawable.nexta_widget_background_morning
+            in 11..16 -> R.drawable.nexta_widget_background_day
+            in 17..20 -> R.drawable.nexta_widget_background_evening
+            else -> R.drawable.nexta_widget_background_night
+        }
+
         private fun cancelRefresh(context: Context) {
             context.getSystemService(AlarmManager::class.java)
                 .cancel(refreshPendingIntent(context))
@@ -180,11 +188,15 @@ class NextAFocusWidgetProvider : AppWidgetProvider() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        private fun formatCountdown(minutes: Long): String {
+        private fun formatCountdown(duration: Duration): String {
+            val minutes = duration.toMinutes().coerceAtLeast(0)
             if (minutes < 1) return "NOW"
+            val days = duration.toDays()
             val hours = minutes / 60
             val remaining = minutes % 60
             return when {
+                days > COUNTDOWN_DAYS_LIMIT -> ""
+                days >= 1 -> "$days ngày"
                 hours > 0 && remaining > 0 -> "${hours}h ${remaining}m"
                 hours > 0 -> "${hours}h"
                 else -> "${minutes}m"
