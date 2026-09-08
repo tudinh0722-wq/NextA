@@ -26,6 +26,19 @@
             </intent-filter>
 
         </activity>
+
+        <receiver
+            android:name=".widget.NextAWidgetProvider"
+            android:exported="true"
+            android:label="NextA">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/nexta_widget_info" />
+        </receiver>
+
     </application>
 
 </manifest>
