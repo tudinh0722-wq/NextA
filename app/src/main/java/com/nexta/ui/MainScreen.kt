@@ -54,15 +54,13 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.launch
 
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 private val dateFormatter = DateTimeFormatter.ofPattern("dd/MM")
 private val countdownRed = Color(0xFFD32F2F)
 
-// Swipe stays day-by-day, while the date picker provides fast long-range navigation.
-// Five years in each direction covers typical academic planning without an effectively
-// unbounded pager. The date picker can still jump directly to any supported date.
 private const val DAYS_BEFORE_TODAY = 1825
 private const val DAYS_AFTER_TODAY = 1825
 private const val TOTAL_DAY_PAGES = DAYS_BEFORE_TODAY + DAYS_AFTER_TODAY + 1
@@ -85,12 +83,8 @@ fun MainScreen(
     )
     val currentDate = today.plusDays((pagerState.currentPage - initialPage).toLong())
     val weekStart = currentDate.with(DayOfWeek.MONDAY)
-    val weekDays = remember(weekStart) {
-        (0..6).map { weekStart.plusDays(it.toLong()) }
-    }
-    val eventsByDay = remember(events) {
-        events.groupBy { it.startDateTime.toLocalDate() }
-    }
+    val weekDays = remember(weekStart) { (0..6).map { weekStart.plusDays(it.toLong()) } }
+    val eventsByDay = remember(events) { events.groupBy { it.startDateTime.toLocalDate() } }
     val coroutineScope = rememberCoroutineScope()
     val minSelectableDate = today.minusDays(DAYS_BEFORE_TODAY.toLong())
     val maxSelectableDate = today.plusDays(DAYS_AFTER_TODAY.toLong())
@@ -108,11 +102,7 @@ fun MainScreen(
                 title = {
                     Column {
                         Text("NextA", style = MaterialTheme.typography.titleLarge)
-                        Text(
-                            "Lịch tuần",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Text("Lịch tuần", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             )
@@ -122,87 +112,46 @@ fun MainScreen(
                 onClick = onAddEvent,
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-            ) {
-                Text("+", style = MaterialTheme.typography.headlineSmall)
-            }
+            ) { Text("+", style = MaterialTheme.typography.headlineSmall) }
         }
     ) { innerPadding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxSize().padding(innerPadding).padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                TextButton(
-                    onClick = { showDatePicker = true },
+            TextButton(
+                onClick = { showDatePicker = true },
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
+            ) {
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
-                    horizontalArrangement = Arrangement.Start
+                    horizontalAlignment = Alignment.Start,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    Column(horizontalAlignment = Alignment.Start) {
-                        Text(
-                            "${weekStart.format(dateFormatter)} — ${weekStart.plusDays(6).format(dateFormatter)}",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            "${currentDate.format(dateFormatter)} • Chọn ngày",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
+                    Text("${weekStart.format(dateFormatter)} — ${weekStart.plusDays(6).format(dateFormatter)}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text("${currentDate.format(dateFormatter)} • Chọn ngày", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                 }
             }
 
-            WeekDayIndicator(
-                weekDays = weekDays,
-                currentDate = currentDate,
-                today = today
-            )
+            WeekDayIndicator(weekDays = weekDays, currentDate = currentDate, today = today)
 
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-            ) { page ->
+            HorizontalPager(state = pagerState, modifier = Modifier.fillMaxWidth().weight(1f)) { page ->
                 val date = today.plusDays((page - initialPage).toLong())
                 val dayEvents = eventsByDay[date].orEmpty().sortedBy { it.startDateTime }
-
                 Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState()),
+                    modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    DayHeader(
-                        date = date,
-                        isToday = date == today
-                    )
-
+                    DayHeader(date = date, isToday = date == today)
                     if (dayEvents.isEmpty()) {
                         EmptyDayState(isToday = date == today)
                     } else {
                         dayEvents.forEach { event ->
-                            EventCard(
-                                event = event,
-                                state = event.scheduleState(now),
-                                now = now,
-                                onLongClick = { eventToDelete = event }
-                            )
+                            EventCard(event = event, state = event.scheduleState(now), now = now) { eventToDelete = event }
                         }
                     }
-
-                    message?.let {
-                        Text(
-                            it,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-
+                    message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
                     Spacer(Modifier.height(72.dp))
                 }
             }
@@ -222,29 +171,19 @@ fun MainScreen(
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        datePickerState.selectedDateMillis?.let { millis ->
-                            val selectedDate = millis.toLocalDate()
-                            val page = initialPage + today.until(selectedDate, ChronoUnit.DAYS).toInt()
-                            coroutineScope.launch {
-                                pagerState.animateScrollToPage(page.coerceIn(0, TOTAL_DAY_PAGES - 1))
-                            }
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val selectedDate = millis.toLocalDate()
+                        val page = initialPage + today.until(selectedDate, ChronoUnit.DAYS).toInt()
+                        coroutineScope.launch {
+                            pagerState.animateScrollToPage(page.coerceIn(0, TOTAL_DAY_PAGES - 1))
                         }
-                        showDatePicker = false
                     }
-                ) {
-                    Text("Chọn")
-                }
+                    showDatePicker = false
+                }) { Text("Chọn") }
             },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Hủy")
-                }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Hủy") } }
+        ) { DatePicker(state = datePickerState) }
     }
 
     eventToDelete?.let { event ->
@@ -252,63 +191,33 @@ fun MainScreen(
             onDismissRequest = { eventToDelete = null },
             title = { Text("Xóa sự kiện?") },
             text = { Text("Bạn có chắc muốn xóa \"${event.title}\" không?") },
-            confirmButton = {
-                TextButton(onClick = { onDeleteEvent(event); eventToDelete = null }) {
-                    Text("Xóa")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { eventToDelete = null }) {
-                    Text("Hủy")
-                }
-            }
+            confirmButton = { TextButton(onClick = { onDeleteEvent(event); eventToDelete = null }) { Text("Xóa") } },
+            dismissButton = { TextButton(onClick = { eventToDelete = null }) { Text("Hủy") } }
         )
     }
 }
 
 @Composable
 private fun WeekDayIndicator(weekDays: List<LocalDate>, currentDate: LocalDate, today: LocalDate) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.Bottom
-    ) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
         weekDays.forEach { date ->
             val isCurrent = date == currentDate
             val isToday = date == today
-            Column(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                Text(
-                    dayLabel(date.dayOfWeek),
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = if (isCurrent || isToday) FontWeight.Bold else FontWeight.Normal,
-                    color = when {
-                        isCurrent -> MaterialTheme.colorScheme.onSurface
-                        isToday -> MaterialTheme.colorScheme.primary
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-                )
-                Text(
-                    date.dayOfMonth.toString(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = if (isCurrent || isToday) FontWeight.Bold else FontWeight.Normal,
-                    color = when {
-                        isCurrent -> MaterialTheme.colorScheme.onSurface
-                        isToday -> MaterialTheme.colorScheme.primary
-                        else -> MaterialTheme.colorScheme.onSurface
-                    }
-                )
-                Surface(
-                    modifier = Modifier.size(if (isCurrent) 4.dp else 2.dp),
-                    shape = MaterialTheme.shapes.small,
-                    color = when {
-                        isCurrent || isToday -> MaterialTheme.colorScheme.primary
-                        else -> MaterialTheme.colorScheme.surfaceVariant
-                    }
-                ) {}
+            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(dayLabel(date.dayOfWeek), style = MaterialTheme.typography.labelMedium, fontWeight = if (isCurrent || isToday) FontWeight.Bold else FontWeight.Normal, color = when {
+                    isCurrent -> MaterialTheme.colorScheme.onSurface
+                    isToday -> MaterialTheme.colorScheme.primary
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                })
+                Text(date.dayOfMonth.toString(), style = MaterialTheme.typography.bodyMedium, fontWeight = if (isCurrent || isToday) FontWeight.Bold else FontWeight.Normal, color = when {
+                    isCurrent -> MaterialTheme.colorScheme.onSurface
+                    isToday -> MaterialTheme.colorScheme.primary
+                    else -> MaterialTheme.colorScheme.onSurface
+                })
+                Surface(modifier = Modifier.size(if (isCurrent) 4.dp else 2.dp), shape = MaterialTheme.shapes.small, color = when {
+                    isCurrent || isToday -> MaterialTheme.colorScheme.primary
+                    else -> MaterialTheme.colorScheme.surfaceVariant
+                }) {}
             }
         }
     }
@@ -317,33 +226,15 @@ private fun WeekDayIndicator(weekDays: List<LocalDate>, currentDate: LocalDate, 
 @Composable
 private fun DayHeader(date: LocalDate, isToday: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(
-            if (isToday) "HÔM NAY" else vietnameseWeekday(date.dayOfWeek),
-            style = MaterialTheme.typography.labelLarge,
-            color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            "${vietnameseWeekday(date.dayOfWeek)}, ${date.format(dateFormatter)}",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-        )
+        Text(if (isToday) "HÔM NAY" else vietnameseWeekday(date.dayOfWeek), style = MaterialTheme.typography.labelLarge, color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+        Text("${vietnameseWeekday(date.dayOfWeek)}, ${date.format(dateFormatter)}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
 private fun EmptyDayState(isToday: Boolean) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 32.dp, horizontal = 20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp, horizontal = 20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(if (isToday) "Hôm nay chưa có lịch" else "Ngày này chưa có lịch", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text("Nhấn + để thêm sự kiện", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -358,25 +249,12 @@ private fun EventCard(event: Event, state: ScheduleState, now: LocalDateTime, on
         state == ScheduleState.PAST -> MaterialTheme.colorScheme.surfaceContainerLow
         else -> MaterialTheme.colorScheme.surfaceContainer
     }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .combinedClickable(onClick = {}, onLongClick = onLongClick),
-        colors = CardDefaults.cardColors(containerColor = containerColor)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 13.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalAlignment = Alignment.Top
-        ) {
+    Card(modifier = Modifier.fillMaxWidth().combinedClickable(onClick = {}, onLongClick = onLongClick), colors = CardDefaults.cardColors(containerColor = containerColor)) {
+        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 13.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.Top) {
             Column(modifier = Modifier.width(58.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 Text(event.startDateTime.format(timeFormatter), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
                 Text(event.endDateTime.format(timeFormatter), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(event.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, fontSize = 17.sp, lineHeight = 21.sp, maxLines = 2)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -398,10 +276,7 @@ private fun StatusDot(state: ScheduleState, active: Boolean) {
         ScheduleState.IN_PROGRESS -> "ĐANG HỌC"
         ScheduleState.UPCOMING -> "SẮP TỚI"
     }
-    Surface(
-        shape = MaterialTheme.shapes.small,
-        color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest
-    ) {
+    Surface(shape = MaterialTheme.shapes.small, color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest) {
         Text(label, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
     }
 }
@@ -444,12 +319,11 @@ private fun vietnameseWeekday(dayOfWeek: DayOfWeek): String = when (dayOfWeek) {
     DayOfWeek.SUNDAY -> "Chủ Nhật"
 }
 
+private fun LocalDate.toEpochMillis(): Long = atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+private fun Long.toLocalDate(): LocalDate = Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).toLocalDate()
+
 private fun Event.scheduleState(now: LocalDateTime): ScheduleState = when {
     now < startDateTime -> ScheduleState.UPCOMING
     now >= endDateTime -> ScheduleState.PAST
     else -> ScheduleState.IN_PROGRESS
 }
-
-private fun LocalDate.toEpochMillis(): Long = atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-
-private fun Long.toLocalDate(): LocalDate = Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).toLocalDate()
