@@ -50,6 +50,7 @@ class NextAWidgetProvider : AppWidgetProvider() {
     companion object {
         const val ACTION_REFRESH = "com.nexta.widget.ACTION_REFRESH"
         private const val REQUEST_CODE = 7421
+        private const val OPEN_APP_REQUEST_BASE = 18_000
         private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
         fun requestUpdate(context: Context) = refreshWidgets(context)
@@ -110,17 +111,15 @@ class NextAWidgetProvider : AppWidgetProvider() {
             bindCard(views, 1, cards.getOrNull(0), now)
             bindCard(views, 2, cards.getOrNull(1), now)
 
-            val launchIntent = Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-            val launchPendingIntent = PendingIntent.getActivity(
+            val openAppIntent = PendingIntent.getActivity(
                 context,
-                REQUEST_CODE + widgetId,
-                launchIntent,
+                OPEN_APP_REQUEST_BASE + widgetId,
+                Intent(context, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                },
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            views.setOnClickPendingIntent(R.id.nexta_widget_root, launchPendingIntent)
-
+            views.setOnClickPendingIntent(R.id.nexta_widget_root, openAppIntent)
             manager.updateAppWidget(widgetId, views)
         }
 
