@@ -4,128 +4,112 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="10dp">
+    android:padding="12dp">
 
-    <LinearLayout
+    <TextView
+        android:id="@+id/widget_status_1"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:orientation="vertical"
-        android:padding="4dp">
+        android:layout_height="wrap_content"
+        android:text="TIẾP THEO"
+        android:textSize="9sp"
+        android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/widget_status_1"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="TIẾP THEO"
-            android:textSize="9sp"
-            android:textStyle="bold" />
+    <TextView
+        android:id="@+id/widget_title_1"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:text="Sự kiện"
+        android:textSize="14sp"
+        android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/widget_title_1"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:maxLines="1"
-            android:text="Sự kiện"
-            android:textSize="13sp"
-            android:textStyle="bold" />
+    <TextView
+        android:id="@+id/widget_time_1"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:text="08:00 – 10:00"
+        android:textSize="10sp" />
 
-        <TextView
-            android:id="@+id/widget_time_1"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:maxLines="1"
-            android:text="08:00 – 10:00"
-            android:textSize="9sp" />
+    <TextView
+        android:id="@+id/widget_countdown_1"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:text="Bắt đầu sau 42m"
+        android:textSize="11sp"
+        android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/widget_countdown_1"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:maxLines="1"
-            android:text="Bắt đầu sau 42m"
-            android:textSize="10sp"
-            android:textStyle="bold" />
+    <TextView
+        android:id="@+id/widget_location_1"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:text="Phòng A203"
+        android:textSize="8sp" />
 
-        <TextView
-            android:id="@+id/widget_location_1"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:maxLines="1"
-            android:text="Phòng A203"
-            android:textSize="8sp" />
-
-        <TextView
-            android:id="@+id/widget_note_1"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:maxLines="1"
-            android:text="Ghi chú"
-            android:textSize="8sp"
-            android:visibility="gone" />
-    </LinearLayout>
+    <TextView
+        android:id="@+id/widget_note_1"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:text="Ghi chú"
+        android:textSize="8sp"
+        android:visibility="gone" />
 
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp" />
 
-    <LinearLayout
+    <TextView
+        android:id="@+id/widget_status_2"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:orientation="vertical"
-        android:padding="4dp">
+        android:layout_height="wrap_content"
+        android:text="TIẾP THEO"
+        android:textSize="9sp"
+        android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/widget_status_2"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="TIẾP THEO"
-            android:textSize="9sp"
-            android:textStyle="bold" />
+    <TextView
+        android:id="@+id/widget_title_2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:text="Sự kiện tiếp theo"
+        android:textSize="14sp"
+        android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/widget_title_2"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:maxLines="1"
-            android:text="Sự kiện tiếp theo"
-            android:textSize="13sp"
-            android:textStyle="bold" />
+    <TextView
+        android:id="@+id/widget_time_2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:text="10:15 – 12:00"
+        android:textSize="10sp" />
 
-        <TextView
-            android:id="@+id/widget_time_2"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:maxLines="1"
-            android:text="10:15 – 12:00"
-            android:textSize="9sp" />
+    <TextView
+        android:id="@+id/widget_countdown_2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:text="Bắt đầu sau 2h 15m"
+        android:textSize="11sp"
+        android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/widget_countdown_2"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:maxLines="1"
-            android:text="Bắt đầu sau 2h 15m"
-            android:textSize="10sp"
-            android:textStyle="bold" />
+    <TextView
+        android:id="@+id/widget_location_2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:text="Phòng B402"
+        android:textSize="8sp" />
 
-        <TextView
-            android:id="@+id/widget_location_2"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:maxLines="1"
-            android:text="Phòng B402"
-            android:textSize="8sp" />
-
-        <TextView
-            android:id="@+id/widget_note_2"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:maxLines="1"
-            android:text="Ghi chú"
-            android:textSize="8sp"
-            android:visibility="gone" />
-    </LinearLayout>
+    <TextView
+        android:id="@+id/widget_note_2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:text="Ghi chú"
+        android:textSize="8sp"
+        android:visibility="gone" />
 
 </LinearLayout>
