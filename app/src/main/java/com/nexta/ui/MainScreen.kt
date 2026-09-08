@@ -20,19 +20,24 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,19 +49,22 @@ import com.nexta.data.model.Event
 import com.nexta.domain.ScheduleState
 import java.time.DayOfWeek
 import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.launch
 
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 private val dateFormatter = DateTimeFormatter.ofPattern("dd/MM")
 private val countdownRed = Color(0xFFD32F2F)
 
-// Keep day-by-day swipe navigation, but allow realistic long-range planning.
-// One year in each direction is enough for most academic schedules without
-// making the pager effectively unbounded.
-private const val DAYS_BEFORE_TODAY = 365
-private const val DAYS_AFTER_TODAY = 365
+// Swipe stays day-by-day, while the date picker provides fast long-range navigation.
+// Five years in each direction covers typical academic planning without an effectively
+// unbounded pager. The date picker can still jump directly to any supported date.
+private const val DAYS_BEFORE_TODAY = 1825
+private const val DAYS_AFTER_TODAY = 1825
 private const val TOTAL_DAY_PAGES = DAYS_BEFORE_TODAY + DAYS_AFTER_TODAY + 1
 
 @Composable
@@ -68,6 +76,7 @@ fun MainScreen(
 ) {
     var eventToDelete by remember { mutableStateOf<Event?>(null) }
     var now by remember { mutableStateOf(LocalDateTime.now()) }
+    var showDatePicker by remember { mutableStateOf(false) }
     val today = now.toLocalDate()
     val initialPage = DAYS_BEFORE_TODAY
     val pagerState = rememberPagerState(
@@ -82,6 +91,9 @@ fun MainScreen(
     val eventsByDay = remember(events) {
         events.groupBy { it.startDateTime.toLocalDate() }
     }
+    val coroutineScope = rememberCoroutineScope()
+    val minSelectableDate = today.minusDays(DAYS_BEFORE_TODAY.toLong())
+    val maxSelectableDate = today.plusDays(DAYS_AFTER_TODAY.toLong())
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -123,16 +135,25 @@ fun MainScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    "${weekStart.format(dateFormatter)} — ${weekStart.plusDays(6).format(dateFormatter)}",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    "Vuốt ngày • Có thể xem trước/sau tối đa 1 năm",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                TextButton(
+                    onClick = { showDatePicker = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    Column(horizontalAlignment = Alignment.Start) {
+                        Text(
+                            "${weekStart.format(dateFormatter)} — ${weekStart.plusDays(6).format(dateFormatter)}",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "${currentDate.format(dateFormatter)} • Chọn ngày",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
             }
 
             WeekDayIndicator(
@@ -188,6 +209,44 @@ fun MainScreen(
         }
     }
 
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = currentDate.toEpochMillis(),
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    val date = utcTimeMillis.toLocalDate()
+                    return date in minSelectableDate..maxSelectableDate
+                }
+            }
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            val selectedDate = millis.toLocalDate()
+                            val page = initialPage + today.until(selectedDate, ChronoUnit.DAYS).toInt()
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(page.coerceIn(0, TOTAL_DAY_PAGES - 1))
+                            }
+                        }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("Chọn")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Hủy")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
     eventToDelete?.let { event ->
         AlertDialog(
             onDismissRequest = { eventToDelete = null },
@@ -208,11 +267,7 @@ fun MainScreen(
 }
 
 @Composable
-private fun WeekDayIndicator(
-    weekDays: List<LocalDate>,
-    currentDate: LocalDate,
-    today: LocalDate
-) {
+private fun WeekDayIndicator(weekDays: List<LocalDate>, currentDate: LocalDate, today: LocalDate) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -250,8 +305,7 @@ private fun WeekDayIndicator(
                     modifier = Modifier.size(if (isCurrent) 4.dp else 2.dp),
                     shape = MaterialTheme.shapes.small,
                     color = when {
-                        isCurrent -> MaterialTheme.colorScheme.primary
-                        isToday -> MaterialTheme.colorScheme.primary
+                        isCurrent || isToday -> MaterialTheme.colorScheme.primary
                         else -> MaterialTheme.colorScheme.surfaceVariant
                     }
                 ) {}
@@ -261,19 +315,12 @@ private fun WeekDayIndicator(
 }
 
 @Composable
-private fun DayHeader(
-    date: LocalDate,
-    isToday: Boolean
-) {
+private fun DayHeader(date: LocalDate, isToday: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(
             if (isToday) "HÔM NAY" else vietnameseWeekday(date.dayOfWeek),
             style = MaterialTheme.typography.labelLarge,
-            color = if (isToday) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
+            color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.Bold
         )
         Text(
@@ -297,27 +344,14 @@ private fun EmptyDayState(isToday: Boolean) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text(
-                if (isToday) "Hôm nay chưa có lịch" else "Ngày này chưa có lịch",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                "Nhấn + để thêm sự kiện",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text(if (isToday) "Hôm nay chưa có lịch" else "Ngày này chưa có lịch", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("Nhấn + để thêm sự kiện", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
 @Composable
-private fun EventCard(
-    event: Event,
-    state: ScheduleState,
-    now: LocalDateTime,
-    onLongClick: () -> Unit
-) {
+private fun EventCard(event: Event, state: ScheduleState, now: LocalDateTime, onLongClick: () -> Unit) {
     val active = state == ScheduleState.IN_PROGRESS
     val containerColor = when {
         active -> MaterialTheme.colorScheme.primaryContainer
@@ -338,74 +372,20 @@ private fun EventCard(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.Top
         ) {
-            Column(
-                modifier = Modifier.width(58.dp),
-                verticalArrangement = Arrangement.spacedBy(1.dp)
-            ) {
-                Text(
-                    event.startDateTime.format(timeFormatter),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    event.endDateTime.format(timeFormatter),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Column(modifier = Modifier.width(58.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Text(event.startDateTime.format(timeFormatter), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+                Text(event.endDateTime.format(timeFormatter), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    event.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp,
-                    lineHeight = 21.sp,
-                    maxLines = 2
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        countdownText(event, state, now),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = countdownRed,
-                        fontSize = 13.sp
-                    )
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(event.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, fontSize = 17.sp, lineHeight = 21.sp, maxLines = 2)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(countdownText(event, state, now), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = countdownRed, fontSize = 13.sp)
                     Spacer(Modifier.weight(1f))
                     StatusDot(state = state, active = active)
                 }
-
-                if (event.location.isNotBlank()) {
-                    Text(
-                        event.location,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp,
-                        maxLines = 1
-                    )
-                }
-                if (event.note.isNotBlank()) {
-                    Text(
-                        event.note,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
-                        fontSize = 11.sp,
-                        lineHeight = 14.sp,
-                        maxLines = 2
-                    )
-                }
+                if (event.location.isNotBlank()) Text(event.location, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, maxLines = 1)
+                if (event.note.isNotBlank()) Text(event.note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f), fontSize = 11.sp, lineHeight = 14.sp, maxLines = 2)
             }
         }
     }
@@ -422,22 +402,11 @@ private fun StatusDot(state: ScheduleState, active: Boolean) {
         shape = MaterialTheme.shapes.small,
         color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest
     ) {
-        Text(
-            label,
-            modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 10.sp
-        )
+        Text(label, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
     }
 }
 
-private fun countdownText(
-    event: Event,
-    state: ScheduleState,
-    now: LocalDateTime
-): String = when (state) {
+private fun countdownText(event: Event, state: ScheduleState, now: LocalDateTime): String = when (state) {
     ScheduleState.IN_PROGRESS -> "Kết thúc sau ${formatDuration(Duration.between(now, event.endDateTime))}"
     ScheduleState.UPCOMING -> "Bắt đầu sau ${formatDuration(Duration.between(now, event.startDateTime))}"
     ScheduleState.PAST -> "Đã kết thúc"
@@ -480,3 +449,7 @@ private fun Event.scheduleState(now: LocalDateTime): ScheduleState = when {
     now >= endDateTime -> ScheduleState.PAST
     else -> ScheduleState.IN_PROGRESS
 }
+
+private fun LocalDate.toEpochMillis(): Long = atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+private fun Long.toLocalDate(): LocalDate = Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).toLocalDate()
