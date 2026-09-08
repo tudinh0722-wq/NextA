@@ -10,82 +10,58 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
+        android:gravity="center_vertical">
         <TextView
             android:id="@+id/widget_status"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:includeFontPadding="false"
-            android:text="NEXT"
+            android:text="T3 · 08/09"
             android:textColor="@color/nexta_widget_accent"
-            android:textSize="12sp"
+            android:textSize="14sp"
             android:textStyle="bold"
-            android:fontFamily="sans-serif-medium"
-            android:letterSpacing="0.10" />
-
+            android:fontFamily="sans-serif-medium" />
         <TextView
             android:id="@+id/widget_location"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:maxWidth="145dp"
-            android:singleLine="true"
-            android:ellipsize="end"
-            android:paddingStart="10dp"
-            android:paddingEnd="10dp"
-            android:paddingTop="5dp"
-            android:paddingBottom="5dp"
-            android:background="@drawable/nexta_widget_badge"
-            android:gravity="center"
             android:includeFontPadding="false"
+            android:text="3 MỤC"
             android:textColor="@color/nexta_widget_badge_text"
             android:textSize="11sp"
-            android:textStyle="bold"
-            android:fontFamily="sans-serif-medium" />
+            android:textStyle="bold" />
     </LinearLayout>
 
     <TextView
         android:id="@+id/widget_countdown"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="7dp"
-        android:includeFontPadding="false"
-        android:maxLines="1"
-        android:ellipsize="end"
-        android:text="42m"
-        android:textColor="@color/nexta_widget_accent"
-        android:textSize="32sp"
-        android:textStyle="bold"
-        android:fontFamily="sans-serif" />
+        android:layout_height="1dp"
+        android:visibility="gone" />
 
     <TextView
         android:id="@+id/widget_event_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="1dp"
+        android:layout_marginTop="10dp"
         android:includeFontPadding="false"
         android:maxLines="1"
         android:ellipsize="end"
+        android:text="08:00  Lập trình Android"
         android:textColor="@color/nexta_widget_on_container"
-        android:textSize="16sp"
+        android:textSize="14sp"
         android:textStyle="bold"
         android:fontFamily="sans-serif-medium" />
-
-    <Space
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
 
     <TextView
         android:id="@+id/widget_time"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="6dp"
         android:includeFontPadding="false"
-        android:maxLines="1"
+        android:maxLines="3"
         android:ellipsize="end"
+        android:text="A203"
         android:textColor="@color/nexta_widget_secondary"
         android:textSize="12sp"
         android:fontFamily="sans-serif" />
