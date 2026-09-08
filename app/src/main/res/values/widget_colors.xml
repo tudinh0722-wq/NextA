@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- One frosted surface; status colors carry the hierarchy. -->
+    <!-- One translucent surface; strong color blocks carry the status hierarchy. -->
     <color name="nexta_widget_container">#A6FFFFFF</color>
     <color name="nexta_widget_on_container">#14213D</color>
-    <color name="nexta_widget_secondary">#43546A</color>
+    <color name="nexta_widget_title">#172554</color>
+    <color name="nexta_widget_time">#243B8A</color>
+    <color name="nexta_widget_secondary">#334155</color>
+    <color name="nexta_widget_note">#0369A1</color>
     <color name="nexta_widget_accent">#2563EB</color>
     <color name="nexta_widget_badge">#DCFCE7</color>
     <color name="nexta_widget_badge_text">#15803D</color>
@@ -14,6 +17,8 @@
     <color name="nexta_widget_next_container">#FFFBEB</color>
     <color name="nexta_widget_next_accent">#F59E0B</color>
     <color name="nexta_widget_urgent">#DC2626</color>
+    <color name="nexta_widget_status_current_text">#FFFFFF</color>
+    <color name="nexta_widget_status_next_text">#FFFFFF</color>
     <color name="nexta_widget_teal">#0F766E</color>
-    <color name="nexta_widget_divider">#334155</color>
+    <color name="nexta_widget_divider">#1E293B</color>
 </resources>
