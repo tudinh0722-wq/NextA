@@ -45,11 +45,10 @@ class NextAWidgetProvider : AppWidgetProvider() {
             val ids = widgetIds ?: manager.getAppWidgetIds(ComponentName(context, NextAWidgetProvider::class.java))
             if (ids.isEmpty()) { cancelRefresh(context); return }
 
-            // Render a valid RemoteViews immediately. Database/Hilt work must not
-            // block the first widget update or leave the launcher with an error state.
-            val loadingViews = RemoteViews(context.packageName, R.layout.nexta_widget)
+            // Keep the first RemoteViews payload as simple as possible. A launcher
+            // can reject the entire widget if one runtime RemoteViews action fails.
             ids.forEach { id ->
-                loadingViews.setInt(R.id.widget_root, "setBackgroundResource", backgroundForHour(LocalDateTime.now().hour))
+                val loadingViews = RemoteViews(context.packageName, R.layout.nexta_widget)
                 bindEmptyState(loadingViews, 1)
                 bindEmptyState(loadingViews, 2)
                 manager.updateAppWidget(id, loadingViews)
@@ -83,7 +82,8 @@ class NextAWidgetProvider : AppWidgetProvider() {
             now: LocalDateTime
         ) {
             val views = RemoteViews(context.packageName, R.layout.nexta_widget)
-            views.setInt(R.id.widget_root, "setBackgroundResource", backgroundForHour(now.hour))
+            // Do not call setBackgroundResource through RemoteViews here.
+            // Keep the widget on its XML background until the host is proven stable.
             bindCard(views, 1, cards.getOrNull(0), now)
             bindCard(views, 2, cards.getOrNull(1), now)
             manager.updateAppWidget(widgetId, views)
@@ -165,13 +165,6 @@ class NextAWidgetProvider : AppWidgetProvider() {
                 SystemClock.elapsedRealtime() + delay,
                 pendingIntent
             )
-        }
-
-        private fun backgroundForHour(hour: Int): Int = when (hour) {
-            in 5..10 -> R.drawable.nexta_widget_background_morning
-            in 11..16 -> R.drawable.nexta_widget_background_day
-            in 17..20 -> R.drawable.nexta_widget_background_evening
-            else -> R.drawable.nexta_widget_background_night
         }
 
         private fun cancelRefresh(context: Context) = context.getSystemService(AlarmManager::class.java)
