@@ -49,7 +49,6 @@ class NextAWidgetProvider : AppWidgetProvider() {
     companion object {
         const val ACTION_REFRESH = "com.nexta.widget.ACTION_REFRESH"
         private const val REQUEST_CODE = 7421
-        private const val URGENT_MINUTES = 10L
         private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
         fun requestUpdate(context: Context) = refreshWidgets(context)
@@ -127,11 +126,9 @@ class NextAWidgetProvider : AppWidgetProvider() {
 
             if (card == null) {
                 views.setTextViewText(status, "KHÔNG CÓ LỊCH")
-                views.setTextColor(status, 0xFFFFFFFF.toInt())
                 views.setTextViewText(title, "Trống")
                 views.setTextViewText(time, "")
                 views.setTextViewText(countdown, "—")
-                views.setTextColor(countdown, 0xFFFFFFFF.toInt())
                 views.setTextViewText(location, "")
                 views.setViewVisibility(note, View.GONE)
                 return
@@ -141,10 +138,8 @@ class NextAWidgetProvider : AppWidgetProvider() {
             val current = card.second
             val target = if (current) event.endDateTime else event.startDateTime
             val minutes = Duration.between(now, target).toMinutes().coerceAtLeast(0)
-            val countdownColor = if (minutes <= URGENT_MINUTES) 0xFFFFFFFF.toInt() else 0xFFFFFFFF.toInt()
 
             views.setTextViewText(status, if (current) "ĐANG DIỄN RA" else "TIẾP THEO")
-            views.setTextColor(status, 0xFFFFFFFF.toInt())
             views.setTextViewText(title, event.title)
             views.setTextViewText(
                 time,
@@ -155,7 +150,6 @@ class NextAWidgetProvider : AppWidgetProvider() {
                 if (current) "Kết thúc sau ${formatDuration(minutes)}"
                 else "Bắt đầu sau ${formatDuration(minutes)}"
             )
-            views.setTextColor(countdown, countdownColor)
             views.setTextViewText(location, event.location)
 
             if (event.note.isBlank()) {
