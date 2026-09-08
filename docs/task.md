@@ -4,24 +4,23 @@
 IN PROGRESS
 
 ## Current Objective
-Refine the App Screen daily planner UI and event-card information hierarchy.
+Refine the App Screen daily planner navigation and event-card information hierarchy.
 
 ## Current Change
-Commit `032f456d9bff87f2e5fdcd8e9bd127a7f242f3c1` refines `MainScreen` event-card emphasis:
-- Start and end times now use the same 15sp size for a clearer time block.
-- Time colors are stronger: start time uses on-surface and end time uses on-surface-variant.
-- Countdown is now consistently red for fast visual recognition.
-- Countdown is slightly larger and remains bold.
-- The `SẮP TỚI` status label is increased to 10sp with more padding.
-- Existing swipe-between-days navigation, no event-count labels, and no filled selected-day box are preserved.
+Commit `15c927f5d92d4361eb2d29da768283336e633b17` keeps the seven-day visual context and day-by-day swipe interaction while extending the pager to a practical long-range window.
 
-## Event Card Hierarchy
-1. Event title — largest/strongest.
-2. Start/end time — same size, visually prominent as a time block.
-3. Countdown — red and bold for quick recognition.
-4. Location — secondary.
-5. Note — smallest/lowest emphasis.
-6. Status — compact but clearly readable supporting label.
+- The app opens on today.
+- Users swipe one day at a time, preserving the existing daily-planner UX.
+- The pager supports 365 days before today and 365 days after today.
+- The seven-day indicator follows the currently viewed date/week.
+- The week range header updates as the user swipes across weeks.
+- No large filled selected-day box and no `1 lịch / 2 lịch` count labels are restored.
+- Event cards keep the current hierarchy: title strongest, start/end time equal size, countdown red and bold, location/note secondary, status more visible.
+
+## Long-Range Navigation Decision
+For the current product stage, a one-year window in each direction is preferred over an effectively unbounded pager. This covers the user's realistic academic planning horizon of roughly six to twelve months while avoiding an unnecessarily huge navigation range.
+
+A future release may add a direct date/calendar picker for jumping to dates outside this window instead of making users swipe hundreds of pages.
 
 ## Relevant File
 - `app/src/main/java/com/nexta/ui/MainScreen.kt`
@@ -31,15 +30,16 @@ Commit `032f456d9bff87f2e5fdcd8e9bd127a7f242f3c1` refines `MainScreen` event-car
 - Preserve the existing project architecture.
 - Keep the existing theme/color system; this task does not change the app theme.
 - Swipe is the primary day navigation interaction.
-- Do not restore the previous filled selected-day boxes or event-count labels.
 - Countdown refreshes periodically and uses event start/end times.
 
 ## Verification
 Build and run the app in the user's Android environment. Check:
-- Start and end times are visibly the same size.
-- Time block is more prominent than before.
-- Countdown is clearly red and bold.
-- `SẮP TỚI` is easier to read.
-- App opens on today and swiping left/right changes the day.
-- No selected-day filled box or event-count labels appear.
+- App opens on today.
+- Swiping one day at a time works across the current week and long-range dates.
+- The seven-day indicator updates to the week containing the viewed date.
+- Event title is visibly strongest.
+- Start and end times have the same size.
+- Countdown is red, bold, visible, and changes over time.
+- `SẮP TỚI` is clearly readable.
+- Location/note remain secondary.
 - Long press still opens delete confirmation.
