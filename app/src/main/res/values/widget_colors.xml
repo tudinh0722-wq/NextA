@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- NextA wheel-based palette: blue primary, complementary orange, teal support. -->
-    <color name="nexta_widget_container">#FFF9F0</color>
+    <!-- Frosted/translucent widget surface; color wheel is used for accents, not card fills. -->
+    <color name="nexta_widget_container">#00FFFFFF</color>
     <color name="nexta_widget_on_container">#172033</color>
     <color name="nexta_widget_secondary">#526174</color>
     <color name="nexta_widget_accent">#2563EB</color>
-    <color name="nexta_widget_badge">#DBEAFE</color>
+    <color name="nexta_widget_badge">#66FFFFFF</color>
     <color name="nexta_widget_badge_text">#1D4ED8</color>
-    <color name="nexta_widget_warning_container">#FFEDD5</color>
+    <color name="nexta_widget_warning_container">#40FFF7ED</color>
     <color name="nexta_widget_warning_text">#C2410C</color>
-    <color name="nexta_widget_current_container">#E8F1FF</color>
+    <color name="nexta_widget_current_container">#99FFFFFF</color>
     <color name="nexta_widget_current_accent">#2563EB</color>
-    <color name="nexta_widget_next_container">#FFF0D6</color>
+    <color name="nexta_widget_next_container">#99FFFFFF</color>
     <color name="nexta_widget_next_accent">#EA580C</color>
     <color name="nexta_widget_teal">#0F766E</color>
-    <color name="nexta_widget_divider">#CBD5E1</color>
+    <color name="nexta_widget_divider">#40FFFFFF</color>
 </resources>
