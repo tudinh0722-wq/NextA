@@ -5,4 +5,6 @@
     <color name="nexta_widget_on_container">@android:color/system_accent1_100</color>
     <color name="nexta_widget_secondary">@android:color/system_accent2_200</color>
     <color name="nexta_widget_accent">@android:color/system_accent1_200</color>
+    <color name="nexta_widget_badge">@android:color/system_accent2_800</color>
+    <color name="nexta_widget_badge_text">@android:color/system_accent2_100</color>
 </resources>
