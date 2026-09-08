@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="nexta_widget_container">@android:color/system_surface_container_high_dark</color>
+    <color name="nexta_widget_on_container">@android:color/system_on_surface_dark</color>
+    <color name="nexta_widget_title">@android:color/system_primary_dark</color>
+    <color name="nexta_widget_time">@android:color/system_primary_dark</color>
+    <color name="nexta_widget_secondary">@android:color/system_on_surface_variant_dark</color>
+    <color name="nexta_widget_note">@android:color/system_secondary_dark</color>
+    <color name="nexta_widget_accent">@android:color/system_primary_dark</color>
+    <color name="nexta_widget_current_container">@android:color/system_primary_container_dark</color>
+    <color name="nexta_widget_current_accent">@android:color/system_primary_dark</color>
+    <color name="nexta_widget_next_container">@android:color/system_tertiary_container_dark</color>
+    <color name="nexta_widget_next_accent">@android:color/system_tertiary_dark</color>
+    <color name="nexta_widget_status_current_text">@android:color/system_on_primary_container_dark</color>
+    <color name="nexta_widget_status_next_text">@android:color/system_on_tertiary_container_dark</color>
+    <color name="nexta_widget_urgent">@android:color/system_error_dark</color>
+    <color name="nexta_widget_divider">@android:color/system_outline_variant_dark</color>
+</resources>
