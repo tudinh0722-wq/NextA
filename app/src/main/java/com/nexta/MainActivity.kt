@@ -13,7 +13,6 @@ import com.nexta.ui.MainScreen
 import com.nexta.ui.MainUiState
 import com.nexta.ui.MainViewModel
 import com.nexta.widget.NextAFocusWidgetProvider
-import com.nexta.widget.NextAWidgetProvider
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -67,7 +66,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun refreshWidgets() {
-        NextAWidgetProvider.requestUpdate(this)
+        // Focus/lock-screen widget still owns its refresh logic.
+        // The home widget is currently in diagnostic mode and does not need
+        // to be refreshed from the activity.
         NextAFocusWidgetProvider.requestUpdate(this)
     }
 }
