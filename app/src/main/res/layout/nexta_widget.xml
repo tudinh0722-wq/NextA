@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:gravity="center"
-    android:padding="18dp"
+    android:padding="20dp"
     android:background="@drawable/nexta_widget_background">
 
     <TextView
@@ -13,33 +13,39 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center"
+        android:includeFontPadding="false"
         android:text="TIẾP THEO"
         android:textColor="@color/nexta_widget_accent"
         android:textStyle="bold"
         android:textSize="11sp"
-        android:letterSpacing="0.10" />
+        android:fontFamily="sans-serif-medium"
+        android:letterSpacing="0.08" />
 
     <TextView
         android:id="@+id/widget_event_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="8dp"
         android:gravity="center"
-        android:maxLines="2"
+        android:includeFontPadding="false"
+        android:maxLines="1"
         android:ellipsize="end"
         android:textColor="@color/nexta_widget_on_container"
         android:textStyle="bold"
-        android:textSize="18sp" />
+        android:textSize="18sp"
+        android:fontFamily="sans-serif" />
 
     <TextView
         android:id="@+id/widget_time"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="7dp"
+        android:layout_marginTop="8dp"
         android:gravity="center"
-        android:maxLines="2"
+        android:includeFontPadding="false"
+        android:maxLines="1"
         android:ellipsize="end"
         android:textColor="@color/nexta_widget_on_container"
-        android:textSize="13sp" />
+        android:textSize="13sp"
+        android:fontFamily="sans-serif" />
 
 </LinearLayout>
