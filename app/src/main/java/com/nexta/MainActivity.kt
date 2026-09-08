@@ -30,9 +30,7 @@ class MainActivity : ComponentActivity() {
 
             if (showAddEvent) {
                 AddEventScreen(
-                    onBack = {
-                        showAddEvent = false
-                    },
+                    onBack = { showAddEvent = false },
                     onSave = { event ->
                         viewModel.addEvent(event)
                         showAddEvent = false
@@ -53,7 +51,8 @@ class MainActivity : ComponentActivity() {
                             events = state.events,
                             scheduleResult = scheduleResult,
                             message = saveMessage,
-                            onAddEvent = { showAddEvent = true }
+                            onAddEvent = { showAddEvent = true },
+                            onDeleteEvent = viewModel::deleteEvent
                         )
                     }
 
