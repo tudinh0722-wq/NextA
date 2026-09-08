@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Material You-inspired fallback for Android 11 and below. -->
+    <color name="nexta_widget_container">#E8DEF8</color>
+    <color name="nexta_widget_on_container">#1D192B</color>
+    <color name="nexta_widget_accent">#6750A4</color>
+</resources>
