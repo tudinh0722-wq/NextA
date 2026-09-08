@@ -30,7 +30,7 @@
             android:id="@+id/widget_location"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:maxWidth="110dp"
+            android:maxWidth="145dp"
             android:singleLine="true"
             android:ellipsize="end"
             android:paddingStart="10dp"
@@ -50,7 +50,7 @@
         android:id="@+id/widget_countdown"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="5dp"
+        android:layout_marginTop="7dp"
         android:includeFontPadding="false"
         android:maxLines="1"
         android:ellipsize="end"
@@ -73,11 +73,16 @@
         android:textStyle="bold"
         android:fontFamily="sans-serif-medium" />
 
+    <Space
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
     <TextView
         android:id="@+id/widget_time"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="5dp"
+        android:layout_marginTop="8dp"
         android:includeFontPadding="false"
         android:maxLines="1"
         android:ellipsize="end"
