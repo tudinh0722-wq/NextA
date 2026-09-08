@@ -33,8 +33,10 @@ class MainViewModel @Inject constructor(
 
     val uiState: StateFlow<MainUiState> = repository
         .getAllEvents()
-        .map { events: List<Event> ->
-            MainUiState.Success(events.sortedBy { it.startDateTime })
+        .map { events ->
+            val sortedEvents = events.sortedBy { it.startDateTime }
+            val state: MainUiState = MainUiState.Success(sortedEvents)
+            state
         }
         .catch { throwable ->
             emit(
@@ -91,6 +93,18 @@ class MainViewModel @Inject constructor(
             } catch (throwable: Throwable) {
                 _saveMessage.value =
                     "Lưu sự kiện thất bại: ${throwable.message ?: "lỗi không xác định"}"
+            }
+        }
+    }
+
+    fun deleteEvent(event: Event) {
+        viewModelScope.launch {
+            try {
+                repository.deleteEvent(event.id)
+                _saveMessage.value = "Đã xóa sự kiện."
+            } catch (throwable: Throwable) {
+                _saveMessage.value =
+                    "Xóa sự kiện thất bại: ${throwable.message ?: "lỗi không xác định"}"
             }
         }
     }
