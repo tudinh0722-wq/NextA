@@ -2,6 +2,19 @@
 
 This file records recent implementation decisions that may not be obvious from source code. Keep it concise; archive older entries when it becomes large.
 
+## 2026-09-08 — Centered Week Strip and Dual-Level Swipe Navigation
+
+Updated `MainScreen` in commit `703c455281c6f3dbd1b4c795b5122d14d2c20418`.
+
+Decisions:
+- The schedule remains a day pager: swiping the main schedule moves exactly one day.
+- The seven-day strip is now its own horizontal pager: swiping the strip moves exactly one week.
+- Week-strip navigation preserves the currently selected weekday, so moving to the next week keeps the same weekday selected.
+- Day and week pagers synchronize automatically when either surface changes.
+- The week strip is centered and intentionally minimal: no border and no large filled selected-day container; selection is communicated by typography and a small dot.
+- The week/date header is centered and remains the entry point to the Material 3 date picker.
+- The five-year-before/after range and direct date picker remain available for long-range planning.
+
 ## 2026-09-08 — Long-Range Daily Planner Navigation
 
 Updated `MainScreen` in commit `15c927f5d92d4361eb2d29da768283336e633b17`.
@@ -42,7 +55,7 @@ Files added:
 
 Bootstrap commits:
 - `47fbf498225d4335ff46d55ca5591eec03e1dad9` — AI instructions
-- `9af42857d6935f613de7204d09e84b5a18b82ede` — requirements
+- `9af42857d6935f613de7204d09e84b5a18b82ede9` — requirements
 - `971b15bdb67ab922e4062c86ce2b455bd5892da6` — architecture
 - `356241a0c8ff098b1e4821a5aba7684d4481bf8b` — development plan
 - `c15e734fe9863399226ca8149dbe16345e7a9f81` — current task context
