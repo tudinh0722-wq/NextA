@@ -4,49 +4,48 @@
 IN PROGRESS
 
 ## Current Objective
-Stabilize and finish the Home Widget 4x2 UI while preserving launcher compatibility.
+Refine the App Screen daily planner UI and event-card information hierarchy.
 
-## Current Problem
-The Home Widget has previously failed to install with a launcher message equivalent to `Không thể thêm tiện ích` after RemoteViews layouts became too complex.
+## Current Change
+Commit `df00c4bd826388a3ea6c3a98155a2e925c4119b3` changes `MainScreen` to:
+- Use horizontal swipe/paging between the seven days.
+- Keep today as the initial page when opening the app.
+- Remove day-card selection backgrounds and the `1 lịch / 2 lịch` count labels.
+- Keep a lightweight seven-day indicator without filled selection boxes.
+- Add a live countdown to each event card.
+- Make event title the strongest text hierarchy.
+- Make start time prominent and end time smaller.
+- Put countdown below the title with accent emphasis.
+- Keep location and note visually secondary.
+- Preserve long-press delete and the circular `+` FAB.
 
-## Last Relevant Commit
-`9168bed6afc134aebc04e7015e3de7578f27abdb`
+## Event Card Hierarchy
+1. Event title — largest/strongest.
+2. Start time — prominent.
+3. Countdown — accent and bold, directly below title.
+4. End time — smaller than start time.
+5. Location — secondary.
+6. Note — smallest/lowest emphasis.
+7. Status — compact supporting label.
 
-The latest Home Widget layout was simplified after an earlier nested-card layout caused 4x2 installation failure.
+## Relevant File
+- `app/src/main/java/com/nexta/ui/MainScreen.kt`
 
-## Relevant Files
-- `app/src/main/res/layout/nexta_widget.xml`
-- `app/src/main/res/xml/nexta_widget_info.xml`
-- `app/src/main/java/com/nexta/widget/NextAWidgetProvider.kt`
-- `app/src/main/res/drawable/nexta_widget_background.xml`
+## Constraints
+- App Screen remains a separate UI surface from Home Widget and Focus/Lock Screen.
+- Preserve the existing project architecture.
+- Keep the existing theme/color system; this task does not change the app theme.
+- Swipe is the primary day navigation interaction.
+- Do not restore the previous filled selected-day boxes or event-count labels.
+- Countdown refreshes periodically and uses event start/end times.
 
-## Current Home Widget Constraints
-- Keep target size 4x2.
-- Use traditional Android `RemoteViews`.
-- Do not introduce Glance.
-- Keep current event/upcoming event behavior and countdown logic unless the task explicitly changes it.
-- Prefer simple launcher-compatible hierarchy over decorative nested cards.
-- If installation fails again, first reduce the layout to a known-good minimal RemoteViews structure, then add hierarchy incrementally.
-
-## Current App Screen
-The App Screen has already been changed to a 7-day weekly planner:
-- Monday–Sunday strip.
-- Defaults to today.
-- Selecting a day filters the event list to that day.
-- Day background reflects event load/priority weight.
-- Circular `+` FAB at bottom-right.
-- Long press on an event opens delete confirmation.
-
-## Other UI Surface
-The Focus widget is intentionally separate from the Home Widget and App Screen. It uses a large countdown and current/next event hierarchy.
-
-## Next Action
-For the next implementation task, inspect the current widget layout/provider and make the smallest safe change required by the user's request. Build/test on the user's Android environment before declaring the widget stable.
-
-## Documentation Rule
-After a task/commit:
-- Update this file with the current problem/status/next action.
-- Update `docs/changelog.md` for meaningful changes or decisions.
-- Update `docs/plan.md` only when roadmap status changes.
-- Update `docs/architecture.md` only when architecture boundaries change.
-- Update `docs/requirements.md` only when product requirements change.
+## Verification
+Build and run the app in the user's Android environment. Check:
+- App opens on today.
+- Swiping left/right changes the day.
+- No selected-day filled box appears.
+- Event title is visibly larger than times.
+- End time is visibly smaller than start time.
+- Countdown is visible and changes over time.
+- Location/note remain secondary.
+- Long press still opens delete confirmation.
