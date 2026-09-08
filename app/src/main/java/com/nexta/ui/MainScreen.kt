@@ -25,6 +25,7 @@ import com.nexta.data.model.Event
 @Composable
 fun MainScreen(
     events: List<Event>,
+    message: String? = null,
     onAddEvent: () -> Unit = {}
 ) {
     Scaffold(
@@ -57,6 +58,14 @@ fun MainScreen(
                 style = MaterialTheme.typography.bodyMedium
             )
 
+            message?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
 
             Button(
@@ -74,11 +83,9 @@ fun MainScreen(
                     style = MaterialTheme.typography.bodyLarge
                 )
             } else {
-                events
-                    .sortedBy { it.startDateTime }
-                    .forEach { event ->
-                        EventCard(event)
-                    }
+                events.forEach { event ->
+                    EventCard(event)
+                }
             }
         }
     }
