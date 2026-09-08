@@ -3,6 +3,7 @@
 package com.nexta.ui
 
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -35,15 +37,13 @@ import androidx.compose.ui.unit.dp
 import com.nexta.data.model.Event
 import com.nexta.data.model.ScheduleResult
 import com.nexta.domain.ScheduleState
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
-private val vietnameseLocale = Locale("vi", "VN")
-private val dayFormatter = DateTimeFormatter.ofPattern("EEEE", vietnameseLocale)
-private val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy", vietnameseLocale)
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+private val dateFormatter = DateTimeFormatter.ofPattern("dd/MM")
 
 @Composable
 fun MainScreen(
@@ -55,12 +55,14 @@ fun MainScreen(
 ) {
     var eventToDelete by remember { mutableStateOf<Event?>(null) }
     val now = LocalDateTime.now()
+    val today = now.toLocalDate()
+    val weekStart = today.with(DayOfWeek.MONDAY)
+    val weekDays = (0..6).map { weekStart.plusDays(it.toLong()) }
+    val eventsByDay = events.groupBy { it.startDateTime.toLocalDate() }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("NextA") }
-            )
+            TopAppBar(title = { Text("NextA") })
         }
     ) { innerPadding ->
         Column(
@@ -68,61 +70,59 @@ fun MainScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text(
-                text = "Lịch của bạn",
-                style = MaterialTheme.typography.headlineSmall
-            )
-
-            Text(
-                text = "Theo dõi lịch học và sự kiện sắp tới",
-                style = MaterialTheme.typography.bodyMedium
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Column {
+                    Text("TUẦN NÀY", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    Text(
+                        "${weekStart.format(dateFormatter)} — ${weekStart.plusDays(6).format(dateFormatter)}",
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+                }
+                Text("${events.size} mục", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
 
             message?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
             }
+
+            scheduleResult.current?.let { event ->
+                FocusStrip("LIVE", event, MaterialTheme.colorScheme.primaryContainer)
+            } ?: scheduleResult.next?.let { event ->
+                FocusStrip("NEXT", event, MaterialTheme.colorScheme.secondaryContainer)
+            }
+
+            WeeklyBoard(
+                weekDays = weekDays,
+                eventsByDay = eventsByDay,
+                today = today,
+                now = now,
+                onLongClick = { eventToDelete = it }
+            )
 
             Button(
                 onClick = onAddEvent,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("+ Thêm sự kiện")
+                Text("+ Thêm vào tuần")
             }
 
-            scheduleResult.current?.let { event ->
-                ScheduleHighlight("ĐANG DIỄN RA", event)
-            }
+            val notes = events
+                .filter { it.note.isNotBlank() }
+                .sortedBy { it.startDateTime }
+                .take(6)
 
-            scheduleResult.next?.let { event ->
-                ScheduleHighlight("TIẾP THEO", event)
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            if (events.isEmpty()) {
-                Text(
-                    text = "Chưa có sự kiện nào.",
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            } else {
-                events
-                    .sortedBy { it.startDateTime }
-                    .groupBy { it.startDateTime.toLocalDate() }
-                    .forEach { (date, dayEvents) ->
-                        DaySection(
-                            date = date,
-                            events = dayEvents,
-                            now = now,
-                            onLongClick = { eventToDelete = it }
-                        )
-                    }
+            if (notes.isNotEmpty()) {
+                Text("GHI CHÚ / VIỆC CẦN NHỚ", style = MaterialTheme.typography.titleMedium)
+                notes.forEach { event ->
+                    NoteRow(event)
+                }
             }
         }
     }
@@ -133,162 +133,148 @@ fun MainScreen(
             title = { Text("Xóa sự kiện?") },
             text = { Text("Bạn có chắc muốn xóa \"${event.title}\" không?") },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        onDeleteEvent(event)
-                        eventToDelete = null
-                    }
-                ) {
-                    Text("Xóa")
-                }
+                TextButton(onClick = { onDeleteEvent(event); eventToDelete = null }) { Text("Xóa") }
             },
             dismissButton = {
-                TextButton(onClick = { eventToDelete = null }) {
-                    Text("Hủy")
-                }
+                TextButton(onClick = { eventToDelete = null }) { Text("Hủy") }
             }
         )
     }
 }
 
 @Composable
-private fun DaySection(
-    date: LocalDate,
-    events: List<Event>,
+private fun WeeklyBoard(
+    weekDays: List<LocalDate>,
+    eventsByDay: Map<LocalDate, List<Event>>,
+    today: LocalDate,
     now: LocalDateTime,
     onLongClick: (Event) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = date.format(dayFormatter).replaceFirstChar { it.uppercase() },
-                style = MaterialTheme.typography.titleMedium
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = date.format(dateFormatter),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        events.forEach { event ->
-            EventCard(
-                event = event,
-                state = event.scheduleState(now),
-                onLongClick = { onLongClick(event) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        weekDays.forEach { date ->
+            DayColumn(
+                date = date,
+                events = eventsByDay[date].orEmpty().sortedBy { it.startDateTime },
+                isToday = date == today,
+                now = now,
+                onLongClick = onLongClick
             )
         }
     }
 }
 
 @Composable
-private fun ScheduleHighlight(
-    label: String,
-    event: Event
+private fun DayColumn(
+    date: LocalDate,
+    events: List<Event>,
+    isToday: Boolean,
+    now: LocalDateTime,
+    onLongClick: (Event) -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    val dayLabel = when (date.dayOfWeek) {
+        DayOfWeek.MONDAY -> "T2"
+        DayOfWeek.TUESDAY -> "T3"
+        DayOfWeek.WEDNESDAY -> "T4"
+        DayOfWeek.THURSDAY -> "T5"
+        DayOfWeek.FRIDAY -> "T6"
+        DayOfWeek.SATURDAY -> "T7"
+        DayOfWeek.SUNDAY -> "CN"
+    }
+
+    Card(
+        modifier = Modifier.width(142.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isToday) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow
+        )
+    ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            modifier = Modifier.padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                text = event.title,
-                style = MaterialTheme.typography.titleMedium
-            )
-            Text(
-                text = formatTimeRange(event),
-                style = MaterialTheme.typography.bodyMedium
-            )
-            if (event.location.isNotBlank()) {
-                Text(
-                    text = event.location,
-                    style = MaterialTheme.typography.bodySmall
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(dayLabel, style = MaterialTheme.typography.titleMedium, color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                Spacer(Modifier.width(6.dp))
+                Text(date.format(dateFormatter), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            if (events.isEmpty()) {
+                Text("Trống", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                events.forEach { event ->
+                    WeekEvent(
+                        event = event,
+                        state = event.scheduleState(now),
+                        onLongClick = { onLongClick(event) }
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun EventCard(
+private fun WeekEvent(
     event: Event,
     state: ScheduleState,
     onLongClick: () -> Unit
 ) {
-    Card(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable(
-                onClick = {},
-                onLongClick = onLongClick
-            )
+            .combinedClickable(onClick = {}, onLongClick = onLongClick),
+        shape = MaterialTheme.shapes.medium,
+        color = if (state == ScheduleState.IN_PROGRESS) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest
     ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = formatTimeRange(event),
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                StatusChip(state)
-            }
-
+        Column(modifier = Modifier.padding(9.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
-                text = event.title,
-                style = MaterialTheme.typography.bodyLarge
+                "${event.startDateTime.format(timeFormatter)}–${event.endDateTime.format(timeFormatter)}",
+                style = MaterialTheme.typography.labelSmall,
+                color = if (state == ScheduleState.IN_PROGRESS) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
             )
-
+            Text(
+                event.title,
+                maxLines = 3,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (state == ScheduleState.IN_PROGRESS) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+            )
             if (event.location.isNotBlank()) {
-                Text(
-                    text = event.location,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            if (event.note.isNotBlank()) {
-                Text(
-                    text = event.note,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text(event.location, maxLines = 1, style = MaterialTheme.typography.labelSmall, color = if (state == ScheduleState.IN_PROGRESS) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
 }
 
 @Composable
-private fun StatusChip(state: ScheduleState) {
-    val label = when (state) {
-        ScheduleState.PAST -> "ĐÃ XONG"
-        ScheduleState.IN_PROGRESS -> "ĐANG DIỄN RA"
-        ScheduleState.UPCOMING -> "SẮP TỚI"
+private fun FocusStrip(label: String, event: Event, color: androidx.compose.ui.graphics.Color) {
+    Card(colors = CardDefaults.cardColors(containerColor = color), modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = MaterialTheme.typography.labelLarge)
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(event.title, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                Text("${event.startDateTime.format(timeFormatter)} – ${event.endDateTime.format(timeFormatter)}", style = MaterialTheme.typography.bodySmall)
+            }
+            if (event.location.isNotBlank()) Text(event.location, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+        }
     }
+}
 
-    Surface(
-        shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.surfaceVariant
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.labelSmall
-        )
+@Composable
+private fun NoteRow(event: Event) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("○", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(event.note, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
+                Text("${event.title} · ${event.startDateTime.format(timeFormatter)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
     }
 }
 
@@ -297,6 +283,3 @@ private fun Event.scheduleState(now: LocalDateTime): ScheduleState = when {
     now >= endDateTime -> ScheduleState.PAST
     else -> ScheduleState.IN_PROGRESS
 }
-
-private fun formatTimeRange(event: Event): String =
-    "${event.startDateTime.format(timeFormatter)} – ${event.endDateTime.format(timeFormatter)}"
