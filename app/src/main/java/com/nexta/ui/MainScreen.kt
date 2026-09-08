@@ -36,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -49,6 +50,7 @@ import java.time.format.DateTimeFormatter
 
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 private val dateFormatter = DateTimeFormatter.ofPattern("dd/MM")
+private val countdownRed = Color(0xFFD32F2F)
 
 @Composable
 fun MainScreen(
@@ -342,13 +344,15 @@ private fun EventCard(
                     event.startDateTime.format(timeFormatter),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
+                    fontSize = 15.sp,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     event.endDateTime.format(timeFormatter),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 11.sp
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -372,14 +376,10 @@ private fun EventCard(
                 ) {
                     Text(
                         countdownText(event, state, now),
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
-                        color = when (state) {
-                            ScheduleState.IN_PROGRESS -> MaterialTheme.colorScheme.primary
-                            ScheduleState.UPCOMING -> MaterialTheme.colorScheme.primary
-                            ScheduleState.PAST -> MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                        fontSize = 12.sp
+                        color = countdownRed,
+                        fontSize = 13.sp
                     )
                     Spacer(Modifier.weight(1f))
                     StatusDot(state = state, active = active)
@@ -422,11 +422,11 @@ private fun StatusDot(state: ScheduleState, active: Boolean) {
     ) {
         Text(
             label,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
-            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold,
             color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 8.sp
+            fontSize = 10.sp
         )
     }
 }
