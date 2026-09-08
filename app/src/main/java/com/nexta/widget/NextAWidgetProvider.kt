@@ -7,7 +7,6 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
 import android.widget.RemoteViews
 import com.nexta.MainActivity
 import com.nexta.R
@@ -36,11 +35,7 @@ class NextAWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    override fun onUpdate(
-        context: Context,
-        appWidgetManager: AppWidgetManager,
-        appWidgetIds: IntArray
-    ) {
+    override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         refreshWidgets(context, appWidgetIds)
         scheduleMinuteRefresh(context)
     }
@@ -92,7 +87,6 @@ class NextAWidgetProvider : AppWidgetProvider() {
                     !now.isBefore(it.startDateTime) && now.isBefore(it.endDateTime)
                 }
                 val upcoming = ordered.filter { it.startDateTime.isAfter(now) }
-
                 val displayEvents = if (current != null) {
                     listOf(current) + upcoming.take(1)
                 } else {
@@ -112,20 +106,12 @@ class NextAWidgetProvider : AppWidgetProvider() {
         ) {
             val views = RemoteViews(context.packageName, R.layout.nexta_widget)
             views.setOnClickPendingIntent(R.id.widget_root, openAppPendingIntent(context))
-
-            bindEvent(context, views, 1, events.getOrNull(0), now)
-            bindEvent(context, views, 2, events.getOrNull(1), now)
-
+            bindEvent(views, 1, events.getOrNull(0), now)
+            bindEvent(views, 2, events.getOrNull(1), now)
             manager.updateAppWidget(widgetId, views)
         }
 
-        private fun bindEvent(
-            context: Context,
-            views: RemoteViews,
-            slot: Int,
-            event: Event?,
-            now: LocalDateTime
-        ) {
+        private fun bindEvent(views: RemoteViews, slot: Int, event: Event?, now: LocalDateTime) {
             val statusId = if (slot == 1) R.id.widget_status_1 else R.id.widget_status_2
             val locationId = if (slot == 1) R.id.widget_location_1 else R.id.widget_location_2
             val titleId = if (slot == 1) R.id.widget_title_1 else R.id.widget_title_2
@@ -158,22 +144,12 @@ class NextAWidgetProvider : AppWidgetProvider() {
             } else {
                 Duration.between(now, event.startDateTime)
             }.coerceAtLeast(Duration.ZERO)
-
             val countdown = formatRemaining(remaining)
-            views.setTextViewText(
-                countdownId,
-                if (isLive) "Còn $countdown" else "Bắt đầu sau $countdown"
-            )
-            views.setTextColor(
-                countdownId,
-                if (isLive) context.getColor(R.color.nexta_widget_accent)
-                else context.getColor(R.color.nexta_widget_accent)
-            )
+            views.setTextViewText(countdownId, if (isLive) "Còn $countdown" else "Bắt đầu sau $countdown")
 
             if (event.note.isNotBlank()) {
                 views.setTextViewText(noteId, event.note)
                 views.setViewVisibility(noteId, android.view.View.VISIBLE)
-                views.setTextColor(noteId, context.getColor(R.color.nexta_widget_muted))
             } else {
                 views.setTextViewText(noteId, "")
                 views.setViewVisibility(noteId, android.view.View.GONE)
@@ -194,42 +170,27 @@ class NextAWidgetProvider : AppWidgetProvider() {
 
         private fun scheduleMinuteRefresh(context: Context) {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            val intent = Intent(context, NextAWidgetProvider::class.java).apply {
-                action = ACTION_REFRESH
-            }
+            val intent = Intent(context, NextAWidgetProvider::class.java).apply { action = ACTION_REFRESH }
             val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                REFRESH_REQUEST_CODE,
-                intent,
+                context, REFRESH_REQUEST_CODE, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             val firstMinute = ((System.currentTimeMillis() / 60_000L) + 1) * 60_000L
-            alarmManager.setInexactRepeating(
-                AlarmManager.RTC,
-                firstMinute,
-                60_000L,
-                pendingIntent
-            )
+            alarmManager.setInexactRepeating(AlarmManager.RTC, firstMinute, 60_000L, pendingIntent)
         }
 
         private fun cancelMinuteRefresh(context: Context) {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            val intent = Intent(context, NextAWidgetProvider::class.java).apply {
-                action = ACTION_REFRESH
-            }
+            val intent = Intent(context, NextAWidgetProvider::class.java).apply { action = ACTION_REFRESH }
             val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                REFRESH_REQUEST_CODE,
-                intent,
+                context, REFRESH_REQUEST_CODE, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             alarmManager.cancel(pendingIntent)
         }
 
         private fun openAppPendingIntent(context: Context): PendingIntent = PendingIntent.getActivity(
-            context,
-            REQUEST_CODE,
-            Intent(context, MainActivity::class.java),
+            context, REQUEST_CODE, Intent(context, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
     }
