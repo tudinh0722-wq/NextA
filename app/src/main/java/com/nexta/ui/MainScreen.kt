@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -34,7 +36,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -63,7 +64,7 @@ fun MainScreen(
     val weekDays = remember(weekStart) {
         (0..6).map { weekStart.plusDays(it.toLong()) }
     }
-    val todayIndex = (today.dayOfWeek.value - DayOfWeek.MONDAY.value).coerceIn(0, 6)
+    val todayIndex = today.dayOfWeek.value - DayOfWeek.MONDAY.value
     val pagerState = rememberPagerState(
         initialPage = todayIndex,
         pageCount = { weekDays.size }
@@ -72,7 +73,6 @@ fun MainScreen(
         events.groupBy { it.startDateTime.toLocalDate() }
     }
     val currentPage = pagerState.currentPage.coerceIn(0, weekDays.lastIndex)
-    val visibleDate = weekDays[currentPage]
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -144,7 +144,7 @@ fun MainScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .verticalScroll(androidx.compose.foundation.rememberScrollState()),
+                        .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     DayHeader(
@@ -273,7 +273,7 @@ private fun DayHeader(
             fontWeight = FontWeight.Bold
         )
         Text(
-            date.format(DateTimeFormatter.ofPattern("EEEE, dd/MM")),
+            "${vietnameseWeekday(date.dayOfWeek)}, ${date.format(dateFormatter)}",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold
         )
@@ -452,9 +452,6 @@ private fun formatDuration(duration: Duration): String {
         else -> "<1p"
     }
 }
-
-private fun dayWeight(events: List<Event>): Int =
-    events.sumOf { it.priority.coerceAtLeast(0) + 1 }
 
 private fun dayLabel(dayOfWeek: DayOfWeek): String = when (dayOfWeek) {
     DayOfWeek.MONDAY -> "T2"
