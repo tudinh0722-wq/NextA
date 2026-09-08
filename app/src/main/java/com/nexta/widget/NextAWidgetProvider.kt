@@ -28,7 +28,7 @@ class NextAWidgetProvider : AppWidgetProvider() {
             Intent.ACTION_TIME_CHANGED,
             Intent.ACTION_TIMEZONE_CHANGED,
             Intent.ACTION_DATE_CHANGED,
-            Intent.ACTION_BOOT_COMPLETED -> requestUpdate(context)
+            Intent.ACTION_BOOT_COMPLETED -> refreshWidgets(context)
             else -> super.onReceive(context, intent)
         }
     }
@@ -38,28 +38,12 @@ class NextAWidgetProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        val pendingResult = goAsync()
-        Thread {
-            try {
-                val repository = EntryPointAccessors.fromApplication(
-                    context.applicationContext,
-                    WidgetEntryPoint::class.java
-                ).eventRepository()
-                val events = runBlocking { repository.getAllEvents().first() }
-
-                appWidgetIds.forEach { id ->
-                    updateWidget(context, appWidgetManager, id, events)
-                }
-                scheduleNextRefresh(context, events)
-            } finally {
-                pendingResult.finish()
-            }
-        }.start()
+        refreshWidgets(context, appWidgetIds)
     }
 
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
-        requestUpdate(context)
+        refreshWidgets(context)
     }
 
     override fun onDisabled(context: Context) {
@@ -74,12 +58,37 @@ class NextAWidgetProvider : AppWidgetProvider() {
         private val dayFormatter = DateTimeFormatter.ofPattern("EEE, dd/MM", Locale("vi", "VN"))
 
         fun requestUpdate(context: Context) {
+            refreshWidgets(context)
+        }
+
+        private fun refreshWidgets(context: Context, widgetIds: IntArray? = null) {
             val manager = AppWidgetManager.getInstance(context)
-            val component = ComponentName(context, NextAWidgetProvider::class.java)
-            val ids = manager.getAppWidgetIds(component)
-            if (ids.isNotEmpty()) {
-                NextAWidgetProvider().onUpdate(context, manager, ids)
-            }
+            val ids = widgetIds ?: manager.getAppWidgetIds(
+                ComponentName(context, NextAWidgetProvider::class.java)
+            )
+            if (ids.isEmpty()) return
+
+            Thread {
+                val repository = try {
+                    EntryPointAccessors.fromApplication(
+                        context.applicationContext,
+                        WidgetEntryPoint::class.java
+                    ).eventRepository()
+                } catch (_: Throwable) {
+                    return@Thread
+                }
+
+                val events = try {
+                    runBlocking { repository.getAllEvents().first() }
+                } catch (_: Throwable) {
+                    return@Thread
+                }
+
+                ids.forEach { id ->
+                    updateWidget(context, manager, id, events)
+                }
+                scheduleNextRefresh(context, events)
+            }.start()
         }
 
         private fun updateWidget(
