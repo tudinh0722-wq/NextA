@@ -2,7 +2,6 @@
 
 package com.nexta.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,8 +13,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -28,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,13 +35,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nexta.data.model.Event
 import com.nexta.domain.ScheduleState
 import java.time.DayOfWeek
+import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -57,13 +57,29 @@ fun MainScreen(
     onDeleteEvent: (Event) -> Unit = {}
 ) {
     var eventToDelete by remember { mutableStateOf<Event?>(null) }
-    val now = LocalDateTime.now()
+    var now by remember { mutableStateOf(LocalDateTime.now()) }
     val today = now.toLocalDate()
     val weekStart = today.with(DayOfWeek.MONDAY)
-    val weekDays = (0..6).map { weekStart.plusDays(it.toLong()) }
-    val eventsByDay = events.groupBy { it.startDateTime.toLocalDate() }
-    var selectedDate by remember(today) { mutableStateOf(today) }
-    val selectedEvents = eventsByDay[selectedDate].orEmpty().sortedBy { it.startDateTime }
+    val weekDays = remember(weekStart) {
+        (0..6).map { weekStart.plusDays(it.toLong()) }
+    }
+    val todayIndex = (today.dayOfWeek.value - DayOfWeek.MONDAY.value).coerceIn(0, 6)
+    val pagerState = rememberPagerState(
+        initialPage = todayIndex,
+        pageCount = { weekDays.size }
+    )
+    val eventsByDay = remember(events) {
+        events.groupBy { it.startDateTime.toLocalDate() }
+    }
+    val currentPage = pagerState.currentPage.coerceIn(0, weekDays.lastIndex)
+    val visibleDate = weekDays[currentPage]
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            now = LocalDateTime.now()
+            kotlinx.coroutines.delay(30_000)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -94,9 +110,8 @@ fun MainScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
@@ -105,47 +120,62 @@ fun MainScreen(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    "Chọn một ngày để xem lịch",
+                    "Vuốt sang trái hoặc phải để đổi ngày",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            WeeklyDayStrip(
+            WeekDayIndicator(
                 weekDays = weekDays,
-                eventsByDay = eventsByDay,
-                today = today,
-                selectedDate = selectedDate,
-                onDaySelected = { selectedDate = it }
+                currentPage = currentPage,
+                today = today
             )
 
-            SelectedDayHeader(
-                date = selectedDate,
-                eventCount = selectedEvents.size,
-                isToday = selectedDate == today
-            )
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) { page ->
+                val date = weekDays[page]
+                val dayEvents = eventsByDay[date].orEmpty().sortedBy { it.startDateTime }
 
-            if (selectedEvents.isEmpty()) {
-                EmptyDayState(isToday = selectedDate == today)
-            } else {
-                selectedEvents.forEach { event ->
-                    EventCard(
-                        event = event,
-                        state = event.scheduleState(now),
-                        onLongClick = { eventToDelete = event }
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(androidx.compose.foundation.rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    DayHeader(
+                        date = date,
+                        isToday = date == today
                     )
+
+                    if (dayEvents.isEmpty()) {
+                        EmptyDayState(isToday = date == today)
+                    } else {
+                        dayEvents.forEach { event ->
+                            EventCard(
+                                event = event,
+                                state = event.scheduleState(now),
+                                now = now,
+                                onLongClick = { eventToDelete = event }
+                            )
+                        }
+                    }
+
+                    message?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    Spacer(Modifier.height(72.dp))
                 }
             }
-
-            message?.let {
-                Text(
-                    it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            Spacer(Modifier.height(72.dp))
         }
     }
 
@@ -169,145 +199,83 @@ fun MainScreen(
 }
 
 @Composable
-private fun WeeklyDayStrip(
+private fun WeekDayIndicator(
     weekDays: List<LocalDate>,
-    eventsByDay: Map<LocalDate, List<Event>>,
-    today: LocalDate,
-    selectedDate: LocalDate,
-    onDaySelected: (LocalDate) -> Unit
+    currentPage: Int,
+    today: LocalDate
 ) {
-    val maxWeight = weekDays.maxOfOrNull { date ->
-        dayWeight(eventsByDay[date].orEmpty())
-    }?.coerceAtLeast(1) ?: 1
-
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.Bottom
     ) {
-        weekDays.forEach { date ->
-            val events = eventsByDay[date].orEmpty()
-            DayCell(
-                date = date,
-                eventWeight = dayWeight(events),
-                maxWeight = maxWeight,
-                eventCount = events.size,
-                isToday = date == today,
-                isSelected = date == selectedDate,
-                onClick = { onDaySelected(date) },
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
+        weekDays.forEachIndexed { index, date ->
+            val isCurrent = index == currentPage
+            val isToday = date == today
 
-@Composable
-private fun DayCell(
-    date: LocalDate,
-    eventWeight: Int,
-    maxWeight: Int,
-    eventCount: Int,
-    isToday: Boolean,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val dayLabel = when (date.dayOfWeek) {
-        DayOfWeek.MONDAY -> "T2"
-        DayOfWeek.TUESDAY -> "T3"
-        DayOfWeek.WEDNESDAY -> "T4"
-        DayOfWeek.THURSDAY -> "T5"
-        DayOfWeek.FRIDAY -> "T6"
-        DayOfWeek.SATURDAY -> "T7"
-        DayOfWeek.SUNDAY -> "CN"
-    }
-    val load = if (eventWeight == 0) 0f else (eventWeight.toFloat() / maxWeight).coerceIn(0f, 1f)
-    val baseColor = MaterialTheme.colorScheme.primaryContainer
-    val background = when {
-        isSelected -> MaterialTheme.colorScheme.primary
-        eventWeight == 0 -> MaterialTheme.colorScheme.surfaceContainerLow
-        else -> baseColor.copy(alpha = 0.35f + load * 0.55f)
-    }
-    val contentColor = when {
-        isSelected -> MaterialTheme.colorScheme.onPrimary
-        else -> MaterialTheme.colorScheme.onSurface
-    }
-
-    Surface(
-        modifier = modifier
-            .height(76.dp)
-            .clip(MaterialTheme.shapes.medium)
-            .combinedClickable(onClick = onClick, onLongClick = null),
-        color = background,
-        border = if (isToday && !isSelected) {
-            BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-        } else {
-            null
-        }
-    ) {
-        Column(
-            modifier = Modifier.padding(vertical = 8.dp, horizontal = 3.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Text(
-                dayLabel,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-                color = contentColor
-            )
-            Text(
-                date.dayOfMonth.toString().padStart(2, '0'),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = contentColor
-            )
-            if (eventCount > 0) {
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
                 Text(
-                    "$eventCount lịch",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = contentColor.copy(alpha = 0.78f),
-                    maxLines = 1
+                    dayLabel(date.dayOfWeek),
+                    style = if (isCurrent) {
+                        MaterialTheme.typography.labelMedium
+                    } else {
+                        MaterialTheme.typography.labelSmall
+                    },
+                    fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isCurrent) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
                 )
-            } else {
                 Text(
-                    "—",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = contentColor.copy(alpha = 0.55f)
+                    date.dayOfMonth.toString(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isToday) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    }
                 )
+                Surface(
+                    modifier = Modifier.size(if (isCurrent) 4.dp else 2.dp),
+                    shape = MaterialTheme.shapes.small,
+                    color = if (isCurrent) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    }
+                ) {}
             }
         }
     }
 }
 
 @Composable
-private fun SelectedDayHeader(
+private fun DayHeader(
     date: LocalDate,
-    eventCount: Int,
     isToday: Boolean
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Bottom
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                if (isToday) "HÔM NAY" else "LỊCH NGÀY",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                "${vietnameseWeekday(date.dayOfWeek)} · ${date.format(dateFormatter)}",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-        }
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(
-            "$eventCount lịch",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            if (isToday) "HÔM NAY" else vietnameseWeekday(date.dayOfWeek),
+            style = MaterialTheme.typography.labelLarge,
+            color = if (isToday) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            date.format(DateTimeFormatter.ofPattern("EEEE, dd/MM")),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
         )
     }
 }
@@ -343,6 +311,7 @@ private fun EmptyDayState(isToday: Boolean) {
 private fun EventCard(
     event: Event,
     state: ScheduleState,
+    now: LocalDateTime,
     onLongClick: () -> Unit
 ) {
     val active = state == ScheduleState.IN_PROGRESS
@@ -361,23 +330,25 @@ private fun EventCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
+                .padding(horizontal = 14.dp, vertical = 13.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.Top
         ) {
             Column(
-                modifier = Modifier.width(64.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                modifier = Modifier.width(58.dp),
+                verticalArrangement = Arrangement.spacedBy(1.dp)
             ) {
                 Text(
                     event.startDateTime.format(timeFormatter),
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
                 )
                 Text(
                     event.endDateTime.format(timeFormatter),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp
                 )
             }
 
@@ -388,13 +359,38 @@ private fun EventCard(
                 Text(
                     event.title,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    lineHeight = 21.sp,
+                    maxLines = 2
                 )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        countdownText(event, state, now),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = when (state) {
+                            ScheduleState.IN_PROGRESS -> MaterialTheme.colorScheme.primary
+                            ScheduleState.UPCOMING -> MaterialTheme.colorScheme.primary
+                            ScheduleState.PAST -> MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        fontSize = 12.sp
+                    )
+                    Spacer(Modifier.weight(1f))
+                    StatusDot(state = state, active = active)
+                }
+
                 if (event.location.isNotBlank()) {
                     Text(
                         event.location,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp,
                         maxLines = 1
                     )
                 }
@@ -402,13 +398,13 @@ private fun EventCard(
                     Text(
                         event.note,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                        fontSize = 11.sp,
+                        lineHeight = 14.sp,
                         maxLines = 2
                     )
                 }
             }
-
-            StatusDot(state = state, active = active)
         }
     }
 }
@@ -426,17 +422,49 @@ private fun StatusDot(state: ScheduleState, active: Boolean) {
     ) {
         Text(
             label,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
             color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 9.sp
+            fontSize = 8.sp
         )
+    }
+}
+
+private fun countdownText(
+    event: Event,
+    state: ScheduleState,
+    now: LocalDateTime
+): String = when (state) {
+    ScheduleState.IN_PROGRESS -> "Kết thúc sau ${formatDuration(Duration.between(now, event.endDateTime))}"
+    ScheduleState.UPCOMING -> "Bắt đầu sau ${formatDuration(Duration.between(now, event.startDateTime))}"
+    ScheduleState.PAST -> "Đã kết thúc"
+}
+
+private fun formatDuration(duration: Duration): String {
+    val totalMinutes = duration.toMinutes().coerceAtLeast(0)
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return when {
+        hours > 0 && minutes > 0 -> "${hours}h ${minutes}p"
+        hours > 0 -> "${hours}h"
+        minutes > 0 -> "${minutes}p"
+        else -> "<1p"
     }
 }
 
 private fun dayWeight(events: List<Event>): Int =
     events.sumOf { it.priority.coerceAtLeast(0) + 1 }
+
+private fun dayLabel(dayOfWeek: DayOfWeek): String = when (dayOfWeek) {
+    DayOfWeek.MONDAY -> "T2"
+    DayOfWeek.TUESDAY -> "T3"
+    DayOfWeek.WEDNESDAY -> "T4"
+    DayOfWeek.THURSDAY -> "T5"
+    DayOfWeek.FRIDAY -> "T6"
+    DayOfWeek.SATURDAY -> "T7"
+    DayOfWeek.SUNDAY -> "CN"
+}
 
 private fun vietnameseWeekday(dayOfWeek: DayOfWeek): String = when (dayOfWeek) {
     DayOfWeek.MONDAY -> "Thứ Hai"
