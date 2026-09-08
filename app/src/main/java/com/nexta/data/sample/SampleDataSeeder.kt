@@ -12,12 +12,26 @@ object SampleDataSeeder {
             .getAllEvents()
             .first()
 
-        if (existingEvents.isNotEmpty()) {
+        if (existingEvents.isEmpty()) {
+            SampleEvents.events.forEach { event ->
+                repository.saveEvent(event)
+            }
             return
         }
 
-        SampleEvents.events.forEach { event ->
-            repository.saveEvent(event)
-        }
+        // Keep existing sample events usable when the app was already installed
+        // before the widget test notes were added.
+        val notesBySampleId = mapOf(
+            "sample-002" to "hoàn thành writing trước 9h",
+            "sample-004" to "mang theo máy tính",
+            "sample-005" to "hoàn thành writing trước 9h"
+        )
+        existingEvents
+            .filter { it.id in notesBySampleId && it.note.isBlank() }
+            .forEach { event ->
+                repository.saveEvent(
+                    event.copy(note = notesBySampleId.getValue(event.id))
+                )
+            }
     }
 }
