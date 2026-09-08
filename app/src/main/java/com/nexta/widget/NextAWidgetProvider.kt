@@ -27,7 +27,6 @@ class NextAWidgetProvider : AppWidgetProvider() {
             else -> super.onReceive(context, intent)
         }
     }
-
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = refreshWidgets(context, ids)
     override fun onEnabled(context: Context) { super.onEnabled(context); refreshWidgets(context) }
     override fun onDisabled(context: Context) { cancelRefresh(context); super.onDisabled(context) }
@@ -45,9 +44,7 @@ class NextAWidgetProvider : AppWidgetProvider() {
             val ids = widgetIds ?: manager.getAppWidgetIds(ComponentName(context, NextAWidgetProvider::class.java))
             if (ids.isEmpty()) { cancelRefresh(context); return }
             Thread {
-                val repository = try {
-                    EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java).eventRepository()
-                } catch (_: Throwable) { return@Thread }
+                val repository = try { EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java).eventRepository() } catch (_: Throwable) { return@Thread }
                 val events = try { runBlocking { repository.getAllEvents().first() } } catch (_: Throwable) { return@Thread }
                 val now = LocalDateTime.now()
                 val current = events.filter { it.startDateTime <= now && now < it.endDateTime }.minByOrNull { it.endDateTime }
@@ -69,14 +66,14 @@ class NextAWidgetProvider : AppWidgetProvider() {
             val status = if (index == 1) R.id.widget_status_1 else R.id.widget_status_2
             val title = if (index == 1) R.id.widget_title_1 else R.id.widget_title_2
             val time = if (index == 1) R.id.widget_time_1 else R.id.widget_time_2
-            val countdown = if (index == 1) R.id.widget_countdown_1 else R.id.widget_countdown_2
+            val countdownView = if (index == 1) R.id.widget_countdown_1 else R.id.widget_countdown_2
             val location = if (index == 1) R.id.widget_location_1 else R.id.widget_location_2
             val note = if (index == 1) R.id.widget_note_1 else R.id.widget_note_2
             if (card == null) {
                 views.setTextViewText(status, "NEXTA")
                 views.setTextViewText(title, "Không còn lịch")
                 views.setTextViewText(time, "")
-                views.setTextViewText(countdown, "")
+                views.setTextViewText(countdownView, "")
                 views.setTextViewText(location, "")
                 views.setViewVisibility(note, View.GONE)
                 return
@@ -88,8 +85,8 @@ class NextAWidgetProvider : AppWidgetProvider() {
             views.setTextViewText(status, if (current) "ĐANG DIỄN RA" else "TIẾP THEO")
             views.setTextViewText(title, event.title)
             views.setTextViewText(time, "${event.startDateTime.format(timeFormatter)} – ${event.endDateTime.format(timeFormatter)}")
-            val countdown = if (duration.toDays() > COUNTDOWN_DAYS_LIMIT) "" else if (current) "Kết thúc sau ${formatDuration(duration)}" else "Bắt đầu sau ${formatDuration(duration)}"
-            views.setTextViewText(countdown, countdown)
+            val countdownText = if (duration.toDays() > COUNTDOWN_DAYS_LIMIT) "" else if (current) "Kết thúc sau ${formatDuration(duration)}" else "Bắt đầu sau ${formatDuration(duration)}"
+            views.setTextViewText(countdownView, countdownText)
             views.setTextViewText(location, event.location)
             if (event.note.isBlank()) views.setViewVisibility(note, View.GONE) else { views.setViewVisibility(note, View.VISIBLE); views.setTextViewText(note, event.note) }
         }
