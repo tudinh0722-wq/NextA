@@ -1,741 +1,87 @@
 # NextA — Project Context
 
-> **Purpose:** Source of truth for developers and AI coding agents taking over the NextA project.
+> **Source of truth:** This document describes the code and configuration that currently exist on GitHub `main`.
 >
-> This document describes the current product direction, architecture, completed work, remaining work, and constraints.  
-> When historical ideas conflict with this document, **this document represents the current decision**.
+> It is intentionally based on the repository as it exists now, not on previous plans, agent-generated notes, or unfinished local changes.
+>
+> **Rule for future work:** Do not assume a feature is implemented because it is described here as a goal. Verify the actual source files first.
 
 ---
 
-# 1. Project Overview
+# 1. Current Repository State
 
-**NextA** is an Android local-first schedule assistant focused on one simple question:
+Repository: `tudinh0722-wq/NextA`
 
-> **“What do I need to do now, and how long until then?”**
-
-The initial use case is a student's class schedule.
-
-The problem being solved is not lack of access to timetable information. The problem is **friction**.
-
-A school application may require login, biometric authentication, navigation through multiple screens, etc. just to answer something simple such as:
-
-- What class do I have now?
-- What is next?
-- How long until it starts?
-- How long until the current class ends?
-- Where is it?
-
-NextA puts this information directly on the Android home screen through a widget.
-
-The widget is therefore a **core product feature**, not merely an optional UI.
-
----
-
-# 2. Core Product Philosophy
-
-NextA should provide useful information with minimal interaction.
-
-The ideal interaction is:
-
-```text
-Look at home screen
-        ↓
-Immediately understand current/next schedule
-```
-
-The product should avoid becoming a full school-management application.
-
-The MVP should remain small and focused.
-
----
-
-# 3. Fundamental Domain Concept: Event
-
-The most important architectural decision is:
-
-> **The fundamental unit of the system is a concrete, dated Event.**
-
-An Event represents **one actual occurrence at a specific date and time**.
-
-Example:
-
-```text
-Thiết kế phần mềm
-2026-09-07 09:40 → 2026-09-07 11:25
-302 - A9 - Cơ sở 1 - Khu A
-```
-
-This is one Event.
-
----
-
-## 3.1 Do NOT use recurrence as the core Event model
-
-The system must NOT fundamentally represent schedules as:
-
-```text
-Monday
-Period 1
-Odd weeks
-Theory weeks
-Practice weeks
-```
-
-or:
-
-```text
-day_of_week + recurring_rule
-```
-
-The following complexities should ultimately be normalized into concrete Events:
-
-- theory weeks
-- practice weeks
-- alternating weeks
-- off weeks
-- make-up classes
-- changed rooms
-- holidays
-- special schedule changes
-
-For example:
-
-```text
-TKB / import / OCR
-        ↓
-Concrete Events
-        ↓
-Room
-        ↓
-Repository
-        ↓
-ScheduleStateEngine
-        ↓
-Widget
-```
-
-The timetable is a **source of Events**, not the core domain model.
-
----
-
-# 4. Current Architecture
-
-Target architecture:
-
-```text
-                    Event
-                      ↓
-                 Repository
-                      ↓
-             ScheduleStateEngine
-                      ↓
-                   Widget
-```
-
-More broadly:
-
-```text
-Data source
-    ↓
-Event
-    ↓
-Room / Repository
-    ↓
-Domain logic
-    ↓
-Widget UI
-```
-
-The architecture intentionally separates:
-
-- data persistence
-- domain/state logic
-- presentation
-
-The Widget should not contain the core schedule decision logic.
-
----
-
-# 5. Technology
-
-Current Android stack:
-
-- Kotlin
-- Android
-- Jetpack Compose for the basic application UI
-- Room for local persistence
-- Jetpack Glance for the home-screen widget
-
-The MVP is local-first.
-
-There is currently no requirement for:
-
-- backend
-- cloud sync
-- account system
-- login
-- GPS
-- OCR/AI import
-- smartwatch integration
-- notifications
-
-These are future possibilities, not current MVP requirements.
-
----
-
-# 6. Event Model
-
-Current Event model represents a single occurrence.
-
-Conceptually:
-
-```kotlin
-Event(
-    id,
-    title,
-    type,
-    startDateTime,
-    endDateTime,
-    location,
-    note,
-    priority
-)
-```
-
-Required core properties:
-
-```text
-id
-title
-type
-startDateTime
-endDateTime
-location
-note
-```
-
-Priority is also part of the current product direction.
-
----
-
-## 6.1 Event Type
-
-Existing Event types:
-
-```text
-CLASS_OFFLINE
-CLASS_ONLINE
-TASK
-OTHER
-```
-
-`Event.type` uses the existing `EventType`.
-
----
-
-## 6.2 Date/Time
-
-Events use concrete date/time values:
-
-```text
-startDateTime
-endDateTime
-```
-
-using Kotlin date/time types such as `LocalDateTime`.
-
-Do not revert to:
-
-```text
-occurrences: List<LocalDate>
-startTime: LocalTime
-endTime: LocalTime
-```
-
-That old design represented a recurring rule and has intentionally been removed.
-
----
-
-# 7. Event Priority
-
-Events can have an importance/priority level.
-
-Current intended levels:
-
-```text
-0 = normal
-1 = important
-2 = very important
-```
-
-Widget behavior:
-
-- priority `0` → no background highlight
-- priority `1` → yellow background
-- priority `2` → red background
-
-Priority belongs to the **Event**.
-
-It is NOT a separate day-level database object.
-
-For the 7-day overview:
-
-```text
-dayPriority = highest priority of Events on that day
-```
-
-If a day has multiple Events, the highest priority determines the day's highlight.
-
-If all Events on that day are normal:
-
-```text
-no background color
-```
-
----
-
-# 8. Persistence
-
-Room is already set up.
-
-Relevant components include:
-
-```text
-AppDatabase
-EventDao
-EventEntity
-EventRepository
-```
-
-`EventEntity` has been migrated conceptually from the old recurrence-oriented schema to concrete Event fields.
-
-Current persistence direction:
-
-```text
-one concrete Event occurrence
-        ↓
-one persisted record
-```
-
-`startDateTime` and `endDateTime` are stored as ISO-8601 strings.
-
-`EventType` is stored as a String using its enum name.
-
-Repository maps:
-
-```text
-EventEntity ↔ Event
-```
-
-The old `occurrencesJson` field and Gson-based occurrence handling were removed.
-
----
-
-# 9. Database Migration Note
-
-The EventEntity schema has changed.
-
-Existing app data on a previously installed development build may cause a Room schema mismatch/crash unless:
-
-- the app is reinstalled, or
-- a proper Room migration is added.
-
-For development, a clean reinstall is acceptable unless migration becomes necessary.
-
-Do not introduce unnecessary migration complexity during unrelated tasks.
-
----
-
-# 10. ScheduleStateEngine
-
-`ScheduleStateEngine` is the core business-logic component.
-
-Its purpose is to answer:
-
-> Given a set of concrete Events and the current time, what should the user see?
-
-The state model contains:
-
-```text
-UPCOMING
-IN_PROGRESS
-NO_MORE
-```
-
----
-
-## 10.1 UPCOMING
-
-Condition:
-
-```text
-now < event.startDateTime
-```
-
-The relevant event is the earliest applicable future Event.
-
-Countdown target:
-
-```text
-event.startDateTime
-```
-
-Widget wording:
-
-```text
-Còn X phút nữa vào tiết
-```
-
----
-
-## 10.2 IN_PROGRESS
-
-Condition:
-
-```text
-event.startDateTime <= now < event.endDateTime
-```
-
-Countdown target:
-
-```text
-event.endDateTime
-```
-
-Widget wording:
-
-```text
-Còn X phút nữa ra tiết
-```
-
----
-
-## 10.3 NO_MORE
-
-`NO_MORE` does **not** mean:
-
-> “There are no more Events today.”
-
-The intended meaning is:
-
-> **There are no Events remaining from the current time onward.**
-
-Therefore:
-
-```text
-Today has ended
-        ↓
-Tomorrow has an Event
-        ↓
-NOT NO_MORE
-        ↓
-Tomorrow's Event is next
-```
-
-Only return `NO_MORE` when there are genuinely no future Events available.
-
----
-
-## 10.4 Time Boundaries
-
-Example:
-
-```text
-Event:
-09:40 → 11:25
-```
-
-Expected:
-
-```text
-09:39 → UPCOMING
-09:40 → IN_PROGRESS
-10:30 → IN_PROGRESS
-11:24 → IN_PROGRESS
-11:25 → event finished
-```
-
-If another Event starts exactly at 11:25:
-
-```text
-11:25 → second Event is IN_PROGRESS
-```
-
-Boundary behavior must remain precise.
-
----
-
-## 10.5 Unsorted Input
-
-The state engine must not assume Events are already sorted.
-
-It should correctly determine:
-
-- current Event
-- earliest upcoming Event
-- next Events
-
-from an arbitrary Event list.
-
----
-
-# 11. Widget UX
-
-The Widget is the primary product surface.
-
-The current intended layout has **two major sections**.
-
----
-
-## 11.1 Top: Seven-Day Headline
-
-Show only the next seven weekdays.
-
-Example:
-
-```text
-T2   T3   T4   T5   T6   T7   CN
-```
-
-Do **NOT** show date numbers in this headline.
-
-The user does not care about seeing:
-
-```text
-07 08 09 10 ...
-```
-
-The purpose is simply to give a quick visual overview of the next seven days.
-
----
-
-## 11.2 Day Highlighting
-
-Each weekday cell represents that day's Events.
-
-The background color is determined by the highest Event priority on that day.
-
-Example:
-
-```text
-T2   T3   T4   T5   T6   T7   CN
-     🔴   🟡
-```
-
-Conceptually:
-
-```text
-normal Event       → no background
-important Event    → yellow
-very important     → red
-```
-
-Today must remain visually distinguishable from other days.
-
-Priority highlighting must not make it impossible to identify today.
-
----
-
-# 12. Widget: Current and Next Events
-
-Below the seven-day headline, show only the **next 2–3 Events**.
-
-Do not dump the entire timetable into the widget.
-
-The list may contain:
-
-- current Event
-- later Event today
-- Event tomorrow
-- Event several days later
-
-Each Event should show at least:
-
-```text
-title
-time/date when useful
-location
-```
-
-If an Event is currently in progress, it should remain visually prominent.
-
----
-
-# 13. Countdown
-
-Countdown is derived from a target timestamp.
-
-Never treat countdown as an independent persistent timer.
-
-Concept:
-
-```text
-countdown = targetDateTime - currentDateTime
-```
-
-For UPCOMING:
-
-```text
-target = startDateTime
-```
-
-For IN_PROGRESS:
-
-```text
-target = endDateTime
-```
-
-The system must not use a continuously running per-second background loop.
-
----
-
-# 14. Manual Event Creation
-
-A critical part of the product that should be implemented is **manual Event creation**.
-
-The system needs a way for the user to create an Event directly.
-
-At minimum there should be an:
-
-```text
-+ Add Event
-```
-
-button/action in the application UI.
-
-The basic flow:
-
-```text
-User taps Add Event
-        ↓
-Event form
-        ↓
-User enters data
-        ↓
-Validate
-        ↓
-Create Event
-        ↓
-Save to Room
-        ↓
-Repository
-        ↓
-Widget sees new Event
-```
-
-The manual-created Event must use the **same Event model** as imported/generated Events.
-
-There should NOT be a separate manual-event data model.
-
----
-
-## 14.1 Minimum Manual Event Form
-
-The form should eventually support:
-
-```text
-Title
-Type
-Date
-Start time
-End time
-Location
-Note
-Priority
-```
-
-Priority options:
-
-```text
-Normal
-Important
-Very important
-```
-
-The form does not need to be complicated.
-
----
-
-# 15. Future Event Sources
-
-Different input mechanisms should all eventually produce the same Event objects.
-
-Potential future flow:
-
-```text
-Manual input ───────┐
-                    │
-TKB import ─────────┼──→ Event
-                    │
-OCR / AI ───────────┘
-```
-
-This is an important architectural advantage of the Event-based model.
-
-OCR/AI does not need to understand the widget.
-
-It only needs to produce valid concrete Events.
-
----
-
-# 16. Sample Events
-
-The current development/test data includes:
-
-```text
-Thiết kế phần mềm
-CLASS_OFFLINE
-2026-09-07 09:40
-2026-09-07 11:25
-302 - A9 - Cơ sở 1 - Khu A
-
-Tiếng Anh Công nghệ thông tin 1
-CLASS_OFFLINE
-2026-09-07 12:30
-2026-09-07 14:10
-308 - A9 - Cơ sở 1 - Khu A
-
-Phát triển ứng dụng thương mại điện tử
-CLASS_OFFLINE
-2026-09-08 15:10
-2026-09-08 17:45
-402 - A9 - Cơ sở 1 - Khu A
-
-Cơ sở dữ liệu
-CLASS_OFFLINE
-2026-09-09 08:45
-2026-09-09 10:30
-205 - A9 - Cơ sở 1 - Khu A
-
-Tiếng Anh Công nghệ thông tin 1
-CLASS_OFFLINE
-2026-09-10 12:30
-2026-09-10 14:10
-308 - A9 - Cơ sở 1 - Khu A
-
-Kiểm thử phần mềm
-CLASS_ONLINE
-2026-09-12 07:00
-2026-09-12 09:35
-Khu A_PH Online 05 - Khu A_Online - Cơ sở 1 - Khu A
-
-Thiết kế phần mềm
-CLASS_OFFLINE
-2026-09-14 09:40
-2026-09-14 11:25
-302 - A9 - Cơ sở 1 - Khu A
-```
-
-These are **concrete Events**, not recurrence rules.
-
----
-
-# 17. Current Code Structure
-
-Current project structure is approximately:
+Main Android package currently used by the active code:
 
 ```text
 com.nexta
+```
+
+There is also an older package under:
+
+```text
+com.example.nexta
+```
+
+The old package is still present in the repository and should be treated as legacy until it is explicitly removed after verification.
+
+The repository currently contains an Android application using Kotlin, Jetpack Compose, Room, Hilt, KSP, and the Android Gradle Plugin.
+
+The current GitHub `main` state is build-oriented and contains the basic local Event data layer plus a simple Compose screen. The home-screen widget is **not implemented yet**: the only file currently under the widget package is an empty `ScheduleWidgetWorker.kt`.
+
+---
+
+# 2. Product Direction
+
+NextA is intended to become a simple schedule assistant for Android.
+
+The core idea is to work with concrete calendar events and eventually make the most useful current/upcoming schedule information easy to access.
+
+For now, keep the implementation small. Do not add backend, accounts, cloud sync, GPS, OCR/AI, smartwatch features, notifications, or other large features unless explicitly requested.
+
+---
+
+# 3. Technology Currently in the Repository
+
+The current Gradle configuration contains:
+
+- Android Gradle Plugin `9.3.2`
+- Kotlin `2.2.10`
+- KSP `2.2.10-2.0.2`
+- Compose BOM `2026.02.01`
+- Room `2.8.4`
+- Hilt `2.59.2`
+- Android `compileSdk = 37`
+- Android `targetSdk = 37`
+- `minSdk = 26`
+- Java source/target compatibility `17`
+
+The app module applies these plugins:
+
+```text
+com.android.application
+org.jetbrains.kotlin.plugin.compose
+com.google.devtools.ksp
+com.google.dagger.hilt.android
+```
+
+The project also contains this Gradle property:
+
+```properties
+android.disallowKotlinSourceSets=false
+```
+
+This is part of the current working Gradle configuration and should not be removed casually.
+
+---
+
+# 4. Current Project Structure
+
+Relevant active package structure on GitHub:
+
+```text
+app/src/main/java/com/nexta
 │
 ├── MainActivity.kt
 ├── MainApplication.kt
@@ -751,413 +97,668 @@ com.nexta
 │   │   ├── EventType.kt
 │   │   └── ScheduleResult.kt
 │   │
-│   └── repository
-│       └── EventRepository.kt
-│
-├── domain
-│   └── ScheduleStateEngine.kt
+│   ├── repository
+│   │   └── EventRepository.kt
+│   │
+│   └── sample
+│       ├── SampleDataSeeder.kt
+│       └── SampleEvents.kt
 │
 ├── di
 │   └── DatabaseModule.kt
 │
+├── domain
+│   ├── ScheduleState.kt
+│   └── ScheduleStateEngine.kt
+│
 └── ui
     ├── MainScreen.kt
-    └── MainViewModel.kt
+    └── widget
+        └── ScheduleWidgetWorker.kt
 ```
 
-Glance widget code has been introduced during the widget phase.
+Important current-state detail:
 
-The exact widget file structure may evolve, but the architecture should remain:
+```text
+ScheduleState.kt             → exists but is empty
+ScheduleWidgetWorker.kt      → exists but is empty
+AddEventScreen.kt             → does not currently exist on GitHub main
+MainViewModel.kt              → does not currently exist on GitHub main
+```
+
+There is also a legacy source tree:
+
+```text
+app/src/main/java/com/example/nexta
+```
+
+containing the older application code/theme files.
+
+---
+
+# 5. Application Entry Point
+
+`MainApplication.kt` currently uses Hilt:
+
+```kotlin
+@HiltAndroidApp
+class MainApplication : Application()
+```
+
+The Android manifest registers it as the application class.
+
+`MainActivity.kt` is annotated with:
+
+```kotlin
+@AndroidEntryPoint
+```
+
+and injects `EventRepository`.
+
+The activity currently:
+
+1. Seeds sample data if the database is empty.
+2. Collects all Events from the repository.
+3. Passes the Events to `MainScreen`.
+
+There is currently **no actual Add Event navigation in `MainActivity.kt` on GitHub main**.
+
+---
+
+# 6. Event Domain Model
+
+The active `Event` model is a concrete, dated event:
+
+```kotlin
+data class Event(
+    val id: String,
+    val title: String,
+    val type: EventType,
+    val startDateTime: LocalDateTime,
+    val endDateTime: LocalDateTime,
+    val location: String,
+    val note: String,
+    val priority: Int = 0
+)
+```
+
+This is the current model actually present in the repository.
+
+An Event therefore represents one occurrence with a concrete start and end date/time.
+
+Do not reintroduce the old recurrence-oriented fields such as:
+
+```text
+occurrences
+startTime
+endTime
+```
+
+unless the architecture is deliberately redesigned and all dependent code is updated together.
+
+---
+
+# 7. Event Types
+
+`EventType` currently contains exactly:
+
+```text
+CLASS_OFFLINE
+CLASS_ONLINE
+TASK
+OTHER
+```
+
+---
+
+# 8. Event Priority
+
+`Event` currently contains:
+
+```kotlin
+val priority: Int = 0
+```
+
+No additional priority system is currently implemented in the UI or widget code.
+
+For future work, keep priority attached to the Event rather than creating a separate day-level database model unless there is an explicit architectural reason to change this.
+
+---
+
+# 9. Local Persistence
+
+Room is currently configured with one entity:
+
+```text
+EventEntity
+```
+
+The database is:
+
+```kotlin
+@Database(
+    entities = [EventEntity::class],
+    version = 2,
+    exportSchema = false
+)
+```
+
+`EventEntity` currently stores:
+
+```text
+id
+ title
+type
+startDateTime
+endDateTime
+location
+note
+priority
+```
+
+The date/time values are stored as `String` values in Room.
+
+The repository converts them using:
+
+```kotlin
+LocalDateTime.parse(...)
+```
+
+and writes them using:
+
+```kotlin
+LocalDateTime.toString()
+```
+
+`EventType` is persisted using its enum name and reconstructed with `EventType.valueOf(...)`.
+
+---
+
+# 10. EventDao
+
+`EventDao` currently provides:
+
+```text
+getAll(): Flow<List<EventEntity>>
+getById(id): EventEntity?
+insert(event)
+update(event)
+delete(id)
+```
+
+`insert` uses:
+
+```text
+OnConflictStrategy.REPLACE
+```
+
+This is the current persistence API. Do not assume more repository/database operations exist without checking the source.
+
+---
+
+# 11. EventRepository
+
+`EventRepository` is a Hilt-injected singleton.
+
+Current public operations are:
+
+```text
+getAllEvents()
+getEventById(id)
+saveEvent(event)
+deleteEvent(id)
+```
+
+It maps:
+
+```text
+EventEntity ↔ Event
+```
+
+The repository is currently the application-facing abstraction over the Room DAO.
+
+---
+
+# 12. Sample Data
+
+Sample data is separated from `MainActivity` into:
+
+```text
+app/src/main/java/com/nexta/data/sample/SampleEvents.kt
+app/src/main/java/com/nexta/data/sample/SampleDataSeeder.kt
+```
+
+`SampleDataSeeder.seedIfEmpty(repository)` checks whether the repository already contains Events and inserts the sample Events only when the database is empty.
+
+The sample set currently contains these concrete Events:
+
+```text
+Thiết kế phần mềm
+CLASS_OFFLINE
+2026-09-07 09:40 → 2026-09-07 11:25
+302 - A9 - Cơ sở 1 - Khu A
+
+Tiếng Anh Công nghệ thông tin 1
+CLASS_OFFLINE
+2026-09-07 12:30 → 2026-09-07 14:10
+308 - A9 - Cơ sở 1 - Khu A
+
+Phát triển ứng dụng thương mại điện tử
+CLASS_OFFLINE
+2026-09-08 15:10 → 2026-09-08 17:45
+402 - A9 - Cơ sở 1 - Khu A
+
+Cơ sở dữ liệu
+CLASS_OFFLINE
+2026-09-09 08:45 → 2026-09-09 10:30
+205 - A9 - Cơ sở 1 - Khu A
+
+Tiếng Anh Công nghệ thông tin 1
+CLASS_OFFLINE
+2026-09-10 12:30 → 2026-09-10 14:10
+308 - A9 - Cơ sở 1 - Khu A
+
+Kiểm thử phần mềm
+CLASS_ONLINE
+2026-09-12 07:00 → 2026-09-12 09:35
+Khu A_PH Online 05 - Khu A_Online - Cơ sở 1 - Khu A
+
+Thiết kế phần mềm
+CLASS_OFFLINE
+2026-09-14 09:40 → 2026-09-14 11:25
+302 - A9 - Cơ sở 1 - Khu A
+```
+
+These are test/development data, not a production import system.
+
+---
+
+# 13. Current Main UI
+
+`MainScreen.kt` is currently a simple Compose screen.
+
+It receives:
+
+```kotlin
+fun MainScreen(
+    events: List<Event>,
+    onAddEvent: () -> Unit = {}
+)
+```
+
+The screen currently has:
+
+- Material 3 `Scaffold`
+- `TopAppBar` with title `NextA`
+- title text `Lịch của bạn`
+- subtitle `Hôm nay và các sự kiện sắp tới`
+- `+ Thêm sự kiện` button
+- empty-state text when there are no Events
+- up to the first 5 Events rendered as simple text cards
+
+Each Event card currently shows:
+
+```text
+title
+startDateTime → endDateTime
+location (when non-blank)
+```
+
+Important:
+
+> The `onAddEvent` callback exists in `MainScreen`, but the actual Add Event screen/navigation is **not present on GitHub main yet**.
+
+Therefore the Add Event button currently has no implemented flow when `MainScreen` is called with its default callback.
+
+---
+
+# 14. ScheduleStateEngine — Actual Current State
+
+`ScheduleStateEngine.kt` currently exposes:
+
+```kotlin
+fun calculateResult(
+    events: List<Event>,
+    now: LocalDateTime
+): ScheduleResult
+```
+
+It calculates:
+
+```text
+current
+next
+```
+
+Current logic:
+
+- `current` = an Event where `startDateTime <= now < endDateTime`, selecting the one with the earliest `endDateTime`.
+- `next` = an Event whose `startDateTime` is after `now`, selecting the earliest `startDateTime`.
+
+It returns:
+
+```kotlin
+ScheduleResult(
+    current = current,
+    next = next
+)
+```
+
+The engine does not currently return an explicit `UPCOMING`, `IN_PROGRESS`, or `NO_MORE` state.
+
+---
+
+# 15. ScheduleState.kt — Actual Current State
+
+The file exists:
+
+```text
+app/src/main/java/com/nexta/domain/ScheduleState.kt
+```
+
+but it is currently empty.
+
+Therefore the following must **not** be described as implemented:
+
+```text
+UPCOMING
+IN_PROGRESS
+NO_MORE
+```
+
+They can be future design goals, but they are not currently represented by the code in this file.
+
+---
+
+# 16. Widget — Actual Current State
+
+The widget package exists:
+
+```text
+app/src/main/java/com/nexta/ui/widget
+```
+
+but the only current file is:
+
+```text
+ScheduleWidgetWorker.kt
+```
+
+and that file is empty.
+
+There is currently no verified Jetpack Glance widget implementation on GitHub main.
+
+There is therefore currently no implemented:
+
+- seven-day widget header
+- current/next widget cards
+- widget countdown
+- priority day highlighting
+- widget refresh logic
+- widget receiver/provider
+- widget configuration metadata
+
+These are future work, not completed work.
+
+---
+
+# 17. Manual Event Creation — Current State
+
+The repository currently has the beginning of the UI contract:
+
+```text
+MainScreen
+    ↓
+onAddEvent callback
+```
+
+However, there is currently no `AddEventScreen.kt` on GitHub main and no navigation/state implementation in `MainActivity.kt`.
+
+Therefore manual Event creation is **not implemented yet**.
+
+The intended future minimum form can be:
+
+```text
+Title
+Type
+Date
+Start time
+End time
+Location
+Note
+Priority
+```
+
+The created object should be the existing `Event` model, saved through `EventRepository.saveEvent(...)`.
+
+Do not create a separate manual-event data model.
+
+---
+
+# 18. Legacy Code
+
+The repository still contains the older package:
+
+```text
+app/src/main/java/com/example/nexta
+```
+
+including:
+
+```text
+MainActivity.kt
+ui/theme/Color.kt
+ui/theme/Theme.kt
+ui/theme/Type.kt
+```
+
+This creates a split between the legacy package and the active `com.nexta` package.
+
+Do not blindly delete the legacy package. First verify whether any build configuration, manifest entry, imports, tests, or resources still depend on it.
+
+---
+
+# 19. Current Build/Architecture Summary
+
+The code currently forms this working path:
+
+```text
+SampleEvents
+     ↓
+SampleDataSeeder
+     ↓
+EventRepository
+     ↓
+Room / EventDao
+     ↓
+Flow<List<Event>>
+     ↓
+MainActivity
+     ↓
+MainScreen
+```
+
+The repository also contains the beginnings of a domain layer:
 
 ```text
 Event
- ↓
-Repository
- ↓
+  ↓
 ScheduleStateEngine
- ↓
-Glance Widget
+  ↓
+ScheduleResult
 ```
+
+But the domain result is not yet connected to the main UI.
+
+The widget path is not implemented yet.
 
 ---
 
-# 18. Completed Development Phases
+# 20. What Is Actually Done
 
-## PHASE 1 — Audit
+Based only on the current GitHub `main` source:
 
-Status:
+### DONE
 
-```text
-DONE
-```
+- Android application exists.
+- Active package `com.nexta` exists.
+- Hilt application setup exists.
+- Room database exists.
+- `EventEntity` exists with concrete date/time fields.
+- `EventDao` exists.
+- `EventRepository` exists.
+- Concrete `Event` model exists.
+- `EventType` exists.
+- `ScheduleResult` exists.
+- `ScheduleStateEngine` exists with current/next calculation.
+- Sample Event data is separated into the sample package.
+- Sample data seeding exists.
+- Basic Compose main screen exists.
+- Main screen displays Events from the repository.
+- Main screen contains an Add Event button/callback contract.
 
-The repository was inspected and the following were identified:
+### PARTIAL
 
-- Event used recurrence-like `occurrences`
-- Room stored occurrences as JSON
-- State Engine lacked explicit states
-- Widget did not exist
+- Schedule/domain logic exists, but explicit schedule states are not implemented.
+- Manual Event creation UI has only the button/callback entry point; the form and navigation are missing.
+- Widget package exists, but there is no working widget implementation.
+- Project contains both active and legacy package trees.
 
----
+### NOT IMPLEMENTED / FUTURE
 
-## PHASE 2 — Event Model
-
-Status:
-
-```text
-DONE
-```
-
-Completed:
-
-- Event converted to concrete occurrence model
-- Added `type`
-- Added `startDateTime`
-- Added `endDateTime`
-- Removed `occurrences`
-- Updated EventEntity
-- Updated Repository
-- Removed old Gson occurrence handling
-- Updated existing UI/dummy data
-
-Build:
-
-```text
-:app:assembleDebug
-SUCCESS
-```
-
----
-
-## PHASE 3 — State Engine
-
-Status:
-
-```text
-DONE
-```
-
-Completed:
-
-- explicit schedule states
-- correct time-boundary handling
-- current/upcoming event logic
-- multiple-event handling
-- unsorted event handling
-- focused unit tests
+- `UPCOMING` / `IN_PROGRESS` / `NO_MORE` enum/state model.
+- Countdown presentation.
+- Seven-day widget overview.
+- Widget priority highlighting.
+- Glance widget provider/receiver/configuration.
+- Widget refresh/update mechanism.
+- Add Event form.
+- Add Event navigation.
+- Edit Event UI.
+- Production timetable import.
+- OCR/AI import.
+- Backend/cloud synchronization.
 
 ---
 
-## PHASE 4 — Android Widget
+# 21. Development Rules for Future AI Agents
 
-Status:
+This section is intentionally strict.
+
+## Rule 1 — Trust code over old documentation
+
+Before modifying anything, inspect the current repository.
+
+This file describes the current GitHub state, but source code remains the final authority for implementation details.
+
+## Rule 2 — Do not resurrect old recurrence code
+
+Use concrete Events with:
 
 ```text
-DONE / IMPLEMENTED
+startDateTime
+endDateTime
 ```
 
-The widget was implemented using Jetpack Glance.
+Do not reintroduce old `occurrences` / recurring-rule fields merely because they existed in an earlier version.
 
-It is intended to display:
+## Rule 3 — Do not claim a feature is done without source evidence
 
-- UPCOMING
-- IN_PROGRESS
-- NO_MORE
-- event title
-- location
-- countdown
+For example:
 
-The supplied sample Events are used for development/testing.
+```text
+ScheduleState.kt exists
+```
+
+does NOT mean explicit schedule states are implemented when the file is empty.
+
+Likewise:
+
+```text
+ScheduleWidgetWorker.kt exists
+```
+
+does NOT mean the widget exists when the file is empty.
+
+## Rule 4 — Keep changes narrow
+
+When implementing a feature, modify only the files necessary for that feature.
+
+Do not allow an AI agent to rewrite unrelated architecture, package names, Gradle configuration, or data models without a clear reason.
+
+## Rule 5 — Preserve the existing Event model
+
+The current domain object is:
+
+```kotlin
+Event(
+    id,
+    title,
+    type,
+    startDateTime,
+    endDateTime,
+    location,
+    note,
+    priority
+)
+```
+
+Future sources should produce this same Event type.
+
+## Rule 6 — Verify build after structural changes
+
+After changing Gradle, Room, Hilt, KSP, package names, or major Kotlin files, run a real build and fix compile errors before continuing to the next feature.
+
+## Rule 7 — Do not use the empty widget worker as if it were working code
+
+The widget must be implemented deliberately from scratch when that phase begins.
+
+## Rule 8 — Do not silently modify the project direction
+
+New ideas may be proposed, but they must not be treated as current requirements until explicitly accepted.
 
 ---
 
-## PHASE 5 — Current Direction
+# 22. Recommended Next Development Order
 
-The original Phase 5 focused only on countdown/update scheduling.
-
-The product direction was subsequently expanded.
-
-Current Phase 5 direction is:
+Based on the current repository, a sensible sequence is:
 
 ```text
-7-day weekday overview
-        +
-Event priority highlighting
-        +
-next 2–3 Events
-        +
-future-day next Event handling
-```
-
-The old assumption:
-
-```text
-No more Events today = NO_MORE
-```
-
-has been explicitly rejected.
-
-The correct behavior is:
-
-```text
-No more Events today
+1. Stabilize / verify current com.nexta project
         ↓
-search future Events
+2. Implement manual Add Event form
         ↓
-show next Event
-```
-
----
-
-# 19. Immediate Remaining Work
-
-The next practical development steps are:
-
-### 1. Finish/verify the new widget overview
-
-Verify:
-
-- seven weekdays displayed
-- no date numbers
-- today distinguishable
-- priority colors work
-- next 2–3 Events displayed
-- tomorrow/future Events appear when today is finished
-
-### 2. Countdown/update mechanism
-
-Ensure the widget updates correctly at meaningful schedule boundaries.
-
-Avoid per-second background loops.
-
-### 3. Manual Event creation
-
-Add:
-
-```text
-+ Add Event
-```
-
-and the minimum Event form.
-
-### 4. Verify complete data flow
-
-The desired end-to-end flow is:
-
-```text
-Manual Event
-      ↓
-Room
-      ↓
-Repository
-      ↓
-ScheduleStateEngine
-      ↓
-Widget
-```
-
-Once this works, the MVP has a complete usable lifecycle.
-
----
-
-# 20. Explicit MVP Non-Goals
-
-Do NOT add these unless explicitly requested:
-
-```text
-OCR
-AI timetable extraction
-GPS
-automatic travel estimation
-notifications
-smartwatch
-cloud sync
-backend
-authentication
-accounts
-social features
-iOS version
-complex recurring schedule engine
-full calendar management
-school-system integration
-```
-
-The existence of these ideas does not mean they belong in the current implementation.
-
----
-
-# 21. AI Coding Agent Rules
-
-AI agents are implementation tools, not product decision-makers.
-
-The project owner defines:
-
-```text
-WHAT
-WHY
-PRODUCT RULES
-SCOPE
-ACCEPTANCE CRITERIA
-```
-
-The coding agent decides:
-
-```text
-HOW
-Kotlin implementation
-Android APIs
-Glance implementation
-Room implementation
-```
-
-Agents must not invent new product scope.
-
----
-
-## 21.1 Phase Discipline
-
-Each task should be narrowly scoped.
-
-Recommended execution pattern:
-
-```text
-Implement one phase
+3. Connect Add Event form → EventRepository.saveEvent()
         ↓
-Build/test once
+4. Improve ScheduleStateEngine / explicit state model
         ↓
-If failure:
-    one targeted fix
+5. Add tests for schedule boundaries
         ↓
-Build/test once more
+6. Implement Jetpack Glance widget
         ↓
-STOP
+7. Connect widget to repository/domain logic
+        ↓
+8. Add countdown and widget refresh behavior
+        ↓
+9. Clean up legacy com.example.nexta code after dependency audit
 ```
 
-Do NOT allow:
-
-```text
-fix
-→ build
-→ fix
-→ build
-→ refactor
-→ fix
-→ build
-→ ...
-```
-
-indefinitely.
-
-After each phase, the agent should report:
-
-```text
-Files changed
-What changed
-Build/test result
-Remaining issues
-```
-
-Then STOP and wait for the next instruction.
+Do not jump to OCR, AI import, backend, or other large features before the local Event → Repository → Domain → Widget path is stable.
 
 ---
 
-# 22. Important Architectural Rules
+# 23. Important Current-State Warning
 
-These decisions should not be changed casually.
-
-### Rule 1
-
-**Concrete Event is the core domain object.**
-
-### Rule 2
-
-Do not turn Event back into a recurrence-rule model.
-
-### Rule 3
-
-TKB is an input/source of Events.
-
-### Rule 4
-
-The State Engine owns schedule-state decisions.
-
-### Rule 5
-
-The Widget displays state; it should not reinvent business logic.
-
-### Rule 6
-
-Manual Events and imported Events use the same Event model.
-
-### Rule 7
-
-Priority belongs to Event.
-
-### Rule 8
-
-Day highlighting is derived from the highest Event priority for that day.
-
-### Rule 9
-
-`NO_MORE` means no Events remain from now onward, not merely no Events today.
-
-### Rule 10
-
-Countdown must be derived from target timestamps.
-
-### Rule 11
-
-Do not use a per-second background loop.
-
-### Rule 12
-
-Keep the MVP small.
-
----
-
-# 23. Product Mental Model
-
-The simplest way to understand NextA is:
+This document deliberately does **not** preserve the previous project-context claims such as:
 
 ```text
-              EVENTS
-                 │
-                 ▼
-        "What is happening
-          around me now?"
-                 │
-                 ▼
-        SCHEDULE STATE
-                 │
-       ┌─────────┼─────────┐
-       ▼         ▼         ▼
-   UPCOMING  IN_PROGRESS NO_MORE
-       │         │
-       └────┬────┘
-            ▼
-        WIDGET
-            │
-            ▼
- "What do I need to do
-    and when?"
+"Phase 1 DONE"
+"Phase 2 DONE"
+"Phase 3 DONE"
+"Widget implemented"
+"Manual Add Event implemented"
 ```
 
-The 7-day overview adds context:
+unless the current GitHub source actually supports those claims.
 
-```text
-7 weekdays
-     ↓
-priority / important days
-     ↓
-current or next Event
-     ↓
-2–3 upcoming Events
-```
-
-The product should remain **ambient, fast, and glanceable**.
-
----
-
-# 24. One-Sentence Project Definition
-
-> **NextA is a local-first Android schedule widget that turns concrete dated Events into an immediate, glanceable answer to “what do I need to do now, and how long until then?”**
+The purpose of this rewrite is to establish a clean baseline from the repository that exists now.
