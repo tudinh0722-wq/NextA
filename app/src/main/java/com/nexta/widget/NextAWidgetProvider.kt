@@ -55,7 +55,7 @@ class NextAWidgetProvider : AppWidgetProvider() {
         const val ACTION_REFRESH = "com.nexta.widget.ACTION_REFRESH"
         private const val REQUEST_CODE = 7421
         private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-        private val dayFormatter = DateTimeFormatter.ofPattern("EEE, dd/MM", Locale("vi", "VN"))
+        private val dayFormatter = DateTimeFormatter.ofPattern("EEEE, dd/MM", Locale("vi", "VN"))
 
         fun requestUpdate(context: Context) {
             refreshWidgets(context)
@@ -112,6 +112,7 @@ class NextAWidgetProvider : AppWidgetProvider() {
             if (event == null) {
                 views.setTextViewText(R.id.widget_status, "KHÔNG CÒN LỊCH")
                 views.setTextViewText(R.id.widget_event_title, "Bạn đã hết lịch")
+                views.setTextViewText(R.id.widget_date, "")
                 views.setTextViewText(R.id.widget_time, "Mở NextA để xem lịch")
             } else {
                 views.setTextViewText(
@@ -120,9 +121,12 @@ class NextAWidgetProvider : AppWidgetProvider() {
                 )
                 views.setTextViewText(R.id.widget_event_title, event.title)
                 views.setTextViewText(
+                    R.id.widget_date,
+                    event.startDateTime.format(dayFormatter)
+                )
+                views.setTextViewText(
                     R.id.widget_time,
-                    "${event.startDateTime.format(dayFormatter)}  •  " +
-                        "${event.startDateTime.format(timeFormatter)} – ${event.endDateTime.format(timeFormatter)}"
+                    "${event.startDateTime.format(timeFormatter)} – ${event.endDateTime.format(timeFormatter)}"
                 )
             }
 
