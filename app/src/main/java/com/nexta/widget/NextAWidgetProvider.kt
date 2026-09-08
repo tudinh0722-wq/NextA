@@ -1,11 +1,13 @@
 package com.nexta.widget
 
+import android.app.AlarmManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.widget.RemoteViews
 import com.nexta.MainActivity
 import com.nexta.R
@@ -13,8 +15,7 @@ import com.nexta.data.model.Event
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import java.time.DayOfWeek
-import java.time.LocalDate
+import java.time.Duration
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -22,10 +23,15 @@ class NextAWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
+            ACTION_REFRESH,
             Intent.ACTION_TIME_CHANGED,
             Intent.ACTION_TIMEZONE_CHANGED,
             Intent.ACTION_DATE_CHANGED,
-            Intent.ACTION_BOOT_COMPLETED -> refreshWidgets(context)
+            Intent.ACTION_BOOT_COMPLETED -> {
+                super.onReceive(context, intent)
+                refreshWidgets(context)
+                scheduleMinuteRefresh(context)
+            }
             else -> super.onReceive(context, intent)
         }
     }
@@ -34,16 +40,26 @@ class NextAWidgetProvider : AppWidgetProvider() {
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
-    ) = refreshWidgets(context, appWidgetIds)
+    ) {
+        refreshWidgets(context, appWidgetIds)
+        scheduleMinuteRefresh(context)
+    }
 
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
         refreshWidgets(context)
+        scheduleMinuteRefresh(context)
+    }
+
+    override fun onDisabled(context: Context) {
+        cancelMinuteRefresh(context)
+        super.onDisabled(context)
     }
 
     companion object {
         const val ACTION_REFRESH = "com.nexta.widget.ACTION_REFRESH"
         private const val REQUEST_CODE = 7421
+        private const val REFRESH_REQUEST_CODE = 7422
         private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
         fun requestUpdate(context: Context) = refreshWidgets(context)
@@ -70,13 +86,20 @@ class NextAWidgetProvider : AppWidgetProvider() {
                     return@Thread
                 }
 
-                val today = LocalDate.now()
-                val todayEvents = events
-                    .filter { it.startDateTime.toLocalDate() == today }
-                    .sortedBy { it.startDateTime }
-                    .take(4)
+                val now = LocalDateTime.now()
+                val ordered = events.sortedBy { it.startDateTime }
+                val current = ordered.firstOrNull {
+                    !now.isBefore(it.startDateTime) && now.isBefore(it.endDateTime)
+                }
+                val upcoming = ordered.filter { it.startDateTime.isAfter(now) }
 
-                ids.forEach { id -> updateWidget(context, manager, id, todayEvents) }
+                val displayEvents = if (current != null) {
+                    listOf(current) + upcoming.take(1)
+                } else {
+                    upcoming.take(2)
+                }
+
+                ids.forEach { id -> updateWidget(context, manager, id, displayEvents, now) }
             }.start()
         }
 
@@ -84,50 +107,123 @@ class NextAWidgetProvider : AppWidgetProvider() {
             context: Context,
             manager: AppWidgetManager,
             widgetId: Int,
-            events: List<Event>
+            events: List<Event>,
+            now: LocalDateTime
         ) {
-            val now = LocalDateTime.now()
             val views = RemoteViews(context.packageName, R.layout.nexta_widget)
             views.setOnClickPendingIntent(R.id.widget_root, openAppPendingIntent(context))
 
-            views.setTextViewText(
-                R.id.widget_status,
-                "${weekdayLabel(now.dayOfWeek)} · ${now.dayOfMonth.toString().padStart(2, '0')}/" +
-                    now.monthValue.toString().padStart(2, '0')
-            )
-            views.setTextViewText(R.id.widget_location, "${events.size} MỤC")
-            views.setTextViewText(R.id.widget_countdown, "")
-
-            if (events.isEmpty()) {
-                views.setTextViewText(R.id.widget_event_title, "Hôm nay không có lịch")
-                views.setTextViewText(R.id.widget_time, "Chạm để mở NextA")
-            } else {
-                val lines = events.joinToString("\n") { event ->
-                    "${event.startDateTime.format(timeFormatter)}  ${event.title}"
-                }
-                val locations = events.mapNotNull { it.location.takeIf(String::isNotBlank) }
-                    .distinct()
-                    .take(3)
-                    .joinToString("  ·  ")
-
-                views.setTextViewText(R.id.widget_event_title, lines)
-                views.setTextViewText(
-                    R.id.widget_time,
-                    locations.ifBlank { "Lịch hôm nay · ${events.size} sự kiện" }
-                )
-            }
+            bindEvent(context, views, 1, events.getOrNull(0), now)
+            bindEvent(context, views, 2, events.getOrNull(1), now)
 
             manager.updateAppWidget(widgetId, views)
         }
 
-        private fun weekdayLabel(day: DayOfWeek): String = when (day) {
-            DayOfWeek.MONDAY -> "T2"
-            DayOfWeek.TUESDAY -> "T3"
-            DayOfWeek.WEDNESDAY -> "T4"
-            DayOfWeek.THURSDAY -> "T5"
-            DayOfWeek.FRIDAY -> "T6"
-            DayOfWeek.SATURDAY -> "T7"
-            DayOfWeek.SUNDAY -> "CN"
+        private fun bindEvent(
+            context: Context,
+            views: RemoteViews,
+            slot: Int,
+            event: Event?,
+            now: LocalDateTime
+        ) {
+            val statusId = if (slot == 1) R.id.widget_status_1 else R.id.widget_status_2
+            val locationId = if (slot == 1) R.id.widget_location_1 else R.id.widget_location_2
+            val titleId = if (slot == 1) R.id.widget_title_1 else R.id.widget_title_2
+            val timeId = if (slot == 1) R.id.widget_time_1 else R.id.widget_time_2
+            val countdownId = if (slot == 1) R.id.widget_countdown_1 else R.id.widget_countdown_2
+            val noteId = if (slot == 1) R.id.widget_note_1 else R.id.widget_note_2
+
+            if (event == null) {
+                views.setTextViewText(statusId, "")
+                views.setTextViewText(locationId, "")
+                views.setTextViewText(titleId, if (slot == 1) "Không có lịch sắp tới" else "")
+                views.setTextViewText(timeId, "")
+                views.setTextViewText(countdownId, "")
+                views.setTextViewText(noteId, "")
+                views.setViewVisibility(noteId, android.view.View.GONE)
+                return
+            }
+
+            val isLive = !now.isBefore(event.startDateTime) && now.isBefore(event.endDateTime)
+            views.setTextViewText(statusId, if (isLive) "ĐANG DIỄN RA" else "TIẾP THEO")
+            views.setTextViewText(locationId, event.location.takeIf { it.isNotBlank() } ?: "")
+            views.setTextViewText(titleId, event.title)
+            views.setTextViewText(
+                timeId,
+                "${event.startDateTime.format(timeFormatter)} – ${event.endDateTime.format(timeFormatter)}"
+            )
+
+            val remaining = if (isLive) {
+                Duration.between(now, event.endDateTime)
+            } else {
+                Duration.between(now, event.startDateTime)
+            }.coerceAtLeast(Duration.ZERO)
+
+            val countdown = formatRemaining(remaining)
+            views.setTextViewText(
+                countdownId,
+                if (isLive) "Còn $countdown" else "Bắt đầu sau $countdown"
+            )
+            views.setTextColor(
+                countdownId,
+                if (isLive) context.getColor(R.color.nexta_widget_accent)
+                else context.getColor(R.color.nexta_widget_accent)
+            )
+
+            if (event.note.isNotBlank()) {
+                views.setTextViewText(noteId, event.note)
+                views.setViewVisibility(noteId, android.view.View.VISIBLE)
+                views.setTextColor(noteId, context.getColor(R.color.nexta_widget_muted))
+            } else {
+                views.setTextViewText(noteId, "")
+                views.setViewVisibility(noteId, android.view.View.GONE)
+            }
+        }
+
+        private fun formatRemaining(duration: Duration): String {
+            val totalMinutes = duration.toMinutes()
+            val days = totalMinutes / (24 * 60)
+            val hours = (totalMinutes % (24 * 60)) / 60
+            val minutes = totalMinutes % 60
+            return when {
+                days > 0 -> "${days}d ${hours}h"
+                hours > 0 -> "${hours}h ${minutes}m"
+                else -> "${minutes}m"
+            }
+        }
+
+        private fun scheduleMinuteRefresh(context: Context) {
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val intent = Intent(context, NextAWidgetProvider::class.java).apply {
+                action = ACTION_REFRESH
+            }
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                REFRESH_REQUEST_CODE,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val firstMinute = ((System.currentTimeMillis() / 60_000L) + 1) * 60_000L
+            alarmManager.setInexactRepeating(
+                AlarmManager.RTC,
+                firstMinute,
+                60_000L,
+                pendingIntent
+            )
+        }
+
+        private fun cancelMinuteRefresh(context: Context) {
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val intent = Intent(context, NextAWidgetProvider::class.java).apply {
+                action = ACTION_REFRESH
+            }
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                REFRESH_REQUEST_CODE,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            alarmManager.cancel(pendingIntent)
         }
 
         private fun openAppPendingIntent(context: Context): PendingIntent = PendingIntent.getActivity(
