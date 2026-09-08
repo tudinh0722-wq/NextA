@@ -52,9 +52,12 @@ private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 private val dateFormatter = DateTimeFormatter.ofPattern("dd/MM")
 private val countdownRed = Color(0xFFD32F2F)
 
-private const val WEEKS_BEFORE_TODAY = 52
-private const val WEEKS_AFTER_TODAY = 52
-private const val TOTAL_WEEK_PAGES = WEEKS_BEFORE_TODAY + WEEKS_AFTER_TODAY + 1
+// Keep day-by-day swipe navigation, but allow realistic long-range planning.
+// One year in each direction is enough for most academic schedules without
+// making the pager effectively unbounded.
+private const val DAYS_BEFORE_TODAY = 365
+private const val DAYS_AFTER_TODAY = 365
+private const val TOTAL_DAY_PAGES = DAYS_BEFORE_TODAY + DAYS_AFTER_TODAY + 1
 
 @Composable
 fun MainScreen(
@@ -66,20 +69,18 @@ fun MainScreen(
     var eventToDelete by remember { mutableStateOf<Event?>(null) }
     var now by remember { mutableStateOf(LocalDateTime.now()) }
     val today = now.toLocalDate()
-    val currentWeekStart = today.with(DayOfWeek.MONDAY)
-    val eventsByDay = remember(events) {
-        events.groupBy { it.startDateTime.toLocalDate() }
-    }
-    val initialPage = WEEKS_BEFORE_TODAY
+    val initialPage = DAYS_BEFORE_TODAY
     val pagerState = rememberPagerState(
         initialPage = initialPage,
-        pageCount = { TOTAL_WEEK_PAGES }
+        pageCount = { TOTAL_DAY_PAGES }
     )
-    val currentWeekStartForPage = currentWeekStart.plusWeeks(
-        (pagerState.currentPage - initialPage).toLong()
-    )
-    val weekDays = remember(currentWeekStartForPage) {
-        (0..6).map { currentWeekStartForPage.plusDays(it.toLong()) }
+    val currentDate = today.plusDays((pagerState.currentPage - initialPage).toLong())
+    val weekStart = currentDate.with(DayOfWeek.MONDAY)
+    val weekDays = remember(weekStart) {
+        (0..6).map { weekStart.plusDays(it.toLong()) }
+    }
+    val eventsByDay = remember(events) {
+        events.groupBy { it.startDateTime.toLocalDate() }
     }
 
     LaunchedEffect(Unit) {
@@ -123,12 +124,12 @@ fun MainScreen(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    "${currentWeekStartForPage.format(dateFormatter)} — ${currentWeekStartForPage.plusDays(6).format(dateFormatter)}",
+                    "${weekStart.format(dateFormatter)} — ${weekStart.plusDays(6).format(dateFormatter)}",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    "Vuốt sang trái hoặc phải để đổi tuần • Tối đa 1 năm trước/sau",
+                    "Vuốt ngày • Có thể xem trước/sau tối đa 1 năm",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -136,6 +137,7 @@ fun MainScreen(
 
             WeekDayIndicator(
                 weekDays = weekDays,
+                currentDate = currentDate,
                 today = today
             )
 
@@ -145,10 +147,8 @@ fun MainScreen(
                     .fillMaxWidth()
                     .weight(1f)
             ) { page ->
-                val pageWeekStart = currentWeekStart.plusWeeks(
-                    (page - initialPage).toLong()
-                )
-                val pageWeekDays = (0..6).map { pageWeekStart.plusDays(it.toLong()) }
+                val date = today.plusDays((page - initialPage).toLong())
+                val dayEvents = eventsByDay[date].orEmpty().sortedBy { it.startDateTime }
 
                 Column(
                     modifier = Modifier
@@ -157,31 +157,21 @@ fun MainScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     DayHeader(
-                        date = pageWeekDays.firstOrNull { it == today } ?: pageWeekDays[0],
-                        isToday = today in pageWeekDays,
-                        weekStart = pageWeekStart
+                        date = date,
+                        isToday = date == today
                     )
 
-                    pageWeekDays.forEach { date ->
-                        val dayEvents = eventsByDay[date].orEmpty().sortedBy { it.startDateTime }
-                        if (dayEvents.isNotEmpty()) {
-                            DaySectionHeader(
-                                date = date,
-                                isToday = date == today
+                    if (dayEvents.isEmpty()) {
+                        EmptyDayState(isToday = date == today)
+                    } else {
+                        dayEvents.forEach { event ->
+                            EventCard(
+                                event = event,
+                                state = event.scheduleState(now),
+                                now = now,
+                                onLongClick = { eventToDelete = event }
                             )
-                            dayEvents.forEach { event ->
-                                EventCard(
-                                    event = event,
-                                    state = event.scheduleState(now),
-                                    now = now,
-                                    onLongClick = { eventToDelete = event }
-                                )
-                            }
                         }
-                    }
-
-                    if (pageWeekDays.none { eventsByDay[it].orEmpty().isNotEmpty() }) {
-                        EmptyDayState(isToday = today in pageWeekDays)
                     }
 
                     message?.let {
@@ -220,6 +210,7 @@ fun MainScreen(
 @Composable
 private fun WeekDayIndicator(
     weekDays: List<LocalDate>,
+    currentDate: LocalDate,
     today: LocalDate
 ) {
     Row(
@@ -228,6 +219,7 @@ private fun WeekDayIndicator(
         verticalAlignment = Alignment.Bottom
     ) {
         weekDays.forEach { date ->
+            val isCurrent = date == currentDate
             val isToday = date == today
             Column(
                 modifier = Modifier.weight(1f),
@@ -237,30 +229,30 @@ private fun WeekDayIndicator(
                 Text(
                     dayLabel(date.dayOfWeek),
                     style = MaterialTheme.typography.labelMedium,
-                    fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
-                    color = if (isToday) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                    fontWeight = if (isCurrent || isToday) FontWeight.Bold else FontWeight.Normal,
+                    color = when {
+                        isCurrent -> MaterialTheme.colorScheme.onSurface
+                        isToday -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
                     }
                 )
                 Text(
                     date.dayOfMonth.toString(),
                     style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
-                    color = if (isToday) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
+                    fontWeight = if (isCurrent || isToday) FontWeight.Bold else FontWeight.Normal,
+                    color = when {
+                        isCurrent -> MaterialTheme.colorScheme.onSurface
+                        isToday -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.onSurface
                     }
                 )
                 Surface(
-                    modifier = Modifier.size(if (isToday) 4.dp else 2.dp),
+                    modifier = Modifier.size(if (isCurrent) 4.dp else 2.dp),
                     shape = MaterialTheme.shapes.small,
-                    color = if (isToday) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.surfaceVariant
+                    color = when {
+                        isCurrent -> MaterialTheme.colorScheme.primary
+                        isToday -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.surfaceVariant
                     }
                 ) {}
             }
@@ -271,12 +263,11 @@ private fun WeekDayIndicator(
 @Composable
 private fun DayHeader(
     date: LocalDate,
-    isToday: Boolean,
-    weekStart: LocalDate
+    isToday: Boolean
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(
-            if (isToday) "HÔM NAY" else "TUẦN",
+            if (isToday) "HÔM NAY" else vietnameseWeekday(date.dayOfWeek),
             style = MaterialTheme.typography.labelLarge,
             color = if (isToday) {
                 MaterialTheme.colorScheme.primary
@@ -286,35 +277,9 @@ private fun DayHeader(
             fontWeight = FontWeight.Bold
         )
         Text(
-            "${weekStart.format(dateFormatter)} — ${weekStart.plusDays(6).format(dateFormatter)}",
+            "${vietnameseWeekday(date.dayOfWeek)}, ${date.format(dateFormatter)}",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold
-        )
-    }
-}
-
-@Composable
-private fun DaySectionHeader(
-    date: LocalDate,
-    isToday: Boolean
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 2.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            if (isToday) "HÔM NAY" else vietnameseWeekday(date.dayOfWeek),
-            style = MaterialTheme.typography.labelLarge,
-            color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(Modifier.width(6.dp))
-        Text(
-            date.format(dateFormatter),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -333,7 +298,7 @@ private fun EmptyDayState(isToday: Boolean) {
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
-                if (isToday) "Tuần này chưa có lịch" else "Tuần này chưa có lịch",
+                if (isToday) "Hôm nay chưa có lịch" else "Ngày này chưa có lịch",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
