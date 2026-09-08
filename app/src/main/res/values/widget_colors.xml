@@ -1,24 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- One translucent surface; saturated text + status blocks create the hierarchy. -->
-    <color name="nexta_widget_container">#A6FFFFFF</color>
-    <color name="nexta_widget_on_container">#14213D</color>
-    <color name="nexta_widget_title">#EF1B23</color>
-    <color name="nexta_widget_time">#203A9A</color>
-    <color name="nexta_widget_secondary">#20242A</color>
-    <color name="nexta_widget_note">#0099D8</color>
-    <color name="nexta_widget_accent">#2563EB</color>
-    <color name="nexta_widget_badge">#DCFCE7</color>
-    <color name="nexta_widget_badge_text">#15803D</color>
-    <color name="nexta_widget_warning_container">#FEF3C7</color>
-    <color name="nexta_widget_warning_text">#D97706</color>
-    <color name="nexta_widget_current_container">#16B84E</color>
-    <color name="nexta_widget_current_accent">#16B84E</color>
-    <color name="nexta_widget_next_container">#FF9F1C</color>
-    <color name="nexta_widget_next_accent">#FF9F1C</color>
-    <color name="nexta_widget_urgent">#DC2626</color>
-    <color name="nexta_widget_status_current_text">#FFFFFF</color>
-    <color name="nexta_widget_status_next_text">#FFFFFF</color>
-    <color name="nexta_widget_teal">#0F766E</color>
-    <color name="nexta_widget_divider">#263238</color>
+    <!-- Fallbacks for Android versions before framework Material 3 semantic roles. -->
+    <color name="nexta_widget_container">@android:color/background_light</color>
+    <color name="nexta_widget_on_container">@android:color/primary_text_light</color>
+    <color name="nexta_widget_title">@android:color/primary_text_light</color>
+    <color name="nexta_widget_time">@android:color/primary_text_light</color>
+    <color name="nexta_widget_secondary">@android:color/secondary_text_light</color>
+    <color name="nexta_widget_note">@android:color/holo_blue_dark</color>
+    <color name="nexta_widget_accent">@android:color/holo_blue_dark</color>
+    <color name="nexta_widget_current_container">@android:color/holo_green_light</color>
+    <color name="nexta_widget_current_accent">@android:color/holo_green_dark</color>
+    <color name="nexta_widget_next_container">@android:color/holo_orange_light</color>
+    <color name="nexta_widget_next_accent">@android:color/holo_orange_dark</color>
+    <color name="nexta_widget_status_current_text">@android:color/primary_text_light</color>
+    <color name="nexta_widget_status_next_text">@android:color/primary_text_light</color>
+    <color name="nexta_widget_urgent">@android:color/holo_red_dark</color>
+    <color name="nexta_widget_divider">@android:color/darker_gray</color>
 </resources>
