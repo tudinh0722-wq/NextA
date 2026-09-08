@@ -21,18 +21,16 @@
             android:label="@string/app_name"
             android:theme="@style/Theme.Nexta"
             android:windowSoftInputMode="adjustResize">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-
         </activity>
 
         <receiver
             android:name=".widget.NextAWidgetProvider"
             android:exported="true"
-            android:label="NextA">
+            android:label="NextA · Hôm nay">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
@@ -43,6 +41,22 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/nexta_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.NextAFocusWidgetProvider"
+            android:exported="true"
+            android:label="NextA · Focus">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/nexta_focus_widget_info" />
         </receiver>
 
     </application>
