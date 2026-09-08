@@ -38,9 +38,9 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.util.UUID
 
-private const val MAX_TITLE_LENGTH = 32
-private const val MAX_LOCATION_LENGTH = 50
-private const val MAX_NOTE_LENGTH = 200
+private const val MAX_TITLE_LENGTH = 47
+private const val MAX_LOCATION_LENGTH = 30
+private const val MAX_NOTE_LENGTH = 30
 
 @Composable
 fun AddEventScreen(
