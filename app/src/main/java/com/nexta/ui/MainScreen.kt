@@ -2,23 +2,25 @@
 
 package com.nexta.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -32,7 +34,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.nexta.data.model.Event
 import com.nexta.domain.ScheduleState
 import java.time.DayOfWeek
@@ -56,9 +62,33 @@ fun MainScreen(
     val weekStart = today.with(DayOfWeek.MONDAY)
     val weekDays = (0..6).map { weekStart.plusDays(it.toLong()) }
     val eventsByDay = events.groupBy { it.startDateTime.toLocalDate() }
+    var selectedDate by remember(today) { mutableStateOf(today) }
+    val selectedEvents = eventsByDay[selectedDate].orEmpty().sortedBy { it.startDateTime }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("NextA") }) }
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text("NextA", style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            "Lịch tuần",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onAddEvent,
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            ) {
+                Text("+", style = MaterialTheme.typography.headlineSmall)
+            }
+        }
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -66,54 +96,56 @@ fun MainScreen(
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
-            ) {
-                Column {
-                    Text("LỊCH TUẦN", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    Text(
-                        "${weekStart.format(dateFormatter)} — ${weekStart.plusDays(6).format(dateFormatter)}",
-                        style = MaterialTheme.typography.headlineSmall
-                    )
-                }
-                Text("${events.size} mục", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    "${weekStart.format(dateFormatter)} — ${weekStart.plusDays(6).format(dateFormatter)}",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "Chọn một ngày để xem lịch",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
-            Text(
-                "Vuốt ngang để xem đủ 7 ngày · nhấn giữ một lịch để xóa",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            WeeklyBoard(
+            WeeklyDayStrip(
                 weekDays = weekDays,
                 eventsByDay = eventsByDay,
                 today = today,
-                now = now,
-                onLongClick = { eventToDelete = it }
+                selectedDate = selectedDate,
+                onDaySelected = { selectedDate = it }
             )
 
-            Button(onClick = onAddEvent, modifier = Modifier.fillMaxWidth()) {
-                Text("+ Thêm vào tuần")
-            }
+            SelectedDayHeader(
+                date = selectedDate,
+                eventCount = selectedEvents.size,
+                isToday = selectedDate == today
+            )
 
-            val notes = events
-                .filter { it.note.isNotBlank() }
-                .sortedBy { it.startDateTime }
-                .take(6)
-
-            if (notes.isNotEmpty()) {
-                Text("VIỆC CẦN NHỚ", style = MaterialTheme.typography.titleMedium)
-                notes.forEach { event -> NoteRow(event) }
+            if (selectedEvents.isEmpty()) {
+                EmptyDayState(isToday = selectedDate == today)
+            } else {
+                selectedEvents.forEach { event ->
+                    EventCard(
+                        event = event,
+                        state = event.scheduleState(now),
+                        onLongClick = { eventToDelete = event }
+                    )
+                }
             }
 
             message?.let {
-                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
+
+            Spacer(Modifier.height(72.dp))
         }
     }
 
@@ -123,48 +155,62 @@ fun MainScreen(
             title = { Text("Xóa sự kiện?") },
             text = { Text("Bạn có chắc muốn xóa \"${event.title}\" không?") },
             confirmButton = {
-                TextButton(onClick = { onDeleteEvent(event); eventToDelete = null }) { Text("Xóa") }
+                TextButton(onClick = { onDeleteEvent(event); eventToDelete = null }) {
+                    Text("Xóa")
+                }
             },
             dismissButton = {
-                TextButton(onClick = { eventToDelete = null }) { Text("Hủy") }
+                TextButton(onClick = { eventToDelete = null }) {
+                    Text("Hủy")
+                }
             }
         )
     }
 }
 
 @Composable
-private fun WeeklyBoard(
+private fun WeeklyDayStrip(
     weekDays: List<LocalDate>,
     eventsByDay: Map<LocalDate, List<Event>>,
     today: LocalDate,
-    now: LocalDateTime,
-    onLongClick: (Event) -> Unit
+    selectedDate: LocalDate,
+    onDaySelected: (LocalDate) -> Unit
 ) {
+    val maxWeight = weekDays.maxOfOrNull { date ->
+        dayWeight(eventsByDay[date].orEmpty())
+    }?.coerceAtLeast(1) ?: 1
+
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        verticalAlignment = Alignment.Bottom
     ) {
         weekDays.forEach { date ->
-            DayColumn(
+            val events = eventsByDay[date].orEmpty()
+            DayCell(
                 date = date,
-                events = eventsByDay[date].orEmpty().sortedBy { it.startDateTime },
+                eventWeight = dayWeight(events),
+                maxWeight = maxWeight,
+                eventCount = events.size,
                 isToday = date == today,
-                now = now,
-                onLongClick = onLongClick
+                isSelected = date == selectedDate,
+                onClick = { onDaySelected(date) },
+                modifier = Modifier.weight(1f)
             )
         }
     }
 }
 
 @Composable
-private fun DayColumn(
+private fun DayCell(
     date: LocalDate,
-    events: List<Event>,
+    eventWeight: Int,
+    maxWeight: Int,
+    eventCount: Int,
     isToday: Boolean,
-    now: LocalDateTime,
-    onLongClick: (Event) -> Unit
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val dayLabel = when (date.dayOfWeek) {
         DayOfWeek.MONDAY -> "T2"
@@ -175,100 +221,231 @@ private fun DayColumn(
         DayOfWeek.SATURDAY -> "T7"
         DayOfWeek.SUNDAY -> "CN"
     }
+    val load = if (eventWeight == 0) 0f else (eventWeight.toFloat() / maxWeight).coerceIn(0f, 1f)
+    val baseColor = MaterialTheme.colorScheme.primaryContainer
+    val background = when {
+        isSelected -> MaterialTheme.colorScheme.primary
+        eventWeight == 0 -> MaterialTheme.colorScheme.surfaceContainerLow
+        else -> baseColor.copy(alpha = 0.35f + load * 0.55f)
+    }
+    val contentColor = when {
+        isSelected -> MaterialTheme.colorScheme.onPrimary
+        else -> MaterialTheme.colorScheme.onSurface
+    }
 
-    Card(
-        modifier = Modifier.width(142.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isToday) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow
-        )
+    Surface(
+        modifier = modifier
+            .height(76.dp)
+            .clip(MaterialTheme.shapes.medium)
+            .combinedClickable(onClick = onClick, onLongClick = null),
+        color = background,
+        border = if (isToday && !isSelected) {
+            BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+        } else {
+            null
+        }
     ) {
         Column(
-            modifier = Modifier.padding(10.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(vertical = 8.dp, horizontal = 3.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                dayLabel,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = contentColor
+            )
+            Text(
+                date.dayOfMonth.toString().padStart(2, '0'),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = contentColor
+            )
+            if (eventCount > 0) {
                 Text(
-                    dayLabel,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    "$eventCount lịch",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = contentColor.copy(alpha = 0.78f),
+                    maxLines = 1
                 )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    date.format(dateFormatter),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            if (events.isEmpty()) {
-                Text("Trống", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
-                events.forEach { event ->
-                    WeekEvent(
-                        event = event,
-                        state = event.scheduleState(now),
-                        onLongClick = { onLongClick(event) }
-                    )
-                }
+                Text(
+                    "—",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = contentColor.copy(alpha = 0.55f)
+                )
             }
         }
     }
 }
 
 @Composable
-private fun WeekEvent(
+private fun SelectedDayHeader(
+    date: LocalDate,
+    eventCount: Int,
+    isToday: Boolean
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Bottom
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                if (isToday) "HÔM NAY" else "LỊCH NGÀY",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                "${vietnameseWeekday(date.dayOfWeek)} · ${date.format(dateFormatter)}",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        Text(
+            "$eventCount lịch",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun EmptyDayState(isToday: Boolean) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 32.dp, horizontal = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                if (isToday) "Hôm nay chưa có lịch" else "Ngày này chưa có lịch",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                "Nhấn + để thêm sự kiện",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun EventCard(
     event: Event,
     state: ScheduleState,
     onLongClick: () -> Unit
 ) {
     val active = state == ScheduleState.IN_PROGRESS
-    Surface(
+    val containerColor = when {
+        active -> MaterialTheme.colorScheme.primaryContainer
+        state == ScheduleState.PAST -> MaterialTheme.colorScheme.surfaceContainerLow
+        else -> MaterialTheme.colorScheme.surfaceContainer
+    }
+
+    Card(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(onClick = {}, onLongClick = onLongClick),
-        shape = MaterialTheme.shapes.medium,
-        color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest
+        colors = CardDefaults.cardColors(containerColor = containerColor)
     ) {
-        Column(modifier = Modifier.padding(9.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(
-                "${event.startDateTime.format(timeFormatter)}–${event.endDateTime.format(timeFormatter)}",
-                style = MaterialTheme.typography.labelSmall,
-                color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                event.title,
-                maxLines = 3,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-            )
-            if (event.location.isNotBlank()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(
+                modifier = Modifier.width(64.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
                 Text(
-                    event.location,
-                    maxLines = 1,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                    event.startDateTime.format(timeFormatter),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    event.endDateTime.format(timeFormatter),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    event.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                if (event.location.isNotBlank()) {
+                    Text(
+                        event.location,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
+                    )
+                }
+                if (event.note.isNotBlank()) {
+                    Text(
+                        event.note,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2
+                    )
+                }
+            }
+
+            StatusDot(state = state, active = active)
         }
     }
 }
 
 @Composable
-private fun NoteRow(event: Event) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("○", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(event.note, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
-                Text(
-                    "${event.title} · ${event.startDateTime.format(timeFormatter)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
+private fun StatusDot(state: ScheduleState, active: Boolean) {
+    val label = when (state) {
+        ScheduleState.PAST -> "ĐÃ XONG"
+        ScheduleState.IN_PROGRESS -> "ĐANG HỌC"
+        ScheduleState.UPCOMING -> "SẮP TỚI"
     }
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest
+    ) {
+        Text(
+            label,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 9.sp
+        )
+    }
+}
+
+private fun dayWeight(events: List<Event>): Int =
+    events.sumOf { it.priority.coerceAtLeast(0) + 1 }
+
+private fun vietnameseWeekday(dayOfWeek: DayOfWeek): String = when (dayOfWeek) {
+    DayOfWeek.MONDAY -> "Thứ Hai"
+    DayOfWeek.TUESDAY -> "Thứ Ba"
+    DayOfWeek.WEDNESDAY -> "Thứ Tư"
+    DayOfWeek.THURSDAY -> "Thứ Năm"
+    DayOfWeek.FRIDAY -> "Thứ Sáu"
+    DayOfWeek.SATURDAY -> "Thứ Bảy"
+    DayOfWeek.SUNDAY -> "Chủ Nhật"
 }
 
 private fun Event.scheduleState(now: LocalDateTime): ScheduleState = when {
