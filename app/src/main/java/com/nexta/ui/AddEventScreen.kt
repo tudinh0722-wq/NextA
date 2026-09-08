@@ -202,9 +202,27 @@ fun AddEventScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                PriorityButton(0, "Bình thường", priority) { priority = 0 }
-                PriorityButton(1, "Quan trọng", priority) { priority = 1 }
-                PriorityButton(2, "Rất quan trọng", priority) { priority = 2 }
+                PriorityButton(
+                    value = 0,
+                    label = "Bình thường",
+                    selected = priority,
+                    modifier = Modifier.weight(1f),
+                    onClick = { priority = 0 }
+                )
+                PriorityButton(
+                    value = 1,
+                    label = "Quan trọng",
+                    selected = priority,
+                    modifier = Modifier.weight(1f),
+                    onClick = { priority = 1 }
+                )
+                PriorityButton(
+                    value = 2,
+                    label = "Rất quan trọng",
+                    selected = priority,
+                    modifier = Modifier.weight(1f),
+                    onClick = { priority = 2 }
+                )
             }
 
             errorMessage?.let {
@@ -273,14 +291,15 @@ private fun PriorityButton(
     value: Int,
     label: String,
     selected: Int,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     if (value == selected) {
-        Button(onClick = onClick, modifier = Modifier.weight(1f)) {
+        Button(onClick = onClick, modifier = modifier) {
             Text(label)
         }
     } else {
-        OutlinedButton(onClick = onClick, modifier = Modifier.weight(1f)) {
+        OutlinedButton(onClick = onClick, modifier = modifier) {
             Text(label)
         }
     }
