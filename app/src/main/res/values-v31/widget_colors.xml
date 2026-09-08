@@ -3,5 +3,6 @@
     <!-- Android 12+ dynamic palette: follows the user's wallpaper/theme. -->
     <color name="nexta_widget_container">@android:color/system_accent1_100</color>
     <color name="nexta_widget_on_container">@android:color/system_accent1_900</color>
+    <color name="nexta_widget_secondary">@android:color/system_accent2_700</color>
     <color name="nexta_widget_accent">@android:color/system_accent1_600</color>
 </resources>
