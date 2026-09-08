@@ -49,6 +49,7 @@ class NextAWidgetProvider : AppWidgetProvider() {
     companion object {
         const val ACTION_REFRESH = "com.nexta.widget.ACTION_REFRESH"
         private const val REQUEST_CODE = 7421
+        private const val URGENT_MINUTES = 10L
         private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
         fun requestUpdate(context: Context) = refreshWidgets(context)
@@ -125,10 +126,12 @@ class NextAWidgetProvider : AppWidgetProvider() {
             val note = if (index == 1) R.id.widget_note_1 else R.id.widget_note_2
 
             if (card == null) {
-                views.setTextViewText(status, "NEXTA")
-                views.setTextViewText(title, "Không còn lịch")
+                views.setTextViewText(status, "KHÔNG CÓ LỊCH")
+                views.setTextColor(status, 0xFFE53935.toInt())
+                views.setTextViewText(title, "Trống")
                 views.setTextViewText(time, "")
                 views.setTextViewText(countdown, "—")
+                views.setTextColor(countdown, 0xFFE53935.toInt())
                 views.setTextViewText(location, "")
                 views.setViewVisibility(note, View.GONE)
                 return
@@ -138,8 +141,11 @@ class NextAWidgetProvider : AppWidgetProvider() {
             val current = card.second
             val target = if (current) event.endDateTime else event.startDateTime
             val minutes = Duration.between(now, target).toMinutes().coerceAtLeast(0)
+            val statusColor = if (current) 0xFF16A34A.toInt() else 0xFFF59E0B.toInt()
+            val countdownColor = if (minutes <= URGENT_MINUTES) 0xFFE53935.toInt() else statusColor
 
             views.setTextViewText(status, if (current) "ĐANG DIỄN RA" else "TIẾP THEO")
+            views.setTextColor(status, statusColor)
             views.setTextViewText(title, event.title)
             views.setTextViewText(
                 time,
@@ -150,6 +156,7 @@ class NextAWidgetProvider : AppWidgetProvider() {
                 if (current) "Kết thúc sau ${formatDuration(minutes)}"
                 else "Bắt đầu sau ${formatDuration(minutes)}"
             )
+            views.setTextColor(countdown, countdownColor)
             views.setTextViewText(location, event.location)
 
             if (event.note.isBlank()) {
