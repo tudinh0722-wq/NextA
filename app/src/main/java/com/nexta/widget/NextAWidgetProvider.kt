@@ -15,10 +15,10 @@ import com.nexta.data.model.Event
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import java.time.DayOfWeek
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 class NextAWidgetProvider : AppWidgetProvider() {
 
@@ -131,30 +131,21 @@ class NextAWidgetProvider : AppWidgetProvider() {
                 )
                 views.setTextViewText(R.id.widget_countdown, countdown)
                 views.setTextViewText(R.id.widget_event_title, event.title)
-                views.setTextViewText(
-                    R.id.widget_time,
-                    formatEventTime(event)
-                )
+                views.setTextViewText(R.id.widget_time, formatEventTime(event))
             }
 
             manager.updateAppWidget(widgetId, views)
         }
 
         private fun formatEventTime(event: Event): String {
-            val day = event.startDateTime.dayOfWeek.getDisplayName(
-                java.time.format.TextStyle.SHORT,
-                Locale("vi", "VN")
-            ).removePrefix("Thứ ")
-
-            val weekday = when (day) {
-                "Hai" -> "T.2"
-                "Ba" -> "T.3"
-                "Tư" -> "T.4"
-                "Năm" -> "T.5"
-                "Sáu" -> "T.6"
-                "Bảy" -> "T.7"
-                "CN" -> "CN"
-                else -> day
+            val weekday = when (event.startDateTime.dayOfWeek) {
+                DayOfWeek.MONDAY -> "T.2"
+                DayOfWeek.TUESDAY -> "T.3"
+                DayOfWeek.WEDNESDAY -> "T.4"
+                DayOfWeek.THURSDAY -> "T.5"
+                DayOfWeek.FRIDAY -> "T.6"
+                DayOfWeek.SATURDAY -> "T.7"
+                DayOfWeek.SUNDAY -> "CN"
             }
 
             return "$weekday · ${event.startDateTime.dayOfMonth.toString().padStart(2, '0')}/" +
