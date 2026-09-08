@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -35,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.nexta.data.model.Event
-import com.nexta.data.model.ScheduleResult
 import com.nexta.domain.ScheduleState
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -48,7 +46,6 @@ private val dateFormatter = DateTimeFormatter.ofPattern("dd/MM")
 @Composable
 fun MainScreen(
     events: List<Event>,
-    scheduleResult: ScheduleResult = ScheduleResult(null, null),
     message: String? = null,
     onAddEvent: () -> Unit = {},
     onDeleteEvent: (Event) -> Unit = {}
@@ -61,9 +58,7 @@ fun MainScreen(
     val eventsByDay = events.groupBy { it.startDateTime.toLocalDate() }
 
     Scaffold(
-        topBar = {
-            TopAppBar(title = { Text("NextA") })
-        }
+        topBar = { TopAppBar(title = { Text("NextA") }) }
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -79,7 +74,7 @@ fun MainScreen(
                 verticalAlignment = Alignment.Bottom
             ) {
                 Column {
-                    Text("TUẦN NÀY", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    Text("LỊCH TUẦN", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     Text(
                         "${weekStart.format(dateFormatter)} — ${weekStart.plusDays(6).format(dateFormatter)}",
                         style = MaterialTheme.typography.headlineSmall
@@ -88,15 +83,11 @@ fun MainScreen(
                 Text("${events.size} mục", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
-            message?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-            }
-
-            scheduleResult.current?.let { event ->
-                FocusStrip("LIVE", event, MaterialTheme.colorScheme.primaryContainer)
-            } ?: scheduleResult.next?.let { event ->
-                FocusStrip("NEXT", event, MaterialTheme.colorScheme.secondaryContainer)
-            }
+            Text(
+                "Vuốt ngang để xem đủ 7 ngày · nhấn giữ một lịch để xóa",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
             WeeklyBoard(
                 weekDays = weekDays,
@@ -106,10 +97,7 @@ fun MainScreen(
                 onLongClick = { eventToDelete = it }
             )
 
-            Button(
-                onClick = onAddEvent,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            Button(onClick = onAddEvent, modifier = Modifier.fillMaxWidth()) {
                 Text("+ Thêm vào tuần")
             }
 
@@ -119,10 +107,12 @@ fun MainScreen(
                 .take(6)
 
             if (notes.isNotEmpty()) {
-                Text("GHI CHÚ / VIỆC CẦN NHỚ", style = MaterialTheme.typography.titleMedium)
-                notes.forEach { event ->
-                    NoteRow(event)
-                }
+                Text("VIỆC CẦN NHỚ", style = MaterialTheme.typography.titleMedium)
+                notes.forEach { event -> NoteRow(event) }
+            }
+
+            message?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
             }
         }
     }
@@ -197,9 +187,17 @@ private fun DayColumn(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(dayLabel, style = MaterialTheme.typography.titleMedium, color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                Text(
+                    dayLabel,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                )
                 Spacer(Modifier.width(6.dp))
-                Text(date.format(dateFormatter), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    date.format(dateFormatter),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             if (events.isEmpty()) {
@@ -223,43 +221,34 @@ private fun WeekEvent(
     state: ScheduleState,
     onLongClick: () -> Unit
 ) {
+    val active = state == ScheduleState.IN_PROGRESS
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(onClick = {}, onLongClick = onLongClick),
         shape = MaterialTheme.shapes.medium,
-        color = if (state == ScheduleState.IN_PROGRESS) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest
+        color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest
     ) {
         Column(modifier = Modifier.padding(9.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
                 "${event.startDateTime.format(timeFormatter)}–${event.endDateTime.format(timeFormatter)}",
                 style = MaterialTheme.typography.labelSmall,
-                color = if (state == ScheduleState.IN_PROGRESS) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 event.title,
                 maxLines = 3,
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (state == ScheduleState.IN_PROGRESS) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
             )
             if (event.location.isNotBlank()) {
-                Text(event.location, maxLines = 1, style = MaterialTheme.typography.labelSmall, color = if (state == ScheduleState.IN_PROGRESS) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    event.location,
+                    maxLines = 1,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-        }
-    }
-}
-
-@Composable
-private fun FocusStrip(label: String, event: Event, color: androidx.compose.ui.graphics.Color) {
-    Card(colors = CardDefaults.cardColors(containerColor = color), modifier = Modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(label, style = MaterialTheme.typography.labelLarge)
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(event.title, style = MaterialTheme.typography.titleMedium, maxLines = 1)
-                Text("${event.startDateTime.format(timeFormatter)} – ${event.endDateTime.format(timeFormatter)}", style = MaterialTheme.typography.bodySmall)
-            }
-            if (event.location.isNotBlank()) Text(event.location, style = MaterialTheme.typography.labelMedium, maxLines = 1)
         }
     }
 }
@@ -272,7 +261,11 @@ private fun NoteRow(event: Event) {
             Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(event.note, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
-                Text("${event.title} · ${event.startDateTime.format(timeFormatter)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    "${event.title} · ${event.startDateTime.format(timeFormatter)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
