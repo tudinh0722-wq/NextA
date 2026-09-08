@@ -7,26 +7,21 @@ IN PROGRESS
 Refine the App Screen daily planner UI and event-card information hierarchy.
 
 ## Current Change
-Commit `df00c4bd826388a3ea6c3a98155a2e925c4119b3` changes `MainScreen` to:
-- Use horizontal swipe/paging between the seven days.
-- Keep today as the initial page when opening the app.
-- Remove day-card selection backgrounds and the `1 lịch / 2 lịch` count labels.
-- Keep a lightweight seven-day indicator without filled selection boxes.
-- Add a live countdown to each event card.
-- Make event title the strongest text hierarchy.
-- Make start time prominent and end time smaller.
-- Put countdown below the title with accent emphasis.
-- Keep location and note visually secondary.
-- Preserve long-press delete and the circular `+` FAB.
+Commit `032f456d9bff87f2e5fdcd8e9bd127a7f242f3c1` refines `MainScreen` event-card emphasis:
+- Start and end times now use the same 15sp size for a clearer time block.
+- Time colors are stronger: start time uses on-surface and end time uses on-surface-variant.
+- Countdown is now consistently red for fast visual recognition.
+- Countdown is slightly larger and remains bold.
+- The `SẮP TỚI` status label is increased to 10sp with more padding.
+- Existing swipe-between-days navigation, no event-count labels, and no filled selected-day box are preserved.
 
 ## Event Card Hierarchy
 1. Event title — largest/strongest.
-2. Start time — prominent.
-3. Countdown — accent and bold, directly below title.
-4. End time — smaller than start time.
-5. Location — secondary.
-6. Note — smallest/lowest emphasis.
-7. Status — compact supporting label.
+2. Start/end time — same size, visually prominent as a time block.
+3. Countdown — red and bold for quick recognition.
+4. Location — secondary.
+5. Note — smallest/lowest emphasis.
+6. Status — compact but clearly readable supporting label.
 
 ## Relevant File
 - `app/src/main/java/com/nexta/ui/MainScreen.kt`
@@ -41,11 +36,10 @@ Commit `df00c4bd826388a3ea6c3a98155a2e925c4119b3` changes `MainScreen` to:
 
 ## Verification
 Build and run the app in the user's Android environment. Check:
-- App opens on today.
-- Swiping left/right changes the day.
-- No selected-day filled box appears.
-- Event title is visibly larger than times.
-- End time is visibly smaller than start time.
-- Countdown is visible and changes over time.
-- Location/note remain secondary.
+- Start and end times are visibly the same size.
+- Time block is more prominent than before.
+- Countdown is clearly red and bold.
+- `SẮP TỚI` is easier to read.
+- App opens on today and swiping left/right changes the day.
+- No selected-day filled box or event-count labels appear.
 - Long press still opens delete confirmation.
