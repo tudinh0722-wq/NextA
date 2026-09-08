@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 14+ exposes the framework Material 3 semantic color roles. -->
+    <color name="nexta_widget_container">@android:color/system_surface_container_high_light</color>
+    <color name="nexta_widget_on_container">@android:color/system_on_surface_light</color>
+    <color name="nexta_widget_title">@android:color/system_primary_light</color>
+    <color name="nexta_widget_time">@android:color/system_primary_light</color>
+    <color name="nexta_widget_secondary">@android:color/system_on_surface_variant_light</color>
+    <color name="nexta_widget_note">@android:color/system_secondary_light</color>
+    <color name="nexta_widget_accent">@android:color/system_primary_light</color>
+    <color name="nexta_widget_current_container">@android:color/system_primary_container_light</color>
+    <color name="nexta_widget_current_accent">@android:color/system_primary_light</color>
+    <color name="nexta_widget_next_container">@android:color/system_tertiary_container_light</color>
+    <color name="nexta_widget_next_accent">@android:color/system_tertiary_light</color>
+    <color name="nexta_widget_status_current_text">@android:color/system_on_primary_container_light</color>
+    <color name="nexta_widget_status_next_text">@android:color/system_on_tertiary_container_light</color>
+    <color name="nexta_widget_urgent">@android:color/system_error_light</color>
+    <color name="nexta_widget_divider">@android:color/system_outline_variant_light</color>
+</resources>
