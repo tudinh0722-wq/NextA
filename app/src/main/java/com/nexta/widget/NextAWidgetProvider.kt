@@ -102,7 +102,7 @@ class NextAWidgetProvider : AppWidgetProvider() {
 
             if (event == null) {
                 views.setTextViewText(R.id.widget_status, "KHÔNG CÒN LỊCH")
-                views.setTextViewText(R.id.widget_event_title, "Bạn đã hết lịch.")
+                views.setTextViewText(R.id.widget_event_title, "Bạn đã hết lịch")
                 views.setTextViewText(R.id.widget_time, "Mở NextA để xem lịch")
             } else {
                 views.setTextViewText(
@@ -110,15 +110,10 @@ class NextAWidgetProvider : AppWidgetProvider() {
                     if (current != null) "ĐANG DIỄN RA" else "TIẾP THEO"
                 )
                 views.setTextViewText(R.id.widget_event_title, event.title)
-
-                val location = event.location
-                    .takeIf { it.isNotBlank() }
-                    ?.let { "  •  $it" }
-                    ?: ""
                 views.setTextViewText(
                     R.id.widget_time,
                     "${event.startDateTime.format(dayFormatter)}  •  " +
-                        "${event.startDateTime.format(timeFormatter)} – ${event.endDateTime.format(timeFormatter)}$location"
+                        "${event.startDateTime.format(timeFormatter)} – ${event.endDateTime.format(timeFormatter)}"
                 )
             }
 
