@@ -13,6 +13,7 @@
     <color name="nexta_widget_current_accent">#16A34A</color>
     <color name="nexta_widget_next_container">#FFFBEB</color>
     <color name="nexta_widget_next_accent">#F59E0B</color>
+    <color name="nexta_widget_urgent">#DC2626</color>
     <color name="nexta_widget_teal">#0F766E</color>
     <color name="nexta_widget_divider">#334155</color>
 </resources>
