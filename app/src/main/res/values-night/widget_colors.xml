@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="nexta_widget_container">#322F38</color>
-    <color name="nexta_widget_on_container">#E8DEF8</color>
+    <color name="nexta_widget_on_container">#F7F2FA</color>
+    <color name="nexta_widget_secondary">#CAC4D0</color>
     <color name="nexta_widget_accent">#D0BCFF</color>
 </resources>
