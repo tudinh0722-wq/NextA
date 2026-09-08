@@ -44,6 +44,17 @@ class NextAWidgetProvider : AppWidgetProvider() {
             val manager = AppWidgetManager.getInstance(context)
             val ids = widgetIds ?: manager.getAppWidgetIds(ComponentName(context, NextAWidgetProvider::class.java))
             if (ids.isEmpty()) { cancelRefresh(context); return }
+
+            // Render a valid RemoteViews immediately. Database/Hilt work must not
+            // block the first widget update or leave the launcher with an error state.
+            val loadingViews = RemoteViews(context.packageName, R.layout.nexta_widget)
+            ids.forEach { id ->
+                loadingViews.setInt(R.id.widget_root, "setBackgroundResource", backgroundForHour(LocalDateTime.now().hour))
+                bindEmptyState(loadingViews, 1)
+                bindEmptyState(loadingViews, 2)
+                manager.updateAppWidget(id, loadingViews)
+            }
+
             Thread {
                 val repository = try {
                     EntryPointAccessors.fromApplication(
@@ -76,6 +87,21 @@ class NextAWidgetProvider : AppWidgetProvider() {
             bindCard(views, 1, cards.getOrNull(0), now)
             bindCard(views, 2, cards.getOrNull(1), now)
             manager.updateAppWidget(widgetId, views)
+        }
+
+        private fun bindEmptyState(views: RemoteViews, index: Int) {
+            val status = if (index == 1) R.id.widget_status_1 else R.id.widget_status_2
+            val title = if (index == 1) R.id.widget_title_1 else R.id.widget_title_2
+            val time = if (index == 1) R.id.widget_time_1 else R.id.widget_time_2
+            val countdown = if (index == 1) R.id.widget_countdown_1 else R.id.widget_countdown_2
+            val location = if (index == 1) R.id.widget_location_1 else R.id.widget_location_2
+            val note = if (index == 1) R.id.widget_note_1 else R.id.widget_note_2
+            views.setTextViewText(status, "NEXTA")
+            views.setTextViewText(title, "Đang tải lịch…")
+            views.setTextViewText(time, "")
+            views.setTextViewText(countdown, "")
+            views.setTextViewText(location, "")
+            views.setViewVisibility(note, View.GONE)
         }
 
         private fun bindCard(views: RemoteViews, index: Int, card: Pair<Event, Boolean>?, now: LocalDateTime) {
