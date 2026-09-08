@@ -13,6 +13,7 @@ import com.nexta.ui.MainScreen
 import com.nexta.ui.MainUiState
 import com.nexta.ui.MainViewModel
 import com.nexta.widget.NextAFocusWidgetProvider
+import com.example.nexta.ui.theme.NextaTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -25,41 +26,43 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            val uiState by viewModel.uiState.collectAsState()
-            val saveMessage by viewModel.saveMessage.collectAsState()
+            NextaTheme {
+                val uiState by viewModel.uiState.collectAsState()
+                val saveMessage by viewModel.saveMessage.collectAsState()
 
-            if (showAddEvent) {
-                AddEventScreen(
-                    onBack = { showAddEvent = false },
-                    onSave = { event ->
-                        viewModel.addEvent(event)
-                        refreshWidgets()
-                        showAddEvent = false
-                    }
-                )
-            } else {
-                when (val state = uiState) {
-                    MainUiState.Loading -> MainScreen(
-                        events = emptyList(),
-                        message = "Đang tải lịch...",
-                        onAddEvent = { showAddEvent = true }
-                    )
-
-                    is MainUiState.Success -> MainScreen(
-                        events = state.events,
-                        message = saveMessage,
-                        onAddEvent = { showAddEvent = true },
-                        onDeleteEvent = { event ->
-                            viewModel.deleteEvent(event)
+                if (showAddEvent) {
+                    AddEventScreen(
+                        onBack = { showAddEvent = false },
+                        onSave = { event ->
+                            viewModel.addEvent(event)
                             refreshWidgets()
+                            showAddEvent = false
                         }
                     )
+                } else {
+                    when (val state = uiState) {
+                        MainUiState.Loading -> MainScreen(
+                            events = emptyList(),
+                            message = "Đang tải lịch...",
+                            onAddEvent = { showAddEvent = true }
+                        )
 
-                    is MainUiState.Error -> MainScreen(
-                        events = emptyList(),
-                        message = state.message,
-                        onAddEvent = { showAddEvent = true }
-                    )
+                        is MainUiState.Success -> MainScreen(
+                            events = state.events,
+                            message = saveMessage,
+                            onAddEvent = { showAddEvent = true },
+                            onDeleteEvent = { event ->
+                                viewModel.deleteEvent(event)
+                                refreshWidgets()
+                            }
+                        )
+
+                        is MainUiState.Error -> MainScreen(
+                            events = emptyList(),
+                            message = state.message,
+                            onAddEvent = { showAddEvent = true }
+                        )
+                    }
                 }
             }
         }
