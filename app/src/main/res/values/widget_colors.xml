@@ -1,24 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- One translucent surface; strong color blocks carry the status hierarchy. -->
+    <!-- One translucent surface; saturated text + status blocks create the hierarchy. -->
     <color name="nexta_widget_container">#A6FFFFFF</color>
     <color name="nexta_widget_on_container">#14213D</color>
-    <color name="nexta_widget_title">#172554</color>
-    <color name="nexta_widget_time">#243B8A</color>
-    <color name="nexta_widget_secondary">#334155</color>
-    <color name="nexta_widget_note">#0369A1</color>
+    <color name="nexta_widget_title">#EF1B23</color>
+    <color name="nexta_widget_time">#203A9A</color>
+    <color name="nexta_widget_secondary">#20242A</color>
+    <color name="nexta_widget_note">#0099D8</color>
     <color name="nexta_widget_accent">#2563EB</color>
     <color name="nexta_widget_badge">#DCFCE7</color>
     <color name="nexta_widget_badge_text">#15803D</color>
     <color name="nexta_widget_warning_container">#FEF3C7</color>
     <color name="nexta_widget_warning_text">#D97706</color>
-    <color name="nexta_widget_current_container">#DCFCE7</color>
-    <color name="nexta_widget_current_accent">#16A34A</color>
-    <color name="nexta_widget_next_container">#FFFBEB</color>
-    <color name="nexta_widget_next_accent">#F59E0B</color>
+    <color name="nexta_widget_current_container">#16B84E</color>
+    <color name="nexta_widget_current_accent">#16B84E</color>
+    <color name="nexta_widget_next_container">#FF9F1C</color>
+    <color name="nexta_widget_next_accent">#FF9F1C</color>
     <color name="nexta_widget_urgent">#DC2626</color>
     <color name="nexta_widget_status_current_text">#FFFFFF</color>
     <color name="nexta_widget_status_next_text">#FFFFFF</color>
     <color name="nexta_widget_teal">#0F766E</color>
-    <color name="nexta_widget_divider">#1E293B</color>
+    <color name="nexta_widget_divider">#263238</color>
 </resources>
