@@ -26,7 +26,7 @@ object SampleEvents {
             startDateTime = LocalDateTime.of(2026, 9, 7, 12, 30),
             endDateTime = LocalDateTime.of(2026, 9, 7, 14, 10),
             location = "308 - A9 - Cơ sở 1 - Khu A",
-            note = "",
+            note = "hoàn thành writing trước 9h",
             priority = 0
         ),
 
@@ -48,7 +48,7 @@ object SampleEvents {
             startDateTime = LocalDateTime.of(2026, 9, 9, 8, 45),
             endDateTime = LocalDateTime.of(2026, 9, 9, 10, 30),
             location = "205 - A9 - Cơ sở 1 - Khu A",
-            note = "",
+            note = "mang theo máy tính",
             priority = 0
         ),
 
@@ -59,7 +59,7 @@ object SampleEvents {
             startDateTime = LocalDateTime.of(2026, 9, 10, 12, 30),
             endDateTime = LocalDateTime.of(2026, 9, 10, 14, 10),
             location = "308 - A9 - Cơ sở 1 - Khu A",
-            note = "",
+            note = "hoàn thành writing trước 9h",
             priority = 0
         ),
 
