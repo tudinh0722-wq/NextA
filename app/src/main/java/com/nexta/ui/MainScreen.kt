@@ -24,7 +24,7 @@ import com.nexta.data.model.Event
 
 @Composable
 fun MainScreen(
-    events: kotlin.collections.List<Event>,
+    events: List<Event>,
     onAddEvent: () -> Unit = {}
 ) {
     Scaffold(
@@ -36,7 +36,6 @@ fun MainScreen(
             )
         }
     ) { innerPadding ->
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -48,7 +47,6 @@ fun MainScreen(
                 ),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-
             Text(
                 text = "Lịch của bạn",
                 style = MaterialTheme.typography.headlineSmall
@@ -59,9 +57,7 @@ fun MainScreen(
                 style = MaterialTheme.typography.bodyMedium
             )
 
-            Spacer(
-                modifier = Modifier.height(8.dp)
-            )
+            Spacer(modifier = Modifier.height(8.dp))
 
             Button(
                 onClick = onAddEvent,
@@ -70,21 +66,16 @@ fun MainScreen(
                 Text("+ Thêm sự kiện")
             }
 
-            Spacer(
-                modifier = Modifier.height(8.dp)
-            )
+            Spacer(modifier = Modifier.height(8.dp))
 
             if (events.isEmpty()) {
-
                 Text(
                     text = "Chưa có sự kiện nào.",
                     style = MaterialTheme.typography.bodyLarge
                 )
-
             } else {
-
                 events
-                    .take(5)
+                    .sortedBy { it.startDateTime }
                     .forEach { event ->
                         EventCard(event)
                     }
@@ -102,7 +93,6 @@ private fun EventCard(
             .fillMaxWidth()
             .padding(vertical = 8.dp)
     ) {
-
         Text(
             text = event.title,
             style = MaterialTheme.typography.titleMedium
