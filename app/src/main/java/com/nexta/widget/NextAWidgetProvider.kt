@@ -23,11 +23,14 @@ import java.util.Locale
 class NextAWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == ACTION_REFRESH) {
-            requestUpdate(context)
-            return
+        when (intent.action) {
+            ACTION_REFRESH,
+            Intent.ACTION_TIME_CHANGED,
+            Intent.ACTION_TIMEZONE_CHANGED,
+            Intent.ACTION_DATE_CHANGED,
+            Intent.ACTION_BOOT_COMPLETED -> requestUpdate(context)
+            else -> super.onReceive(context, intent)
         }
-        super.onReceive(context, intent)
     }
 
     override fun onUpdate(
@@ -123,11 +126,10 @@ class NextAWidgetProvider : AppWidgetProvider() {
         }
 
         private fun openAppPendingIntent(context: Context): PendingIntent {
-            val intent = Intent(context, MainActivity::class.java)
             return PendingIntent.getActivity(
                 context,
                 REQUEST_CODE,
-                intent,
+                Intent(context, MainActivity::class.java),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
         }
@@ -137,20 +139,19 @@ class NextAWidgetProvider : AppWidgetProvider() {
             val current = events
                 .filter { it.startDateTime <= now && now < it.endDateTime }
                 .minByOrNull { it.endDateTime }
-            val nextBoundary = if (current != null) {
-                current.endDateTime
-            } else {
-                events.filter { it.startDateTime > now }
+            val nextBoundary = current?.endDateTime
+                ?: events.filter { it.startDateTime > now }
                     .minByOrNull { it.startDateTime }
                     ?.startDateTime
-            }
 
             val alarmManager = context.getSystemService(AlarmManager::class.java)
             val pendingIntent = refreshPendingIntent(context)
             alarmManager.cancel(pendingIntent)
 
             if (nextBoundary != null) {
-                val delayMillis = Duration.between(now, nextBoundary).toMillis().coerceAtLeast(1_000L)
+                val delayMillis = Duration.between(now, nextBoundary)
+                    .toMillis()
+                    .coerceAtLeast(1_000L)
                 alarmManager.setAndAllowWhileIdle(
                     AlarmManager.ELAPSED_REALTIME_WAKEUP,
                     SystemClock.elapsedRealtime() + delayMillis,
