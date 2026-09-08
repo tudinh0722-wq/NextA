@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -21,10 +22,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.nexta.data.model.Event
+import com.nexta.data.model.ScheduleResult
 
 @Composable
 fun MainScreen(
     events: List<Event>,
+    scheduleResult: ScheduleResult = ScheduleResult(null, null),
     message: String? = null,
     onAddEvent: () -> Unit = {}
 ) {
@@ -42,10 +45,7 @@ fun MainScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
-                .padding(
-                    horizontal = 16.dp,
-                    vertical = 16.dp
-                ),
+                .padding(horizontal = 16.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
@@ -75,6 +75,20 @@ fun MainScreen(
                 Text("+ Thêm sự kiện")
             }
 
+            scheduleResult.current?.let { event ->
+                ScheduleHighlight(
+                    label = "ĐANG DIỄN RA",
+                    event = event
+                )
+            }
+
+            scheduleResult.next?.let { event ->
+                ScheduleHighlight(
+                    label = "TIẾP THEO",
+                    event = event
+                )
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
 
             if (events.isEmpty()) {
@@ -86,6 +100,41 @@ fun MainScreen(
                 events.forEach { event ->
                     EventCard(event)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScheduleHighlight(
+    label: String,
+    event: Event
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = event.title,
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = "${event.startDateTime} → ${event.endDateTime}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            if (event.location.isNotBlank()) {
+                Text(
+                    text = event.location,
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
     }
