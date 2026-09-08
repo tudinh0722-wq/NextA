@@ -2,6 +2,18 @@
 
 This file records recent implementation decisions that may not be obvious from source code. Keep it concise; archive older entries when it becomes large.
 
+## 2026-09-08 — Long-Range Daily Planner Navigation
+
+Updated `MainScreen` in commit `15c927f5d92d4361eb2d29da768283336e633b17`.
+
+Decisions:
+- Keep the App Screen as a day-by-day horizontal swipe experience rather than changing the pager to week-at-a-time navigation.
+- Extend the day pager to 365 days before today and 365 days after today.
+- Keep the seven-day indicator as the user's local week context; it updates to the week containing the currently viewed date.
+- Keep the week range header synchronized with the viewed date.
+- This range intentionally matches a realistic academic planning horizon of roughly six to twelve months while avoiding an effectively unbounded pager.
+- A future release can add a direct calendar/date picker for dates outside this range instead of requiring hundreds of swipes.
+
 ## 2026-09-08 — App Screen Daily Planner Refinement
 
 Updated `MainScreen` in commit `df00c4bd826388a3ea6c3a98155a2e925c4119b3`.
