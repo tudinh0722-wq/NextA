@@ -117,20 +117,24 @@ class NextAWidgetProvider : AppWidgetProvider() {
             card: Pair<Event, Boolean>?,
             now: LocalDateTime
         ) {
-            val status = if (index == 1) R.id.widget_status_1 else R.id.widget_status_2
             val title = if (index == 1) R.id.widget_title_1 else R.id.widget_title_2
-            val time = if (index == 1) R.id.widget_time_1 else R.id.widget_time_2
+            val startTime = if (index == 1) R.id.widget_start_time_1 else R.id.widget_start_time_2
+            val endTime = if (index == 1) R.id.widget_end_time_1 else R.id.widget_end_time_2
             val countdown = if (index == 1) R.id.widget_countdown_1 else R.id.widget_countdown_2
             val location = if (index == 1) R.id.widget_location_1 else R.id.widget_location_2
             val note = if (index == 1) R.id.widget_note_1 else R.id.widget_note_2
+            val progress = if (index == 1) R.id.widget_progress_1 else R.id.widget_progress_2
+            val progressDot = if (index == 1) R.id.widget_progress_dot_1 else R.id.widget_progress_dot_2
 
             if (card == null) {
-                views.setTextViewText(status, "KHÔNG CÓ LỊCH")
                 views.setTextViewText(title, "Trống")
-                views.setTextViewText(time, "")
+                views.setTextViewText(startTime, "")
+                views.setTextViewText(endTime, "")
                 views.setTextViewText(countdown, "—")
                 views.setTextViewText(location, "")
                 views.setViewVisibility(note, View.GONE)
+                views.setProgressBar(progress, 100, 0, false)
+                views.setViewVisibility(progressDot, View.GONE)
                 return
             }
 
@@ -139,12 +143,23 @@ class NextAWidgetProvider : AppWidgetProvider() {
             val target = if (current) event.endDateTime else event.startDateTime
             val minutes = Duration.between(now, target).toMinutes().coerceAtLeast(0)
 
-            views.setTextViewText(status, if (current) "ĐANG DIỄN RA" else "TIẾP THEO")
+            val totalMinutes = Duration.between(event.startDateTime, event.endDateTime)
+                .toMinutes()
+                .coerceAtLeast(1)
+            val elapsedMinutes = Duration.between(event.startDateTime, now)
+                .toMinutes()
+                .coerceIn(0, totalMinutes)
+            val progressPercent = if (current) {
+                ((elapsedMinutes * 100) / totalMinutes).toInt().coerceIn(0, 100)
+            } else {
+                0
+            }
+
             views.setTextViewText(title, event.title)
-            views.setTextViewText(
-                time,
-                "${event.startDateTime.format(timeFormatter)} – ${event.endDateTime.format(timeFormatter)}"
-            )
+            views.setTextViewText(startTime, event.startDateTime.format(timeFormatter))
+            views.setTextViewText(endTime, event.endDateTime.format(timeFormatter))
+            views.setProgressBar(progress, 100, progressPercent, false)
+            views.setViewVisibility(progressDot, View.VISIBLE)
             views.setTextViewText(
                 countdown,
                 if (current) "Kết thúc sau ${formatDuration(minutes)}"
