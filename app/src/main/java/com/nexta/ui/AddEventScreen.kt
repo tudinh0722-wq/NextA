@@ -38,6 +38,10 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.util.UUID
 
+private const val MAX_TITLE_LENGTH = 32
+private const val MAX_LOCATION_LENGTH = 50
+private const val MAX_NOTE_LENGTH = 200
+
 @Composable
 fun AddEventScreen(
     onBack: () -> Unit,
@@ -125,7 +129,7 @@ fun AddEventScreen(
             OutlinedTextField(
                 value = title,
                 onValueChange = {
-                    title = it
+                    title = it.take(MAX_TITLE_LENGTH)
                     errorMessage = null
                 },
                 label = { Text("Tên sự kiện") },
@@ -178,7 +182,7 @@ fun AddEventScreen(
 
             OutlinedTextField(
                 value = location,
-                onValueChange = { location = it },
+                onValueChange = { location = it.take(MAX_LOCATION_LENGTH) },
                 label = { Text("Địa điểm") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
@@ -186,7 +190,7 @@ fun AddEventScreen(
 
             OutlinedTextField(
                 value = note,
-                onValueChange = { note = it },
+                onValueChange = { note = it.take(MAX_NOTE_LENGTH) },
                 label = { Text("Ghi chú") },
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 3
