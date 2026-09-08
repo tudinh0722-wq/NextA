@@ -1,12 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Material You-inspired fallback palette. -->
-    <color name="nexta_widget_container">#F7F2FA</color>
-    <color name="nexta_widget_on_container">#1D192B</color>
-    <color name="nexta_widget_secondary">#625B71</color>
-    <color name="nexta_widget_accent">#6750A4</color>
-    <color name="nexta_widget_badge">#E8DEF8</color>
-    <color name="nexta_widget_badge_text">#4A4458</color>
-    <color name="nexta_widget_warning_container">#FFDAD6</color>
-    <color name="nexta_widget_warning_text">#410002</color>
+    <!-- NextA wheel-based palette: blue primary, complementary orange, teal support. -->
+    <color name="nexta_widget_container">#FFF9F0</color>
+    <color name="nexta_widget_on_container">#172033</color>
+    <color name="nexta_widget_secondary">#526174</color>
+    <color name="nexta_widget_accent">#2563EB</color>
+    <color name="nexta_widget_badge">#DBEAFE</color>
+    <color name="nexta_widget_badge_text">#1D4ED8</color>
+    <color name="nexta_widget_warning_container">#FFEDD5</color>
+    <color name="nexta_widget_warning_text">#C2410C</color>
+    <color name="nexta_widget_current_container">#E8F1FF</color>
+    <color name="nexta_widget_current_accent">#2563EB</color>
+    <color name="nexta_widget_next_container">#FFF0D6</color>
+    <color name="nexta_widget_next_accent">#EA580C</color>
+    <color name="nexta_widget_teal">#0F766E</color>
+    <color name="nexta_widget_divider">#CBD5E1</color>
 </resources>
