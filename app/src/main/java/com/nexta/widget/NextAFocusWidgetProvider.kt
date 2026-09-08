@@ -1,11 +1,13 @@
 package com.nexta.widget
 
+import android.app.AlarmManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
 import android.widget.RemoteViews
 import com.nexta.MainActivity
 import com.nexta.R
@@ -21,6 +23,7 @@ class NextAFocusWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
+            ACTION_REFRESH,
             Intent.ACTION_TIME_CHANGED,
             Intent.ACTION_TIMEZONE_CHANGED,
             Intent.ACTION_DATE_CHANGED,
@@ -40,6 +43,11 @@ class NextAFocusWidgetProvider : AppWidgetProvider() {
         refreshWidgets(context)
     }
 
+    override fun onDisabled(context: Context) {
+        cancelRefresh(context)
+        super.onDisabled(context)
+    }
+
     companion object {
         const val ACTION_REFRESH = "com.nexta.widget.ACTION_FOCUS_REFRESH"
         private const val REQUEST_CODE = 7422
@@ -52,7 +60,10 @@ class NextAFocusWidgetProvider : AppWidgetProvider() {
             val ids = widgetIds ?: manager.getAppWidgetIds(
                 ComponentName(context, NextAFocusWidgetProvider::class.java)
             )
-            if (ids.isEmpty()) return
+            if (ids.isEmpty()) {
+                cancelRefresh(context)
+                return
+            }
 
             Thread {
                 val repository = try {
@@ -78,6 +89,7 @@ class NextAFocusWidgetProvider : AppWidgetProvider() {
                     .minByOrNull { it.startDateTime }
 
                 ids.forEach { id -> updateWidget(context, manager, id, current, next, now) }
+                scheduleNextRefresh(context, current, next, now)
             }.start()
         }
 
@@ -127,6 +139,46 @@ class NextAFocusWidgetProvider : AppWidgetProvider() {
 
             manager.updateAppWidget(widgetId, views)
         }
+
+        private fun scheduleNextRefresh(
+            context: Context,
+            current: Event?,
+            next: Event?,
+            now: LocalDateTime
+        ) {
+            val boundary = current?.endDateTime ?: next?.startDateTime
+            val minuteTick = now.plusMinutes(1).withSecond(0).withNano(0)
+            val target = when {
+                boundary == null -> null
+                boundary.isBefore(minuteTick) -> boundary
+                else -> minuteTick
+            }
+
+            val alarmManager = context.getSystemService(AlarmManager::class.java)
+            val pendingIntent = refreshPendingIntent(context)
+            alarmManager.cancel(pendingIntent)
+
+            if (target != null) {
+                val delay = Duration.between(now, target).toMillis().coerceAtLeast(1_000L)
+                alarmManager.setAndAllowWhileIdle(
+                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                    SystemClock.elapsedRealtime() + delay,
+                    pendingIntent
+                )
+            }
+        }
+
+        private fun cancelRefresh(context: Context) {
+            context.getSystemService(AlarmManager::class.java)
+                .cancel(refreshPendingIntent(context))
+        }
+
+        private fun refreshPendingIntent(context: Context): PendingIntent = PendingIntent.getBroadcast(
+            context,
+            REQUEST_CODE,
+            Intent(context, NextAFocusWidgetProvider::class.java).apply { action = ACTION_REFRESH },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
         private fun formatCountdown(minutes: Long): String {
             if (minutes < 1) return "NOW"
