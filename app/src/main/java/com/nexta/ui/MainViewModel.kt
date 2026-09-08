@@ -26,7 +26,7 @@ class MainViewModel @Inject constructor(
 
     val uiState: StateFlow<MainUiState> = repository
         .getAllEvents()
-        .map { events ->
+        .map<MainUiState> { events ->
             MainUiState.Success(events.sortedBy { it.startDateTime })
         }
         .catch { throwable ->
