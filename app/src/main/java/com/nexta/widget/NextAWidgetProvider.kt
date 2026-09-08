@@ -55,7 +55,6 @@ class NextAWidgetProvider : AppWidgetProvider() {
         const val ACTION_REFRESH = "com.nexta.widget.ACTION_REFRESH"
         private const val REQUEST_CODE = 7421
         private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-        private val dayFormatter = DateTimeFormatter.ofPattern("EEE · dd/MM", Locale("vi", "VN"))
 
         fun requestUpdate(context: Context) {
             refreshWidgets(context)
@@ -134,12 +133,33 @@ class NextAWidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(R.id.widget_event_title, event.title)
                 views.setTextViewText(
                     R.id.widget_time,
-                    "${event.startDateTime.format(dayFormatter)}  ·  " +
-                        "${event.startDateTime.format(timeFormatter)} – ${event.endDateTime.format(timeFormatter)}"
+                    formatEventTime(event)
                 )
             }
 
             manager.updateAppWidget(widgetId, views)
+        }
+
+        private fun formatEventTime(event: Event): String {
+            val day = event.startDateTime.dayOfWeek.getDisplayName(
+                java.time.format.TextStyle.SHORT,
+                Locale("vi", "VN")
+            ).removePrefix("Thứ ")
+
+            val weekday = when (day) {
+                "Hai" -> "T.2"
+                "Ba" -> "T.3"
+                "Tư" -> "T.4"
+                "Năm" -> "T.5"
+                "Sáu" -> "T.6"
+                "Bảy" -> "T.7"
+                "CN" -> "CN"
+                else -> day
+            }
+
+            return "$weekday · ${event.startDateTime.dayOfMonth.toString().padStart(2, '0')}/" +
+                "${event.startDateTime.monthValue.toString().padStart(2, '0')} · " +
+                "${event.startDateTime.format(timeFormatter)} – ${event.endDateTime.format(timeFormatter)}"
         }
 
         private fun formatCountdown(minutes: Long): String {
