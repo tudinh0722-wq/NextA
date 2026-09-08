@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexta.data.model.Event
 import com.nexta.data.repository.EventRepository
+import com.nexta.data.sample.SampleDataSeeder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,6 +41,17 @@ class MainViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = MainUiState.Loading
         )
+
+    init {
+        viewModelScope.launch {
+            try {
+                SampleDataSeeder.seedIfEmpty(repository)
+            } catch (throwable: Throwable) {
+                _saveMessage.value =
+                    "Không thể tải dữ liệu mẫu: ${throwable.message ?: "lỗi không xác định"}"
+            }
+        }
+    }
 
     fun addEvent(event: Event) {
         viewModelScope.launch {
