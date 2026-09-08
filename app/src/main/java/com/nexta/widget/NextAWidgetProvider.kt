@@ -55,7 +55,7 @@ class NextAWidgetProvider : AppWidgetProvider() {
         const val ACTION_REFRESH = "com.nexta.widget.ACTION_REFRESH"
         private const val REQUEST_CODE = 7421
         private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-        private val dayFormatter = DateTimeFormatter.ofPattern("EEEE, dd/MM", Locale("vi", "VN"))
+        private val dayFormatter = DateTimeFormatter.ofPattern("EEE · dd/MM", Locale("vi", "VN"))
 
         fun requestUpdate(context: Context) {
             refreshWidgets(context)
@@ -110,27 +110,47 @@ class NextAWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.widget_root, openAppPendingIntent(context))
 
             if (event == null) {
-                views.setTextViewText(R.id.widget_status, "KHÔNG CÒN LỊCH")
-                views.setTextViewText(R.id.widget_event_title, "Bạn đã hết lịch")
-                views.setTextViewText(R.id.widget_date, "")
-                views.setTextViewText(R.id.widget_time, "Mở NextA để xem lịch")
+                views.setTextViewText(R.id.widget_status, "DONE")
+                views.setTextViewText(R.id.widget_location, "NEXTA")
+                views.setTextViewText(R.id.widget_countdown, "—")
+                views.setTextViewText(R.id.widget_event_title, "Không còn lịch")
+                views.setTextViewText(R.id.widget_time, "Mở ứng dụng để thêm sự kiện")
             } else {
+                val minutes = Duration.between(
+                    now,
+                    if (current != null) event.endDateTime else event.startDateTime
+                ).toMinutes().coerceAtLeast(0)
+                val countdown = formatCountdown(minutes)
+
                 views.setTextViewText(
                     R.id.widget_status,
-                    if (current != null) "ĐANG DIỄN RA" else "TIẾP THEO"
+                    if (current != null) "LIVE" else "NEXT"
                 )
+                views.setTextViewText(
+                    R.id.widget_location,
+                    event.location.takeIf { it.isNotBlank() } ?: "SCHEDULE"
+                )
+                views.setTextViewText(R.id.widget_countdown, countdown)
                 views.setTextViewText(R.id.widget_event_title, event.title)
                 views.setTextViewText(
-                    R.id.widget_date,
-                    event.startDateTime.format(dayFormatter)
-                )
-                views.setTextViewText(
                     R.id.widget_time,
-                    "${event.startDateTime.format(timeFormatter)} – ${event.endDateTime.format(timeFormatter)}"
+                    "${event.startDateTime.format(dayFormatter)}  ·  " +
+                        "${event.startDateTime.format(timeFormatter)} – ${event.endDateTime.format(timeFormatter)}"
                 )
             }
 
             manager.updateAppWidget(widgetId, views)
+        }
+
+        private fun formatCountdown(minutes: Long): String {
+            if (minutes < 1) return "NOW"
+            val hours = minutes / 60
+            val remainingMinutes = minutes % 60
+            return when {
+                hours > 0 && remainingMinutes > 0 -> "${hours}h ${remainingMinutes}m"
+                hours > 0 -> "${hours}h"
+                else -> "${minutes}m"
+            }
         }
 
         private fun openAppPendingIntent(context: Context): PendingIntent {
