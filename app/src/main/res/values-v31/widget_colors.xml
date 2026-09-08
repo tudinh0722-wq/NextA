@@ -7,6 +7,4 @@
     <color name="nexta_widget_accent">@android:color/system_accent1_600</color>
     <color name="nexta_widget_badge">@android:color/system_accent2_100</color>
     <color name="nexta_widget_badge_text">@android:color/system_accent2_700</color>
-    <color name="nexta_widget_warning_container">@android:color/system_error_container</color>
-    <color name="nexta_widget_warning_text">@android:color/system_on_error_container</color>
 </resources>
