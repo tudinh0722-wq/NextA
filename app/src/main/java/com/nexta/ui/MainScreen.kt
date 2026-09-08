@@ -2,6 +2,7 @@
 
 package com.nexta.ui
 
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -11,14 +12,20 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.nexta.data.model.Event
@@ -29,14 +36,15 @@ fun MainScreen(
     events: List<Event>,
     scheduleResult: ScheduleResult = ScheduleResult(null, null),
     message: String? = null,
-    onAddEvent: () -> Unit = {}
+    onAddEvent: () -> Unit = {},
+    onDeleteEvent: (Event) -> Unit = {}
 ) {
+    var eventToDelete by remember { mutableStateOf<Event?>(null) }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text("NextA")
-                }
+                title = { Text("NextA") }
             )
         }
     ) { innerPadding ->
@@ -76,17 +84,11 @@ fun MainScreen(
             }
 
             scheduleResult.current?.let { event ->
-                ScheduleHighlight(
-                    label = "ĐANG DIỄN RA",
-                    event = event
-                )
+                ScheduleHighlight("ĐANG DIỄN RA", event)
             }
 
             scheduleResult.next?.let { event ->
-                ScheduleHighlight(
-                    label = "TIẾP THEO",
-                    event = event
-                )
+                ScheduleHighlight("TIẾP THEO", event)
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -98,10 +100,36 @@ fun MainScreen(
                 )
             } else {
                 events.forEach { event ->
-                    EventCard(event)
+                    EventCard(
+                        event = event,
+                        onLongClick = { eventToDelete = event }
+                    )
                 }
             }
         }
+    }
+
+    eventToDelete?.let { event ->
+        AlertDialog(
+            onDismissRequest = { eventToDelete = null },
+            title = { Text("Xóa sự kiện?") },
+            text = { Text("Bạn có chắc muốn xóa \"${event.title}\" không?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDeleteEvent(event)
+                        eventToDelete = null
+                    }
+                ) {
+                    Text("Xóa")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { eventToDelete = null }) {
+                    Text("Hủy")
+                }
+            }
+        )
     }
 }
 
@@ -110,9 +138,7 @@ private fun ScheduleHighlight(
     label: String,
     event: Event
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth()
-    ) {
+    Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -142,28 +168,36 @@ private fun ScheduleHighlight(
 
 @Composable
 private fun EventCard(
-    event: Event
+    event: Event,
+    onLongClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .combinedClickable(
+                onClick = {},
+                onLongClick = onLongClick
+            )
             .padding(vertical = 8.dp)
     ) {
         Text(
             text = event.title,
             style = MaterialTheme.typography.titleMedium
         )
-
         Text(
             text = "${event.startDateTime} → ${event.endDateTime}",
             style = MaterialTheme.typography.bodyMedium
         )
-
         if (event.location.isNotBlank()) {
             Text(
                 text = event.location,
                 style = MaterialTheme.typography.bodySmall
             )
         }
+        Text(
+            text = "Nhấn giữ để xóa",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.outline
+        )
     }
 }
