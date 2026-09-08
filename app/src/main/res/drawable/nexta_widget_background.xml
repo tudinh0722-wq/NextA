@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
     <corners android:radius="24dp" />
-    <solid android:color="@color/nexta_widget_container" />
+    <gradient
+        android:type="radial"
+        android:centerX="0.18"
+        android:centerY="0.12"
+        android:gradientRadius="420dp"
+        android:startColor="#B8FFFFFF"
+        android:centerColor="#70FFFFFF"
+        android:endColor="#20FFFFFF" />
 </shape>
