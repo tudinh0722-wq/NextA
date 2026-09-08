@@ -10,6 +10,7 @@ import android.content.Intent
 import android.os.SystemClock
 import android.view.View
 import android.widget.RemoteViews
+import com.nexta.MainActivity
 import com.nexta.R
 import com.nexta.data.model.Event
 import dagger.hilt.android.EntryPointAccessors
@@ -108,6 +109,18 @@ class NextAWidgetProvider : AppWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.nexta_widget)
             bindCard(views, 1, cards.getOrNull(0), now)
             bindCard(views, 2, cards.getOrNull(1), now)
+
+            val launchIntent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val launchPendingIntent = PendingIntent.getActivity(
+                context,
+                REQUEST_CODE + widgetId,
+                launchIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.nexta_widget_root, launchPendingIntent)
+
             manager.updateAppWidget(widgetId, views)
         }
 
