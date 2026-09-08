@@ -27,7 +27,6 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val uiState by viewModel.uiState.collectAsState()
-            val scheduleResult by viewModel.scheduleResult.collectAsState()
             val saveMessage by viewModel.saveMessage.collectAsState()
 
             if (showAddEvent) {
@@ -49,7 +48,6 @@ class MainActivity : ComponentActivity() {
 
                     is MainUiState.Success -> MainScreen(
                         events = state.events,
-                        scheduleResult = scheduleResult,
                         message = saveMessage,
                         onAddEvent = { showAddEvent = true },
                         onDeleteEvent = { event ->
