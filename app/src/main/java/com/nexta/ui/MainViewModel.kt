@@ -2,6 +2,7 @@ package com.nexta.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nexta.data.model.AlarmSettings
 import com.nexta.data.model.Event
 import com.nexta.data.repository.EventRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,10 +20,10 @@ class MainViewModel @Inject constructor(private val repository: EventRepository)
         .catch { emit(MainUiState.Error(it.message ?: "Không thể tải danh sách sự kiện.")) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainUiState.Loading)
 
-    fun saveEvent(event: Event, onSaved: () -> Unit = {}) {
+    fun saveEvent(event: Event, alarm: AlarmSettings, onSaved: () -> Unit = {}) {
         viewModelScope.launch {
             try {
-                repository.saveEvent(event)
+                repository.saveEvent(event, alarm)
                 _saveMessage.value = "Đã lưu sự kiện."
                 onSaved()
             } catch (t: Throwable) {
@@ -31,12 +32,10 @@ class MainViewModel @Inject constructor(private val repository: EventRepository)
         }
     }
 
-    fun addEvent(event: Event) = saveEvent(event)
-
-    fun importEvents(events: List<Event>, onSaved: () -> Unit = {}) {
+    fun importEvents(events: List<Event>, alarms: List<AlarmSettings>, onSaved: () -> Unit = {}) {
         viewModelScope.launch {
             try {
-                repository.saveEvents(events)
+                repository.saveEvents(events, alarms)
                 _saveMessage.value = "Đã thêm ${events.size} sự kiện."
                 onSaved()
             } catch (t: Throwable) {
