@@ -24,6 +24,8 @@ import com.nexta.data.repository.EventRepository
 import dagger.hilt.android.AndroidEntryPoint
 import java.time.Duration
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -47,6 +49,7 @@ class AlarmReceiver : BroadcastReceiver() {
     private fun handleTestCleanup(context: Context, intent: Intent) {
         if (!BuildConfig.DEBUG) return
         val eventId = intent.getStringExtra(AlarmScheduler.EXTRA_EVENT_ID) ?: return
+        AlarmPlaybackController.stop(eventId)
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -88,13 +91,23 @@ class AlarmReceiver : BroadcastReceiver() {
         }
 
         createChannel(context)
-        val openIntent = PendingIntent.getActivity(context, eventId.hashCode(), Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val acknowledgeIntent = PendingIntent.getBroadcast(context, eventId.hashCode() + 100_000, Intent(context, AlarmActionReceiver::class.java).apply {
-            action = AlarmActionReceiver.ACTION_ACKNOWLEDGE
-            putExtra(AlarmScheduler.EXTRA_EVENT_ID, eventId)
-        }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val openIntent = PendingIntent.getActivity(
+            context,
+            eventId.hashCode(),
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val acknowledgeIntent = PendingIntent.getBroadcast(
+            context,
+            eventId.hashCode() + 100_000,
+            Intent(context, AlarmActionReceiver::class.java).apply {
+                action = AlarmActionReceiver.ACTION_ACKNOWLEDGE
+                putExtra(AlarmScheduler.EXTRA_EVENT_ID, eventId)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
@@ -113,9 +126,8 @@ class AlarmReceiver : BroadcastReceiver() {
             NotificationManagerCompat.from(context).notify(eventId.hashCode(), notification)
         }
 
-        // Attention sequence: TTS -> full default alarm tone -> TTS.
-        // Audio focus temporarily interrupts/ducks other media so both speech parts are audible.
-        playAttentionSequence(context, firstSpeech, finalSpeech)
+        // TTS -> full default alarm tone -> TTS. The whole sequence is cancellable by ACK.
+        AlarmPlaybackController.start(context, eventId, firstSpeech, finalSpeech)
 
         if (!atStart && settings.repeatEnabled && repeatIndex < settings.maxRepeats) {
             val nextAt = minOf(settings.startMillis, now + settings.repeatIntervalMinutes * 60_000L)
@@ -123,144 +135,6 @@ class AlarmReceiver : BroadcastReceiver() {
                 AlarmScheduler(context).scheduleRepeat(eventId, nextAt, repeatIndex + 1)
             }
         }
-    }
-
-    private fun playAttentionSequence(context: Context, firstSpeech: String, finalSpeech: String) {
-        val pending = goAsync()
-        val audioManager = context.getSystemService(AudioManager::class.java)
-        val focusRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
-                .setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                        .build()
-                )
-                .setAcceptsDelayedFocusGain(false)
-                .build()
-        } else null
-
-        val focusGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            audioManager.requestAudioFocus(focusRequest!!) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-        } else {
-            @Suppress("DEPRECATION")
-            audioManager.requestAudioFocus(
-                null,
-                AudioManager.STREAM_ALARM,
-                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE
-            ) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-        }
-
-        fun releaseFocus() {
-            if (!focusGranted) return
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                audioManager.abandonAudioFocusRequest(focusRequest!!)
-            } else {
-                @Suppress("DEPRECATION")
-                audioManager.abandonAudioFocus(null)
-            }
-        }
-
-        speak(context, firstSpeech, object : SequenceCallback {
-            override fun onDone() {
-                playDefaultAlarm(context, {
-                    speak(context, finalSpeech, object : SequenceCallback {
-                        override fun onDone() {
-                            releaseFocus()
-                            pending.finish()
-                        }
-                    })
-                }, {
-                    speak(context, finalSpeech, object : SequenceCallback {
-                        override fun onDone() {
-                            releaseFocus()
-                            pending.finish()
-                        }
-                    })
-                })
-            }
-        })
-    }
-
-    private fun playDefaultAlarm(context: Context, onComplete: () -> Unit, onError: () -> Unit) {
-        val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-        if (alarmUri == null) {
-            onError()
-            return
-        }
-
-        try {
-            val player = MediaPlayer()
-            player.setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ALARM)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build()
-            )
-            player.setDataSource(context, alarmUri)
-            var completed = false
-            fun finish(success: Boolean) {
-                if (completed) return
-                completed = true
-                player.release()
-                if (success) onComplete() else onError()
-            }
-            player.setOnCompletionListener { finish(true) }
-            player.setOnErrorListener { _, _, _ -> finish(false); true }
-            player.prepare()
-            player.start()
-            // Do not cap the user's default alarm tone. Let it play to its natural end,
-            // then start the second TTS so the speech is never buried under the tone.
-        } catch (_: Exception) {
-            onError()
-        }
-    }
-
-    private fun speak(context: Context, text: String, callback: SequenceCallback) {
-        var tts: TextToSpeech? = null
-        tts = TextToSpeech(context.applicationContext) { status ->
-            if (status != TextToSpeech.SUCCESS) {
-                callback.onDone()
-                return@TextToSpeech
-            }
-
-            val engine = tts ?: run {
-                callback.onDone()
-                return@TextToSpeech
-            }
-            val languageStatus = engine.setLanguage(Locale("vi", "VN"))
-            if (languageStatus == TextToSpeech.LANG_MISSING_DATA || languageStatus == TextToSpeech.LANG_NOT_SUPPORTED) {
-                engine.shutdown()
-                callback.onDone()
-                return@TextToSpeech
-            }
-
-            engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                override fun onStart(utteranceId: String?) = Unit
-                override fun onError(utteranceId: String?) {
-                    engine.shutdown()
-                    callback.onDone()
-                }
-                override fun onDone(utteranceId: String?) {
-                    engine.shutdown()
-                    callback.onDone()
-                }
-            })
-
-            val params = Bundle().apply {
-                putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_ALARM)
-                putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f)
-            }
-            val result = engine.speak(text, TextToSpeech.QUEUE_FLUSH, params, "nexta-alarm-tts-${System.nanoTime()}")
-            if (result == TextToSpeech.ERROR) {
-                engine.shutdown()
-                callback.onDone()
-            }
-        }
-    }
-
-    private interface SequenceCallback {
-        fun onDone()
     }
 
     private fun formatRemaining(millis: Long): String {
@@ -276,7 +150,11 @@ class AlarmReceiver : BroadcastReceiver() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java)
         if (manager.getNotificationChannel(CHANNEL_ID) == null) {
-            val channel = NotificationChannel(CHANNEL_ID, "Nhắc sự kiện", NotificationManager.IMPORTANCE_HIGH).apply {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Nhắc sự kiện",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
                 description = "Thông báo cho báo thức và TTS NextA"
                 setSound(null, null)
             }
@@ -287,14 +165,223 @@ class AlarmReceiver : BroadcastReceiver() {
     companion object { const val CHANNEL_ID = "nexta_event_alarm_v5" }
 }
 
+/**
+ * Keeps the currently playing TTS/media objects addressable by eventId so the
+ * notification ACK can interrupt the sequence immediately instead of waiting
+ * for the alarm tone to finish.
+ */
+private object AlarmPlaybackController {
+    private val sessions = ConcurrentHashMap<String, PlaybackSession>()
+
+    fun start(context: Context, eventId: String, firstSpeech: String, finalSpeech: String) {
+        stop(eventId)
+        val session = PlaybackSession(context.applicationContext, eventId, firstSpeech, finalSpeech)
+        sessions[eventId] = session
+        session.start {
+            sessions.remove(eventId, session)
+        }
+    }
+
+    fun stop(eventId: String) {
+        sessions.remove(eventId)?.stop()
+    }
+
+    private class PlaybackSession(
+        private val context: Context,
+        private val eventId: String,
+        private val firstSpeech: String,
+        private val finalSpeech: String
+    ) {
+        private val stopped = AtomicBoolean(false)
+        private var tts: TextToSpeech? = null
+        private var player: MediaPlayer? = null
+        private var audioManager: AudioManager? = null
+        private var focusRequest: AudioFocusRequest? = null
+        private var focusGranted = false
+        private var onFinished: (() -> Unit)? = null
+
+        fun start(onFinished: () -> Unit) {
+            this.onFinished = onFinished
+            requestFocus()
+            speak(firstSpeech) {
+                if (stopped.get()) return@speak
+                playDefaultAlarm {
+                    if (stopped.get()) return@playDefaultAlarm
+                    speak(finalSpeech) {
+                        finish()
+                    }
+                }
+            }
+        }
+
+        fun stop() {
+            if (!stopped.compareAndSet(false, true)) return
+            try { tts?.stop() } catch (_: Exception) {}
+            try { tts?.shutdown() } catch (_: Exception) {}
+            tts = null
+            try { player?.stop() } catch (_: Exception) {}
+            try { player?.release() } catch (_: Exception) {}
+            player = null
+            releaseFocus()
+            onFinished?.invoke()
+            onFinished = null
+        }
+
+        private fun finish() {
+            if (!stopped.compareAndSet(false, true)) return
+            try { tts?.shutdown() } catch (_: Exception) {}
+            tts = null
+            try { player?.release() } catch (_: Exception) {}
+            player = null
+            releaseFocus()
+            onFinished?.invoke()
+            onFinished = null
+        }
+
+        private fun requestFocus() {
+            val manager = context.getSystemService(AudioManager::class.java) ?: return
+            audioManager = manager
+            focusGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
+                    .setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_ALARM)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                            .build()
+                    )
+                    .setAcceptsDelayedFocusGain(false)
+                    .build()
+                focusRequest = request
+                manager.requestAudioFocus(request) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+            } else {
+                @Suppress("DEPRECATION")
+                manager.requestAudioFocus(
+                    null,
+                    AudioManager.STREAM_ALARM,
+                    AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE
+                ) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+            }
+        }
+
+        private fun releaseFocus() {
+            if (!focusGranted) return
+            val manager = audioManager ?: return
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                focusRequest?.let { manager.abandonAudioFocusRequest(it) }
+            } else {
+                @Suppress("DEPRECATION")
+                manager.abandonAudioFocus(null)
+            }
+            focusGranted = false
+        }
+
+        private fun speak(text: String, onDone: () -> Unit) {
+            if (stopped.get()) return
+            val engine = TextToSpeech(context) { status ->
+                if (stopped.get()) {
+                    try { engine.shutdown() } catch (_: Exception) {}
+                    return@TextToSpeech
+                }
+                if (status != TextToSpeech.SUCCESS) {
+                    onDone()
+                    return@TextToSpeech
+                }
+                tts = engine
+                val languageStatus = engine.setLanguage(Locale("vi", "VN"))
+                if (languageStatus == TextToSpeech.LANG_MISSING_DATA || languageStatus == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    engine.shutdown()
+                    tts = null
+                    onDone()
+                    return@TextToSpeech
+                }
+                engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) = Unit
+                    override fun onError(utteranceId: String?) {
+                        if (tts === engine) tts = null
+                        try { engine.shutdown() } catch (_: Exception) {}
+                        if (!stopped.get()) onDone()
+                    }
+                    override fun onDone(utteranceId: String?) {
+                        if (tts === engine) tts = null
+                        try { engine.shutdown() } catch (_: Exception) {}
+                        if (!stopped.get()) onDone()
+                    }
+                })
+                val params = Bundle().apply {
+                    putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_ALARM)
+                    putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f)
+                }
+                val result = engine.speak(
+                    text,
+                    TextToSpeech.QUEUE_FLUSH,
+                    params,
+                    "nexta-alarm-$eventId-${System.nanoTime()}"
+                )
+                if (result == TextToSpeech.ERROR) {
+                    if (tts === engine) tts = null
+                    engine.shutdown()
+                    if (!stopped.get()) onDone()
+                }
+            }
+            tts = engine
+        }
+
+        private fun playDefaultAlarm(onComplete: () -> Unit) {
+            if (stopped.get()) return
+            val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+            if (alarmUri == null) {
+                onComplete()
+                return
+            }
+            try {
+                val mediaPlayer = MediaPlayer()
+                player = mediaPlayer
+                mediaPlayer.setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                )
+                mediaPlayer.setDataSource(context, alarmUri)
+                mediaPlayer.setOnCompletionListener {
+                    if (player === mediaPlayer) player = null
+                    try { mediaPlayer.release() } catch (_: Exception) {}
+                    if (!stopped.get()) onComplete()
+                }
+                mediaPlayer.setOnErrorListener { _, _, _ ->
+                    if (player === mediaPlayer) player = null
+                    try { mediaPlayer.release() } catch (_: Exception) {}
+                    if (!stopped.get()) onComplete()
+                    true
+                }
+                mediaPlayer.prepare()
+                if (!stopped.get()) {
+                    mediaPlayer.start()
+                } else {
+                    try { mediaPlayer.release() } catch (_: Exception) {}
+                    player = null
+                }
+            } catch (_: Exception) {
+                player = null
+                if (!stopped.get()) onComplete()
+            }
+        }
+    }
+}
+
 class AlarmActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == ACTION_ACKNOWLEDGE) {
             val eventId = intent.getStringExtra(AlarmScheduler.EXTRA_EVENT_ID) ?: return
+
+            // Stop the currently running TTS/alarm tone first. This is immediate
+            // even when the default alarm sound is in the middle of playback.
+            AlarmPlaybackController.stop(eventId)
             AlarmScheduler(context).acknowledge(eventId)
             NotificationManagerCompat.from(context).cancel(eventId.hashCode())
         }
     }
+
     companion object { const val ACTION_ACKNOWLEDGE = "com.nexta.action.ALARM_ACKNOWLEDGE" }
 }
 
