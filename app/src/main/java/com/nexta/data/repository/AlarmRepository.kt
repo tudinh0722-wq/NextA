@@ -2,13 +2,18 @@ package com.nexta.data.repository
 
 import com.nexta.data.local.AlarmDao
 import com.nexta.data.local.EventAlarmEntity
+import com.nexta.data.local.EventDao
 import com.nexta.data.model.AlarmSettings
+import com.nexta.data.model.Event
+import com.nexta.data.model.EventType
+import java.time.LocalDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class AlarmRepository @Inject constructor(
-    private val alarmDao: AlarmDao
+    private val alarmDao: AlarmDao,
+    private val eventDao: EventDao
 ) {
     suspend fun getAlarm(eventId: String): AlarmSettings? =
         alarmDao.getByEventId(eventId)?.toDomain()
@@ -21,12 +26,16 @@ class AlarmRepository @Inject constructor(
         alarmDao.acknowledge(eventId)
     }
 
-    suspend fun getPendingAlarms(): List<AlarmRecord> =
-        alarmDao.getPending().map { AlarmRecord(it.eventId, it.toDomain()) }
+    suspend fun getPendingAlarms(): List<AlarmRecord> = buildList {
+        alarmDao.getPending().forEach { entity ->
+            val event = eventDao.getById(entity.eventId)?.toDomain() ?: return@forEach
+            add(AlarmRecord(event, entity.toDomain()))
+        }
+    }
 }
 
 data class AlarmRecord(
-    val eventId: String,
+    val event: Event,
     val settings: AlarmSettings
 )
 
@@ -47,4 +56,15 @@ private fun AlarmSettings.toEntity(eventId: String) = EventAlarmEntity(
     repeatIntervalMinutes = repeatIntervalMinutes,
     maxRepeats = maxRepeats,
     acknowledged = acknowledged
+)
+
+private fun com.nexta.data.local.EventEntity.toDomain() = Event(
+    id,
+    title,
+    EventType.valueOf(type),
+    LocalDateTime.parse(startDateTime),
+    LocalDateTime.parse(endDateTime),
+    location,
+    note,
+    priority
 )
