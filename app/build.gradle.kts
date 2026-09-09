@@ -32,7 +32,12 @@ android {
     }
 
     buildFeatures {
+        buildConfig = true
         compose = true
+    }
+
+    defaultConfig {
+        buildConfigField("String", "BUILD_ID", "\"${System.currentTimeMillis()}\"")
     }
 }
 
