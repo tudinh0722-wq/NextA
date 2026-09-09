@@ -13,7 +13,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.runtime.*
 import androidx.core.app.ActivityCompat
-import com.example.nexta.ui.theme.NextaTheme
+import com.nexta.ui.theme.NextaTheme
 import com.nexta.alarm.AlarmScheduler
 import com.nexta.alarm.AlarmSettings
 import com.nexta.alarm.AlarmSettingsStore
@@ -90,48 +90,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-        createBuildTestAlarmIfNeeded()
-    }
-
-    /**
-     * DEBUG-only alarm smoke test. It is deliberately short so the alarm can be
-     * verified before packaging a release APK. The same fixed ID is reused;
-     * opening the debug app again recreates/reschedules it if it was deleted.
-     */
-    private fun createBuildTestAlarmIfNeeded() {
-        if (!BuildConfig.DEBUG) return
-
-        val start = LocalDateTime.now().plusMinutes(2)
-        val end = start.plusMinutes(5)
-        val event = Event(
-            id = BUILD_TEST_EVENT_ID,
-            title = "🔔 TEST ALARM",
-            type = EventType.OTHER,
-            startDateTime = start,
-            endDateTime = end,
-            location = "Debug build",
-            note = "Test báo thức · tự xóa sau khi kết thúc",
-            priority = 0
-        )
-        val settings = AlarmSettings(
-            enabled = true,
-            leadTimeMinutes = 1,
-            repeatEnabled = true,
-            repeatIntervalMinutes = 1,
-            maxRepeats = 3,
-            title = event.title,
-            startMillis = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
-            note = event.note
-        )
-
-        viewModel.saveEvent(event) {
-            alarmScheduler.schedule(event, settings)
-            alarmScheduler.scheduleTestCleanup(
-                event.id,
-                end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() + 5_000L
-            )
-            refreshWidgets()
-        }
     }
 
     private fun scheduleAlarm(event: Event, settings: AlarmSettings) {
@@ -169,6 +127,5 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val REQUEST_NOTIFICATIONS = 7001
-        private const val BUILD_TEST_EVENT_ID = "__nexta_build_test_alarm__"
     }
 }
