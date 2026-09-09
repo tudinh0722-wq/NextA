@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.nexta.alarm.AlarmSettings
 import com.nexta.data.model.Event
 import com.nexta.data.model.EventType
 import java.time.LocalDate
@@ -23,7 +24,14 @@ private const val MAX_NOTE_LENGTH = 30
 private val displayDateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
 @Composable
-fun AddEventScreen(onBack: () -> Unit, onSave: (Event) -> Unit, initialEvent: Event? = null, initialDate: LocalDate? = null, onBulkImport: () -> Unit = {}) {
+fun AddEventScreen(
+    onBack: () -> Unit,
+    onSave: (Event, AlarmSettings) -> Unit,
+    initialEvent: Event? = null,
+    initialDate: LocalDate? = null,
+    initialAlarmSettings: AlarmSettings? = null,
+    onBulkImport: () -> Unit = {}
+) {
     BackHandler(enabled = true, onBack = onBack)
     var title by remember(initialEvent?.id) { mutableStateOf(initialEvent?.title.orEmpty()) }
     var type by remember(initialEvent?.id) { mutableStateOf(initialEvent?.type ?: EventType.CLASS_OFFLINE) }
@@ -34,6 +42,11 @@ fun AddEventScreen(onBack: () -> Unit, onSave: (Event) -> Unit, initialEvent: Ev
     var location by remember(initialEvent?.id) { mutableStateOf(initialEvent?.location.orEmpty()) }
     var note by remember(initialEvent?.id) { mutableStateOf(initialEvent?.note.orEmpty()) }
     var priority by remember(initialEvent?.id) { mutableStateOf(initialEvent?.priority ?: 0) }
+    var alarmEnabled by remember(initialEvent?.id) { mutableStateOf(initialAlarmSettings?.enabled ?: true) }
+    var leadTime by remember(initialEvent?.id) { mutableIntStateOf(initialAlarmSettings?.leadTimeMinutes ?: 15) }
+    var repeatEnabled by remember(initialEvent?.id) { mutableStateOf(initialAlarmSettings?.repeatEnabled ?: true) }
+    var repeatInterval by remember(initialEvent?.id) { mutableIntStateOf(initialAlarmSettings?.repeatIntervalMinutes ?: 5) }
+    var maxRepeats by remember(initialEvent?.id) { mutableIntStateOf(initialAlarmSettings?.maxRepeats ?: 3) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
@@ -50,7 +63,9 @@ fun AddEventScreen(onBack: () -> Unit, onSave: (Event) -> Unit, initialEvent: Ev
             endDateTime = LocalDateTime.of(endDate, LocalTime.parse(endTime.trim()))
         } catch (_: Exception) { errorMessage = "Ngày hoặc giờ không hợp lệ."; return }
         if (!endDateTime.isAfter(startDateTime)) { errorMessage = "Thời điểm kết thúc phải sau thời điểm bắt đầu."; return }
-        onSave(Event(initialEvent?.id ?: UUID.randomUUID().toString(), trimmedTitle, type, startDateTime, endDateTime, location.trim(), note.trim(), priority))
+        val event = Event(initialEvent?.id ?: UUID.randomUUID().toString(), trimmedTitle, type, startDateTime, endDateTime, location.trim(), note.trim(), priority)
+        val alarm = AlarmSettings(alarmEnabled, leadTime, repeatEnabled, repeatInterval, maxRepeats, event.title, startDateTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli(), event.note)
+        onSave(event, alarm)
     }
 
     Scaffold(topBar = { TopAppBar(title = { Text(if (initialEvent == null) "Thêm sự kiện" else "Sửa sự kiện") }, navigationIcon = { TextButton(onClick = onBack) { Text("Quay lại") } }) }) { innerPadding ->
@@ -67,6 +82,21 @@ fun AddEventScreen(onBack: () -> Unit, onSave: (Event) -> Unit, initialEvent: Ev
             }
             TextField(location, { location = it.take(MAX_LOCATION_LENGTH) }, label = { Text("Địa điểm") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             TextField(note, { note = it.take(MAX_NOTE_LENGTH) }, label = { Text("Ghi chú") }, modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 2)
+            Text("Nhắc trước", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = alarmEnabled, onClick = { alarmEnabled = !alarmEnabled }, label = { Text(if (alarmEnabled) "🔔 Có báo" else "Không báo") })
+                AlarmChoice("${leadTime} phút", listOf(5, 10, 15, 30, 60), leadTime) { leadTime = it }
+            }
+            if (alarmEnabled) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = repeatEnabled, onClick = { repeatEnabled = !repeatEnabled }, label = { Text(if (repeatEnabled) "Lặp nếu chưa xác nhận" else "Không lặp") })
+                    if (repeatEnabled) {
+                        AlarmChoice("Mỗi $repeatInterval phút", listOf(5, 10, 15), repeatInterval) { repeatInterval = it }
+                        AlarmChoice("$maxRepeats lần", listOf(1, 2, 3, 4), maxRepeats) { maxRepeats = it }
+                    }
+                }
+                Text("Mặc định: báo trước 15 phút, lặp 3 lần nếu chưa xác nhận.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             Text("Mức độ ưu tiên", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { PriorityButton(0, "Bình thường", priority, Modifier.weight(1f)) { priority = 0 }; PriorityButton(1, "Quan trọng", priority, Modifier.weight(1f)) { priority = 1 }; PriorityButton(2, "Rất quan trọng", priority, Modifier.weight(1f)) { priority = 2 } }
             errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
@@ -78,6 +108,16 @@ fun AddEventScreen(onBack: () -> Unit, onSave: (Event) -> Unit, initialEvent: Ev
 
     if (showStartDatePicker) DatePickerDialogFor(startDate, { showStartDatePicker = false }) { selected -> startDate = selected; if (endDate.isBefore(selected)) endDate = selected; errorMessage = null }
     if (showEndDatePicker) DatePickerDialogFor(endDate, { showEndDatePicker = false }) { selected -> if (selected.isBefore(startDate)) errorMessage = "Ngày kết thúc không được trước ngày bắt đầu." else { endDate = selected; errorMessage = null } }
+}
+
+@Composable private fun AlarmChoice(label: String, options: List<Int>, selected: Int, onSelected: (Int) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        OutlinedButton(onClick = { expanded = true }) { Text(label) }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { option -> DropdownMenuItem(text = { Text(option.toString() + if (options.maxOrNull() ?: 0 >= 60 && option == 60) " phút" else " phút") }, onClick = { onSelected(option); expanded = false }) }
+        }
+    }
 }
 
 @Composable private fun DateField(label: String, value: LocalDate, modifier: Modifier, onClick: () -> Unit) { TextField(value = value.format(displayDateFormatter), onValueChange = {}, readOnly = true, label = { Text(label) }, modifier = modifier, singleLine = true, trailingIcon = { TextButton(onClick = onClick) { Text("Chọn") } }) }
