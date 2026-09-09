@@ -15,6 +15,7 @@ import com.nexta.ui.MainViewModel
 import com.nexta.widget.NextAFocusWidgetProvider
 import com.nexta.widget.NextAWidgetProvider
 import dagger.hilt.android.AndroidEntryPoint
+import java.time.LocalDate
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -22,6 +23,7 @@ class MainActivity : ComponentActivity() {
     private var showAddEvent by mutableStateOf(false)
     private var editingEvent by mutableStateOf<Event?>(null)
     private var showBulkImport by mutableStateOf(false)
+    private var addEventDate by mutableStateOf<LocalDate?>(null)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -29,11 +31,11 @@ class MainActivity : ComponentActivity() {
                 val uiState by viewModel.uiState.collectAsState(); val saveMessage by viewModel.saveMessage.collectAsState()
                 when {
                     showBulkImport -> BulkImportScreen(onBack = { showBulkImport = false }, onImport = { events -> viewModel.importEvents(events) { refreshWidgets(); showBulkImport = false } })
-                    showAddEvent || editingEvent != null -> AddEventScreen(onBack = { showAddEvent = false; editingEvent = null }, initialEvent = editingEvent, onBulkImport = { showAddEvent = false; showBulkImport = true }, onSave = { event -> viewModel.saveEvent(event) { refreshWidgets(); showAddEvent = false; editingEvent = null } })
+                    showAddEvent || editingEvent != null -> AddEventScreen(onBack = { showAddEvent = false; editingEvent = null; addEventDate = null }, initialEvent = editingEvent, initialDate = addEventDate, onBulkImport = { showAddEvent = false; showBulkImport = true }, onSave = { event -> viewModel.saveEvent(event) { refreshWidgets(); showAddEvent = false; editingEvent = null; addEventDate = null } })
                     else -> when (val state = uiState) {
-                        MainUiState.Loading -> MainScreen(emptyList(), "Đang tải lịch...", onAddEvent = { showAddEvent = true })
-                        is MainUiState.Success -> MainScreen(state.events, saveMessage, onAddEvent = { showAddEvent = true }, onEditEvent = { editingEvent = it }, onDeleteEvent = { viewModel.deleteEvent(it) { refreshWidgets() } })
-                        is MainUiState.Error -> MainScreen(emptyList(), state.message, onAddEvent = { showAddEvent = true })
+                        MainUiState.Loading -> MainScreen(emptyList(), "Đang tải lịch...", onAddEvent = { showAddEvent = true; addEventDate = LocalDate.now() })
+                        is MainUiState.Success -> MainScreen(state.events, saveMessage, onAddEvent = { showAddEvent = true; addEventDate = LocalDate.now() }, onEditEvent = { editingEvent = it }, onDeleteEvent = { viewModel.deleteEvent(it) { refreshWidgets() } })
+                        is MainUiState.Error -> MainScreen(emptyList(), state.message, onAddEvent = { showAddEvent = true; addEventDate = LocalDate.now() })
                     }
                 }
             }
