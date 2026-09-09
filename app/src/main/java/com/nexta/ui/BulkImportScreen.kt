@@ -45,6 +45,11 @@ fun BulkImportScreen(onBack: () -> Unit, onImport: (List<Event>) -> Unit) {
     val validEvents = rows.mapNotNull { it.event }
     val invalidCount = rows.count { it.event == null }
 
+    fun copyPrompt() {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("NextA prompt", NEXTA_PROMPT))
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -57,13 +62,10 @@ fun BulkImportScreen(onBack: () -> Unit, onImport: (List<Event>) -> Unit) {
             Modifier.fillMaxSize().padding(padding).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { showPrompt = true }, modifier = Modifier.weight(1f)) { Text("Xem mẫu") }
-                OutlinedButton(onClick = {
-                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("NextA prompt", NEXTA_PROMPT))
-                }, modifier = Modifier.weight(1f)) { Text("Copy prompt") }
-            }
+            OutlinedButton(
+                onClick = { showPrompt = true },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Xem mẫu prompt") }
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
@@ -118,7 +120,12 @@ fun BulkImportScreen(onBack: () -> Unit, onImport: (List<Event>) -> Unit) {
             onDismissRequest = { showPrompt = false },
             title = { Text("Prompt cho AI") },
             text = { Text(NEXTA_PROMPT) },
-            confirmButton = { TextButton(onClick = { showPrompt = false }) { Text("Đóng") } }
+            confirmButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { copyPrompt() }) { Text("Copy prompt") }
+                    TextButton(onClick = { showPrompt = false }) { Text("Đóng") }
+                }
+            }
         )
     }
 }
