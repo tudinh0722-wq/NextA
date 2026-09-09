@@ -5,18 +5,20 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import com.nexta.data.model.AlarmSettings
 import com.nexta.data.model.Event
+import com.nexta.data.repository.AlarmRepository
 import java.time.ZoneId
 
-class AlarmScheduler(private val context: Context) {
+class AlarmScheduler(
+    private val context: Context,
+    private val alarmRepository: AlarmRepository
+) {
     private val alarmManager = context.getSystemService(AlarmManager::class.java)
-    private val store = AlarmSettingsStore(context)
 
     fun schedule(event: Event, settings: AlarmSettings) {
         cancel(event.id)
-        store.save(event.id, settings)
         if (!settings.enabled) return
-
         val triggerAt = event.startDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() - settings.leadTimeMinutes * 60_000L
         scheduleAt(event.id, triggerAt.coerceAtLeast(System.currentTimeMillis() + 1_000L), 0)
     }
@@ -25,14 +27,20 @@ class AlarmScheduler(private val context: Context) {
         scheduleAt(eventId, triggerAt, repeatIndex)
     }
 
-    fun scheduleTestCleanup(eventId: String, triggerAt: Long) {
-        val intent = Intent(context, AlarmReceiver::class.java).apply {
-            action = ACTION_TEST_CLEANUP
-            putExtra(EXTRA_EVENT_ID, eventId)
+    suspend fun rescheduleAll() {
+        alarmRepository.getPendingAlarms().forEach { record ->
+            val triggerAt = record.event.startDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() - record.settings.leadTimeMinutes * 60_000L
+            if (triggerAt > System.currentTimeMillis()) {
+                scheduleAt(record.event.id, triggerAt, 0)
+            }
         }
+    }
+
+    private fun scheduleAt(eventId: String, triggerAt: Long, repeatIndex: Int) {
+        val intent = intentFor(eventId, repeatIndex)
         val pending = PendingIntent.getBroadcast(
             context,
-            cleanupRequestCode(eventId),
+            requestCode(eventId, repeatIndex),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -43,57 +51,17 @@ class AlarmScheduler(private val context: Context) {
         }
     }
 
-    private fun scheduleAt(eventId: String, triggerAt: Long, repeatIndex: Int) {
-        val intent = intentFor(eventId, repeatIndex)
-        val pending = PendingIntent.getBroadcast(context, requestCode(eventId, repeatIndex), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarmManager.canScheduleExactAlarms()) {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
-        } else {
-            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
-        }
-    }
-
     fun cancel(eventId: String) {
         repeat(5) { index ->
-            val pending = PendingIntent.getBroadcast(context, requestCode(eventId, index), intentFor(eventId, index), PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
+            val pending = PendingIntent.getBroadcast(
+                context,
+                requestCode(eventId, index),
+                intentFor(eventId, index),
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+            )
             if (pending != null) {
                 alarmManager.cancel(pending)
                 pending.cancel()
-            }
-        }
-        val cleanup = PendingIntent.getBroadcast(
-            context,
-            cleanupRequestCode(eventId),
-            Intent(context, AlarmReceiver::class.java).apply {
-                action = ACTION_TEST_CLEANUP
-                putExtra(EXTRA_EVENT_ID, eventId)
-            },
-            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
-        )
-        if (cleanup != null) {
-            alarmManager.cancel(cleanup)
-            cleanup.cancel()
-        }
-        store.remove(eventId)
-    }
-
-    fun acknowledge(eventId: String) {
-        repeat(5) { index ->
-            val pending = PendingIntent.getBroadcast(context, requestCode(eventId, index), intentFor(eventId, index), PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
-            if (pending != null) {
-                alarmManager.cancel(pending)
-                pending.cancel()
-            }
-        }
-        store.acknowledge(eventId)
-    }
-
-    fun rescheduleAll() {
-        store.allIds().forEach { eventId ->
-            store.get(eventId)?.let { settings ->
-                if (settings.enabled && !store.isAcknowledged(eventId) && settings.startMillis > System.currentTimeMillis()) {
-                    scheduleAt(eventId, (settings.startMillis - settings.leadTimeMinutes * 60_000L).coerceAtLeast(System.currentTimeMillis() + 1_000L), 0)
-                }
             }
         }
     }
@@ -106,11 +74,8 @@ class AlarmScheduler(private val context: Context) {
 
     private fun requestCode(eventId: String, repeatIndex: Int): Int = eventId.hashCode() * 10 + repeatIndex
 
-    private fun cleanupRequestCode(eventId: String): Int = eventId.hashCode() * 10 + 9
-
     companion object {
         const val ACTION_ALARM = "com.nexta.action.EVENT_ALARM"
-        const val ACTION_TEST_CLEANUP = "com.nexta.action.TEST_ALARM_CLEANUP"
         const val EXTRA_EVENT_ID = "event_id"
         const val EXTRA_REPEAT_INDEX = "repeat_index"
     }
