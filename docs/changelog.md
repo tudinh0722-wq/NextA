@@ -1,66 +1,49 @@
 # NextA Changelog
 
-This file records recent implementation decisions that may not be obvious from source code. Keep it concise; archive older entries when it becomes large.
+## 2026-09-09 — Standardized Phase A/B/C and Phase C bulk import
+
+Decisions:
+- Phase A is the concrete event planner: create, validate, persist, and plan events.
+- Phase B is event management and glance surfaces: long-press edit/delete plus Home Widget refinement.
+- Phase C is external-AI-assisted bulk import. NextA does not perform OCR/AI; it owns the text contract, parser, validation, preview, and persistence.
+- `NGÀY:` is the stable record boundary/key in the V1 import format.
+- Bulk import never writes before validation/preview; malformed rows are rejected instead of guessed.
+- Existing title/location/note limits remain 47/30/30 characters.
+- `Event` remains a concrete dated occurrence; recurrence is deferred until an explicit data-model redesign.
+
+## 2026-09-09 — Home Widget timeline hierarchy
+
+Decisions:
+- Removed colored status-card backgrounds from the two event slots.
+- Start/end times are the dominant timeline information and remain red.
+- Progress line and endpoint dot exist only for the currently active event.
+- Endpoint dot is intentionally small so the time labels get more horizontal room.
+- Countdown uses two lines (`Bắt đầu sau` / `Kết thúc sau` then the value) and refreshes on minute boundaries and meaningful event transitions.
+- Non-red widget text uses system semantic theme colors; the translucent/mica treatment is limited to the overall widget background.
 
 ## 2026-09-09 — Cross-Device Surface Strategy and Context Consolidation
 
-The former `NEXTA_PROJECT_CONTEXT.md` is being retired as a separate context dump. Its important architectural, technology, product, and development constraints are now maintained in the normal repository documentation so future AI agents do not need a second source of truth.
+The former `NEXTA_PROJECT_CONTEXT.md` is retired as a separate context dump. Important architectural, technology, product, and development constraints live in repository documentation.
 
-Decisions:
-- NextA core event/countdown logic must be independent from presentation surfaces, Android versions, launchers, and OEMs.
+- Core event/countdown logic is independent from presentation surfaces, Android versions, launchers, and OEMs.
 - App Screen, Home Widget, Focus/Lock Screen, and notification fallback are separate presentation surfaces.
-- Platform differences are modeled as capabilities/adapters rather than brand checks in core logic.
-- Android Lock Screen support must not be assumed from the existence of a standard Home Screen `AppWidget`.
-- A user permission can enable an exposed capability but cannot create an OS/OEM capability that does not exist.
-- Notifications are the cross-device fallback for Lock Screen visibility when a dedicated Lock Screen surface is unavailable and the product requires it.
-- Material/system semantic colors should be preferred over hard-coded device-specific colors.
-- The existing concrete `Event` model, Room repository boundary, Hilt setup, Java 17 target, Android SDK/toolchain versions, and RemoteViews constraint remain part of the architecture unless explicitly changed.
+- Platform differences are modeled as capabilities/adapters rather than brand checks.
+- Android Lock Screen support must not be assumed from the existence of a Home Screen AppWidget.
+- Material/system semantic colors are preferred over hard-coded device-specific colors.
+- The existing concrete Event model, Room repository boundary, Hilt setup, Java 17 target, Android SDK/toolchain versions, and RemoteViews constraint remain part of the architecture.
 
 ## 2026-09-08 — Countdown Horizon and Home Widget Refinement
 
-Updated `MainScreen`, `NextAWidgetProvider`, and `nexta_widget.xml`.
-
-Decisions:
 - Countdown is shown only for events within the next 14 days.
 - From 24 hours onward, countdown uses days rather than hours/minutes.
-- Main schedule continues to refresh one shared `now` value every 30 seconds instead of creating one timer per event.
-- Home Widget still presents exactly two events: current + next, or next two when there is no current event.
-- Widget hierarchy remains status -> title -> time -> countdown -> location -> note.
-- Widget avoids minute-level alarm refreshes when the next relevant event is more than 14 days away.
-
-## 2026-09-08 — Centered Week Strip and Dual-Level Swipe Navigation
-
-Decisions:
-- The schedule remains a day pager: swiping the main schedule moves exactly one day.
-- The seven-day strip is its own horizontal pager: swiping the strip moves exactly one week.
-- Week-strip navigation preserves the currently selected weekday.
-- Day and week pagers synchronize automatically.
-- The week strip is centered and intentionally minimal: no border and no large filled selected-day container.
-- The week/date header is centered and remains the entry point to the Material 3 date picker.
-- The five-year-before/after range and direct date picker remain available for long-range planning.
-
-## 2026-09-08 — App Screen Daily Planner Refinement
-
-Decisions:
-- The app opens on today.
-- The seven-day indicator is lightweight rather than a large filled selected-day control.
-- Event cards use explicit hierarchy: title strongest, start/end time prominent, countdown accent/bold, location secondary, note lowest emphasis.
-- Existing long-press deletion and circular `+` FAB are preserved.
-
-## 2026-09-08 — AI Context Bootstrap
-
-Added repository-level AI context so different coding agents can work from the same source of truth instead of relying on chat history.
-
-The repository documentation is now the source of truth: `AGENTS.md` plus the focused files under `docs/`.
+- Main schedule refreshes one shared `now` value every 30 seconds instead of creating one timer per event.
+- Home Widget presents exactly two events: current + next, or next two when there is no current event.
+- Widget avoids unnecessary long-horizon minute refreshes.
 
 ## Product Boundaries
-NextA intentionally has separate surfaces:
 1. App Screen — Weekly Planner.
 2. Home Widget — Today Schedule.
 3. Focus/Lock Screen — Now & Next with large countdown.
 4. Notification — cross-device fallback when appropriate.
 
 Do not merge their visual responsibilities.
-
-## Home Widget 4x2 Compatibility
-The Home Widget uses traditional `RemoteViews`. A more decorative nested-card layout previously caused the launcher to report that the 4x2 widget could not be added. When modifying the Home Widget, prioritize launcher inflation compatibility and incrementally add visual complexity only after installation remains reliable.
