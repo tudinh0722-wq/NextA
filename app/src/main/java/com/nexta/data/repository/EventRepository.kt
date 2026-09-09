@@ -11,51 +11,13 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class EventRepository @Inject constructor(
-    private val eventDao: EventDao
-) {
-
-    fun getAllEvents(): Flow<List<Event>> {
-        return eventDao.getAll().map { entities ->
-            entities.map { it.toDomain() }
-        }
-    }
-
-    suspend fun getEventById(id: String): Event? {
-        return eventDao.getById(id)?.toDomain()
-    }
-
-    suspend fun saveEvent(event: Event) {
-        eventDao.insert(event.toEntity())
-    }
-
-    suspend fun deleteEvent(id: String) {
-        eventDao.delete(id)
-    }
+class EventRepository @Inject constructor(private val eventDao: EventDao) {
+    fun getAllEvents(): Flow<List<Event>> = eventDao.getAll().map { entities -> entities.map { it.toDomain() } }
+    suspend fun getEventById(id: String): Event? = eventDao.getById(id)?.toDomain()
+    suspend fun saveEvent(event: Event) = eventDao.insert(event.toEntity())
+    suspend fun saveEvents(events: List<Event>) = eventDao.insertAll(events.map { it.toEntity() })
+    suspend fun deleteEvent(id: String) = eventDao.delete(id)
 }
 
-private fun EventEntity.toDomain(): Event {
-    return Event(
-        id = id,
-        title = title,
-        type = EventType.valueOf(type),
-        startDateTime = LocalDateTime.parse(startDateTime),
-        endDateTime = LocalDateTime.parse(endDateTime),
-        location = location,
-        note = note,
-        priority = priority
-    )
-}
-
-private fun Event.toEntity(): EventEntity {
-    return EventEntity(
-        id = id,
-        title = title,
-        type = type.name,
-        startDateTime = startDateTime.toString(),
-        endDateTime = endDateTime.toString(),
-        location = location,
-        note = note,
-        priority = priority
-    )
-}
+private fun EventEntity.toDomain() = Event(id, title, EventType.valueOf(type), LocalDateTime.parse(startDateTime), LocalDateTime.parse(endDateTime), location, note, priority)
+private fun Event.toEntity() = EventEntity(id, title, type.name, startDateTime.toString(), endDateTime.toString(), location, note, priority)
