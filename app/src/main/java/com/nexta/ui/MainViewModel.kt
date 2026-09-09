@@ -26,5 +26,6 @@ class MainViewModel @Inject constructor(private val repository: EventRepository)
     fun addEvent(event: Event) = saveEvent(event)
     fun importEvents(events: List<Event>, onSaved: () -> Unit = {}) { viewModelScope.launch { try { repository.saveEvents(events); _saveMessage.value = "Đã thêm ${events.size} sự kiện."; onSaved() } catch (t: Throwable) { _saveMessage.value = "Nhập sự kiện thất bại: ${t.message ?: "lỗi không xác định"}" } } }
     fun deleteEvent(event: Event, onDeleted: () -> Unit = {}) { viewModelScope.launch { try { repository.deleteEvent(event.id); _saveMessage.value = "Đã xóa sự kiện."; onDeleted() } catch (t: Throwable) { _saveMessage.value = "Xóa sự kiện thất bại: ${t.message ?: "lỗi không xác định"}" } } }
+    fun eventExists(id: String, onResult: (Boolean) -> Unit) { viewModelScope.launch { onResult(repository.getEventById(id) != null) } }
     fun clearSaveMessage() { _saveMessage.value = null }
 }
