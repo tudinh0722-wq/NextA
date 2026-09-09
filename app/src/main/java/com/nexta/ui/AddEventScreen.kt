@@ -1,6 +1,7 @@
 @file:OptIn(ExperimentalMaterial3Api::class)
 package com.nexta.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -23,6 +24,7 @@ private val displayDateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
 @Composable
 fun AddEventScreen(onBack: () -> Unit, onSave: (Event) -> Unit, initialEvent: Event? = null, initialDate: LocalDate? = null, onBulkImport: () -> Unit = {}) {
+    BackHandler(enabled = true, onBack = onBack)
     var title by remember(initialEvent?.id) { mutableStateOf(initialEvent?.title.orEmpty()) }
     var type by remember(initialEvent?.id) { mutableStateOf(initialEvent?.type ?: EventType.CLASS_OFFLINE) }
     var startDate by remember(initialEvent?.id, initialDate) { mutableStateOf(initialEvent?.startDateTime?.toLocalDate() ?: initialDate ?: LocalDate.now()) }
