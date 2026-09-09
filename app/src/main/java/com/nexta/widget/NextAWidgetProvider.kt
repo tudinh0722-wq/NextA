@@ -231,7 +231,8 @@ class NextAWidgetProvider : AppWidgetProvider() {
 
         private fun formatCountdown(minutes: Long): String = when {
             minutes >= 24 * 60 -> "Còn ${minutes / (24 * 60)} ngày"
-            minutes >= 60 -> "Còn ${minutes / 60}h ${minutes % 60}m".trimEnd()
+            minutes >= 60 && minutes % 60 == 0L -> "Còn ${minutes / 60}h"
+            minutes >= 60 -> "Còn ${minutes / 60}h ${minutes % 60}m"
             minutes > 0 -> "Còn ${minutes}m"
             else -> "Còn <1m"
         }
