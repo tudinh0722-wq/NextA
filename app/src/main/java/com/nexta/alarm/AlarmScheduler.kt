@@ -17,7 +17,7 @@ class AlarmScheduler(
     private val alarmManager = context.getSystemService(AlarmManager::class.java)
 
     fun schedule(event: Event, settings: AlarmSettings) {
-        cancel(event.id)
+        cancelSlots(event.id, settings.maxRepeats)
         if (!settings.enabled) return
         val triggerAt = event.startDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() - settings.leadTimeMinutes * 60_000L
         scheduleAt(event.id, triggerAt.coerceAtLeast(System.currentTimeMillis() + 1_000L), 0)
@@ -38,6 +38,39 @@ class AlarmScheduler(
         }
     }
 
+    /**
+     * Cancel tất cả repeat slots dựa vào maxRepeats từ Room.
+     * Slot 0 là alarm chính, slot 1..maxRepeats là các repeat.
+     */
+    suspend fun cancelFromRoom(eventId: String) {
+        val maxRepeats = alarmRepository.getAlarm(eventId)?.maxRepeats ?: MAX_REPEATS_FALLBACK
+        cancelSlots(eventId, maxRepeats)
+    }
+
+    /**
+     * Cancel đồng bộ khi đã biết maxRepeats (vd: vừa save settings).
+     * Dùng cancel(id, settings.maxRepeats) thay vì cancel(id) để tránh bỏ sót slot.
+     */
+    fun cancel(eventId: String, maxRepeats: Int = MAX_REPEATS_FALLBACK) {
+        cancelSlots(eventId, maxRepeats)
+    }
+
+    private fun cancelSlots(eventId: String, maxRepeats: Int) {
+        // slot 0 = alarm chính, slot 1..maxRepeats = repeat
+        for (index in 0..maxRepeats) {
+            val pending = PendingIntent.getBroadcast(
+                context,
+                requestCode(eventId, index),
+                intentFor(eventId, index),
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+            )
+            if (pending != null) {
+                alarmManager.cancel(pending)
+                pending.cancel()
+            }
+        }
+    }
+
     private fun scheduleAt(eventId: String, triggerAt: Long, repeatIndex: Int) {
         val intent = intentFor(eventId, repeatIndex)
         val pending = PendingIntent.getBroadcast(
@@ -53,21 +86,6 @@ class AlarmScheduler(
         }
     }
 
-    fun cancel(eventId: String) {
-        repeat(5) { index ->
-            val pending = PendingIntent.getBroadcast(
-                context,
-                requestCode(eventId, index),
-                intentFor(eventId, index),
-                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
-            )
-            if (pending != null) {
-                alarmManager.cancel(pending)
-                pending.cancel()
-            }
-        }
-    }
-
     private fun intentFor(eventId: String, repeatIndex: Int): Intent = Intent(context, AlarmReceiver::class.java).apply {
         action = ACTION_ALARM
         putExtra(EXTRA_EVENT_ID, eventId)
@@ -80,5 +98,8 @@ class AlarmScheduler(
         const val ACTION_ALARM = "com.nexta.action.EVENT_ALARM"
         const val EXTRA_EVENT_ID = "event_id"
         const val EXTRA_REPEAT_INDEX = "repeat_index"
+
+        // Fallback khi không đọc được Room — đủ lớn để cover mọi trường hợp thực tế
+        const val MAX_REPEATS_FALLBACK = 10
     }
 }
