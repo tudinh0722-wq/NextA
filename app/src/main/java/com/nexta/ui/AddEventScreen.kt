@@ -139,8 +139,7 @@ fun AddEventScreen(
         modifier = modifier.onFocusChanged { focused = it.isFocused },
         singleLine = true,
         minLines = 1,
-        maxLines = 1,
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = if (focused) 10.dp else 5.dp)
+        maxLines = 1
     )
 }
 
@@ -155,11 +154,11 @@ fun AddEventScreen(
 }
 
 @Composable private fun DateField(label: String, value: LocalDate, modifier: Modifier, onClick: () -> Unit) {
-    TextField(value = value.format(displayDateFormatter), onValueChange = {}, readOnly = true, label = { Text(label) }, modifier = modifier, singleLine = true, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 5.dp), trailingIcon = { TextButton(onClick = onClick, contentPadding = PaddingValues(horizontal = 4.dp)) { Text("Chọn", style = MaterialTheme.typography.labelSmall) } })
+    TextField(value = value.format(displayDateFormatter), onValueChange = {}, readOnly = true, label = { Text(label) }, modifier = modifier, singleLine = true, trailingIcon = { TextButton(onClick = onClick, contentPadding = PaddingValues(horizontal = 4.dp)) { Text("Chọn", style = MaterialTheme.typography.labelSmall) } })
 }
 
 @Composable private fun TimeField(label: String, value: String, modifier: Modifier, onValueChange: (String) -> Unit) {
-    TextField(value = value, onValueChange = onValueChange, label = { Text(label) }, modifier = modifier, singleLine = true, contentPadding = PaddingValues(horizontal = 9.dp, vertical = 5.dp))
+    TextField(value = value, onValueChange = onValueChange, label = { Text(label) }, modifier = modifier, singleLine = true)
 }
 
 @Composable private fun DatePickerDialogFor(value: LocalDate, onDismiss: () -> Unit, onSelected: (LocalDate) -> Unit) {
@@ -170,7 +169,7 @@ fun AddEventScreen(
 @Composable private fun EventTypeField(value: EventType, onValueChange: (EventType) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(expanded, { expanded = !expanded }) {
-        TextField(value.toDisplayName(), {}, readOnly = true, label = { Text("Loại sự kiện") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) }, modifier = Modifier.fillMaxWidth().menuAnchor(), singleLine = true, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 5.dp))
+        TextField(value.toDisplayName(), {}, readOnly = true, label = { Text("Loại sự kiện") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) }, modifier = Modifier.fillMaxWidth().menuAnchor(), singleLine = true)
         DropdownMenu(expanded, { expanded = false }) { EventType.entries.forEach { option -> DropdownMenuItem(text = { Text(option.toDisplayName()) }, onClick = { onValueChange(option); expanded = false }) } }
     }
 }
