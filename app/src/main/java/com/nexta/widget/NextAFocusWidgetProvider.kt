@@ -102,24 +102,27 @@ class NextAFocusWidgetProvider : AppWidgetProvider() {
             now: LocalDateTime
         ) {
             val views = RemoteViews(context.packageName, R.layout.nexta_focus_widget)
-            views.setInt(R.id.focus_widget_root, "setBackgroundResource", backgroundForHour(now.hour))
+            views.setInt(R.id.focus_widget_root, "setBackgroundResource", R.drawable.nexta_widget_background)
             views.setOnClickPendingIntent(R.id.focus_widget_root, openAppPendingIntent(context))
 
             val event = current ?: next
             if (event == null) {
-                views.setTextViewText(R.id.focus_status, "DONE")
                 views.setTextViewText(R.id.focus_location, "NEXTA")
+                views.setTextViewText(R.id.focus_countdown_label, "Lịch hôm nay")
                 views.setTextViewText(R.id.focus_countdown, "—")
                 views.setTextViewText(R.id.focus_title, "Không còn lịch")
-                views.setTextViewText(R.id.focus_time, "Hôm nay đã hết lịch")
-                views.setTextViewText(R.id.focus_next, "Mở NextA để thêm sự kiện")
+                views.setTextViewText(R.id.focus_time, "Mở NextA để thêm sự kiện")
+                views.setTextViewText(R.id.focus_next, "")
             } else {
-                val target = if (current != null) event.endDateTime else event.startDateTime
+                val isCurrent = current != null
+                val target = if (isCurrent) event.endDateTime else event.startDateTime
                 val duration = Duration.between(now, target)
-                views.setTextViewText(R.id.focus_status, if (current != null) "LIVE" else "NEXT")
+                val location = event.location.takeIf { it.isNotBlank() } ?: "SCHEDULE"
+
+                views.setTextViewText(R.id.focus_location, location)
                 views.setTextViewText(
-                    R.id.focus_location,
-                    event.location.takeIf { it.isNotBlank() } ?: "SCHEDULE"
+                    R.id.focus_countdown_label,
+                    if (isCurrent) "Kết thúc sau" else "Bắt đầu sau"
                 )
                 views.setTextViewText(R.id.focus_countdown, formatCountdown(duration))
                 views.setTextViewText(R.id.focus_title, event.title)
@@ -128,12 +131,12 @@ class NextAFocusWidgetProvider : AppWidgetProvider() {
                     "${event.startDateTime.format(timeFormatter)} – ${event.endDateTime.format(timeFormatter)}"
                 )
 
-                val nextHint = if (current != null && next != null) {
-                    "NEXT  ${next.startDateTime.format(timeFormatter)}  ${next.title}"
-                } else if (current != null) {
-                    "NEXT  Không còn lịch sau sự kiện này"
+                val nextHint = if (isCurrent && next != null) {
+                    "Tiếp theo · ${next.startDateTime.format(timeFormatter)} · ${next.title}"
+                } else if (isCurrent) {
+                    "Không còn lịch sau sự kiện này"
                 } else {
-                    "FOCUS  Sự kiện sắp tới của bạn"
+                    "Sự kiện sắp tới của bạn"
                 }
                 views.setTextViewText(R.id.focus_next, nextHint)
             }
@@ -167,13 +170,6 @@ class NextAFocusWidgetProvider : AppWidgetProvider() {
                     pendingIntent
                 )
             }
-        }
-
-        private fun backgroundForHour(hour: Int): Int = when (hour) {
-            in 5..10 -> R.drawable.nexta_widget_background_morning
-            in 11..16 -> R.drawable.nexta_widget_background_day
-            in 17..20 -> R.drawable.nexta_widget_background_evening
-            else -> R.drawable.nexta_widget_background_night
         }
 
         private fun cancelRefresh(context: Context) {
