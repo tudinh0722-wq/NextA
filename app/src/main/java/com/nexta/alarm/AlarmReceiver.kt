@@ -12,6 +12,7 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.nexta.BuildConfig
 import com.nexta.MainActivity
 import com.nexta.R
 import com.nexta.data.repository.EventRepository
@@ -171,7 +172,6 @@ class AlarmReceiver : BroadcastReceiver() {
     companion object { const val CHANNEL_ID = "nexta_event_alarm" }
 }
 
-@AndroidEntryPoint
 class AlarmActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == ACTION_ACKNOWLEDGE) {
