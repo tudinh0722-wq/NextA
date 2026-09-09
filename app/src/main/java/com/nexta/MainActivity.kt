@@ -13,35 +13,41 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.runtime.*
 import androidx.core.app.ActivityCompat
-import com.nexta.ui.theme.NextaTheme
+import androidx.lifecycle.lifecycleScope
 import com.nexta.alarm.AlarmScheduler
-import com.nexta.alarm.AlarmSettings
-import com.nexta.alarm.AlarmSettingsStore
+import com.nexta.data.model.AlarmSettings
 import com.nexta.data.model.Event
-import com.nexta.data.model.EventType
+import com.nexta.data.repository.AlarmRepository
+import com.nexta.data.repository.LegacyAlarmMigrator
 import com.nexta.ui.AddEventScreen
 import com.nexta.ui.BulkImportScreen
 import com.nexta.ui.MainScreen
 import com.nexta.ui.MainUiState
 import com.nexta.ui.MainViewModel
+import com.nexta.ui.theme.NextaTheme
 import com.nexta.widget.NextAFocusWidgetProvider
 import com.nexta.widget.NextAWidgetProvider
 import dagger.hilt.android.AndroidEntryPoint
-import java.time.LocalDateTime
-import java.time.ZoneId
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
+    @javax.inject.Inject lateinit var alarmRepository: AlarmRepository
+    @javax.inject.Inject lateinit var legacyAlarmMigrator: LegacyAlarmMigrator
+
     private var showAddEvent by mutableStateOf(false)
     private var editingEvent by mutableStateOf<Event?>(null)
+    private var editingAlarmSettings by mutableStateOf<AlarmSettings?>(null)
     private var showBulkImport by mutableStateOf(false)
     private var addEventDate by mutableStateOf<java.time.LocalDate?>(null)
-    private val alarmScheduler by lazy { AlarmScheduler(this) }
-    private val alarmStore by lazy { AlarmSettingsStore(this) }
+    private val alarmScheduler by lazy { AlarmScheduler(this, alarmRepository) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        lifecycleScope.launch {
+            legacyAlarmMigrator.migrate()
+        }
         setContent {
             NextaTheme {
                 val uiState by viewModel.uiState.collectAsState()
@@ -50,7 +56,7 @@ class MainActivity : ComponentActivity() {
                     showBulkImport -> BulkImportScreen(
                         onBack = { showBulkImport = false },
                         onImport = { events ->
-                            viewModel.importEvents(events) {
+                            viewModel.importEvents(events, events.map(::defaultAlarm)) {
                                 events.forEach { scheduleAlarm(it, defaultAlarm(it)) }
                                 refreshWidgets()
                                 showBulkImport = false
@@ -58,17 +64,23 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                     showAddEvent || editingEvent != null -> AddEventScreen(
-                        onBack = { showAddEvent = false; editingEvent = null; addEventDate = null },
+                        onBack = {
+                            showAddEvent = false
+                            editingEvent = null
+                            editingAlarmSettings = null
+                            addEventDate = null
+                        },
                         initialEvent = editingEvent,
                         initialDate = addEventDate,
-                        initialAlarmSettings = editingEvent?.let { alarmStore.get(it.id) },
+                        initialAlarmSettings = editingAlarmSettings,
                         onBulkImport = { showAddEvent = false; showBulkImport = true },
                         onSave = { event, alarm ->
-                            viewModel.saveEvent(event) {
+                            viewModel.saveEvent(event, alarm) {
                                 scheduleAlarm(event, alarm)
                                 refreshWidgets()
                                 showAddEvent = false
                                 editingEvent = null
+                                editingAlarmSettings = null
                                 addEventDate = null
                             }
                         }
@@ -79,7 +91,7 @@ class MainActivity : ComponentActivity() {
                             state.events,
                             saveMessage,
                             onAddEvent = { date -> showAddEvent = true; addEventDate = date },
-                            onEditEvent = { editingEvent = it },
+                            onEditEvent = { event -> openEditEvent(event) },
                             onDeleteEvent = { event ->
                                 alarmScheduler.cancel(event.id)
                                 viewModel.deleteEvent(event) { refreshWidgets() }
@@ -92,9 +104,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun openEditEvent(event: Event) {
+        lifecycleScope.launch {
+            editingAlarmSettings = alarmRepository.getAlarm(event.id) ?: defaultAlarm(event)
+            editingEvent = event
+        }
+    }
+
     private fun scheduleAlarm(event: Event, settings: AlarmSettings) {
         if (!settings.enabled) {
-            alarmScheduler.schedule(event, settings)
+            alarmScheduler.cancel(event.id)
             return
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -109,15 +128,12 @@ class MainActivity : ComponentActivity() {
         alarmScheduler.schedule(event, settings)
     }
 
-    private fun defaultAlarm(event: Event) = AlarmSettings(
+    private fun defaultAlarm(@Suppress("UNUSED_PARAMETER") event: Event) = AlarmSettings(
         enabled = true,
         leadTimeMinutes = 15,
         repeatEnabled = true,
         repeatIntervalMinutes = 5,
-        maxRepeats = 3,
-        title = event.title,
-        startMillis = event.startDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
-        note = event.note
+        maxRepeats = 3
     )
 
     private fun refreshWidgets() {
