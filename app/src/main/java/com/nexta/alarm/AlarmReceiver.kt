@@ -33,7 +33,7 @@ class AlarmReceiver : BroadcastReceiver() {
             AlarmScheduler.ACTION_ALARM -> handleAlarm(context, intent)
             AlarmScheduler.ACTION_TEST_CLEANUP -> handleTestCleanup(context, intent)
             Intent.ACTION_BOOT_COMPLETED,
-            Intent.ACTION_TIME_SET,
+            "android.intent.action.TIME_SET",
             Intent.ACTION_TIMEZONE_CHANGED,
             "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" -> AlarmScheduler(context).rescheduleAll()
         }
