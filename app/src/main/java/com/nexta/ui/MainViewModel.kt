@@ -23,7 +23,7 @@ class MainViewModel @Inject constructor(private val repository: EventRepository)
     fun saveEvent(event: Event, alarm: AlarmSettings, onSaved: () -> Unit = {}) {
         viewModelScope.launch {
             try {
-                repository.saveEvent(event, alarm)
+                repository.upsertEvent(event, alarm)
                 _saveMessage.value = "Đã lưu sự kiện."
                 onSaved()
             } catch (t: Throwable) {
@@ -35,7 +35,7 @@ class MainViewModel @Inject constructor(private val repository: EventRepository)
     fun importEvents(events: List<Event>, alarms: List<AlarmSettings>, onSaved: () -> Unit = {}) {
         viewModelScope.launch {
             try {
-                repository.saveEvents(events, alarms)
+                repository.upsertEvents(events, alarms)
                 _saveMessage.value = "Đã thêm ${events.size} sự kiện."
                 onSaved()
             } catch (t: Throwable) {

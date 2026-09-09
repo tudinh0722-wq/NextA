@@ -22,10 +22,14 @@ class EventRepository @Inject constructor(
 
     suspend fun getEventById(id: String): Event? = eventDao.getById(id)?.toDomain()
 
-    suspend fun saveEvent(event: Event, alarm: AlarmSettings) =
+    /**
+     * Insert hoặc replace event + alarm trong 1 transaction.
+     * Dùng cho cả tạo mới lẫn chỉnh sửa (INSERT OR REPLACE).
+     */
+    suspend fun upsertEvent(event: Event, alarm: AlarmSettings) =
         scheduleDao.saveEventWithAlarm(event.toEntity(), alarm.toEntity(event.id))
 
-    suspend fun saveEvents(events: List<Event>, alarms: List<AlarmSettings>) {
+    suspend fun upsertEvents(events: List<Event>, alarms: List<AlarmSettings>) {
         require(events.size == alarms.size) { "Event và alarm phải có cùng số lượng." }
         scheduleDao.saveEventsWithAlarms(
             events.map { it.toEntity() },
