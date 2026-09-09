@@ -9,23 +9,47 @@ import android.content.Intent
 import android.media.AudioAttributes
 import android.os.Build
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.nexta.MainActivity
 import com.nexta.R
+import com.nexta.data.repository.EventRepository
+import dagger.hilt.android.AndroidEntryPoint
 import java.time.Duration
-import java.time.Instant
-import java.time.ZoneId
 import java.util.Locale
+import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
+@AndroidEntryPoint
 class AlarmReceiver : BroadcastReceiver() {
+    @Inject lateinit var repository: EventRepository
+
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
             AlarmScheduler.ACTION_ALARM -> handleAlarm(context, intent)
+            AlarmScheduler.ACTION_TEST_CLEANUP -> handleTestCleanup(context, intent)
             Intent.ACTION_BOOT_COMPLETED,
             Intent.ACTION_TIME_SET,
             Intent.ACTION_TIMEZONE_CHANGED,
             "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" -> AlarmScheduler(context).rescheduleAll()
+        }
+    }
+
+    private fun handleTestCleanup(context: Context, intent: Intent) {
+        if (!BuildConfig.DEBUG) return
+        val eventId = intent.getStringExtra(AlarmScheduler.EXTRA_EVENT_ID) ?: return
+        val pending = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                AlarmScheduler(context).cancel(eventId)
+                repository.deleteEvent(eventId)
+                NextAWidgetRefresh.refresh(context)
+            } finally {
+                pending.finish()
+            }
         }
     }
 
@@ -88,17 +112,38 @@ class AlarmReceiver : BroadcastReceiver() {
         val pending = goAsync()
         var tts: TextToSpeech? = null
         tts = TextToSpeech(context.applicationContext) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                val languageStatus = tts?.setLanguage(Locale("vi", "VN"))
-                if (languageStatus != TextToSpeech.LANG_MISSING_DATA && languageStatus != TextToSpeech.LANG_NOT_SUPPORTED) {
-                    tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "nexta-alarm")
-                }
+            if (status != TextToSpeech.SUCCESS) {
+                pending.finish()
+                return@TextToSpeech
             }
-            tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+
+            val engine = tts ?: run {
+                pending.finish()
+                return@TextToSpeech
+            }
+            val languageStatus = engine.setLanguage(Locale("vi", "VN"))
+            if (languageStatus == TextToSpeech.LANG_MISSING_DATA || languageStatus == TextToSpeech.LANG_NOT_SUPPORTED) {
+                engine.shutdown()
+                pending.finish()
+                return@TextToSpeech
+            }
+
+            engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) = Unit
-                override fun onError(utteranceId: String?) { tts?.shutdown(); pending.finish() }
-                override fun onDone(utteranceId: String?) { tts?.shutdown(); pending.finish() }
+                override fun onError(utteranceId: String?) {
+                    engine.shutdown()
+                    pending.finish()
+                }
+                override fun onDone(utteranceId: String?) {
+                    engine.shutdown()
+                    pending.finish()
+                }
             })
+            val result = engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "nexta-alarm")
+            if (result == TextToSpeech.ERROR) {
+                engine.shutdown()
+                pending.finish()
+            }
         }
     }
 
@@ -126,6 +171,7 @@ class AlarmReceiver : BroadcastReceiver() {
     companion object { const val CHANNEL_ID = "nexta_event_alarm" }
 }
 
+@AndroidEntryPoint
 class AlarmActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == ACTION_ACKNOWLEDGE) {
@@ -135,4 +181,11 @@ class AlarmActionReceiver : BroadcastReceiver() {
         }
     }
     companion object { const val ACTION_ACKNOWLEDGE = "com.nexta.action.ALARM_ACKNOWLEDGE" }
+}
+
+private object NextAWidgetRefresh {
+    fun refresh(context: Context) {
+        com.nexta.widget.NextAWidgetProvider.requestUpdate(context)
+        com.nexta.widget.NextAFocusWidgetProvider.requestUpdate(context)
+    }
 }

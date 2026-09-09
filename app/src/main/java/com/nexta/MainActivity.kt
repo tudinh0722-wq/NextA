@@ -18,6 +18,7 @@ import com.nexta.alarm.AlarmScheduler
 import com.nexta.alarm.AlarmSettings
 import com.nexta.alarm.AlarmSettingsStore
 import com.nexta.data.model.Event
+import com.nexta.data.model.EventType
 import com.nexta.ui.AddEventScreen
 import com.nexta.ui.BulkImportScreen
 import com.nexta.ui.MainScreen
@@ -26,7 +27,8 @@ import com.nexta.ui.MainViewModel
 import com.nexta.widget.NextAFocusWidgetProvider
 import com.nexta.widget.NextAWidgetProvider
 import dagger.hilt.android.AndroidEntryPoint
-import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -34,7 +36,7 @@ class MainActivity : ComponentActivity() {
     private var showAddEvent by mutableStateOf(false)
     private var editingEvent by mutableStateOf<Event?>(null)
     private var showBulkImport by mutableStateOf(false)
-    private var addEventDate by mutableStateOf<LocalDate?>(null)
+    private var addEventDate by mutableStateOf<java.time.LocalDate?>(null)
     private val alarmScheduler by lazy { AlarmScheduler(this) }
     private val alarmStore by lazy { AlarmSettingsStore(this) }
 
@@ -88,6 +90,47 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        createBuildTestAlarmIfNeeded()
+    }
+
+    private fun createBuildTestAlarmIfNeeded() {
+        if (!BuildConfig.DEBUG) return
+
+        val prefs = getSharedPreferences(TEST_PREFS, MODE_PRIVATE)
+        if (prefs.getString(TEST_BUILD_KEY, null) == BuildConfig.BUILD_ID) return
+
+        val start = LocalDateTime.now().plusMinutes(3)
+        val end = start.plusMinutes(10)
+        val event = Event(
+            id = BUILD_TEST_EVENT_ID,
+            title = "🔔 TEST ALARM",
+            type = EventType.OTHER,
+            startDateTime = start,
+            endDateTime = end,
+            location = "Debug build",
+            note = "Sự kiện tự tạo để kiểm tra báo thức. Tự xóa sau khi test.",
+            priority = 0
+        )
+        val settings = AlarmSettings(
+            enabled = true,
+            leadTimeMinutes = 2,
+            repeatEnabled = true,
+            repeatIntervalMinutes = 1,
+            maxRepeats = 3,
+            title = event.title,
+            startMillis = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+            note = event.note
+        )
+
+        viewModel.saveEvent(event) {
+            alarmScheduler.schedule(event, settings)
+            alarmScheduler.scheduleTestCleanup(
+                event.id,
+                end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() + 5_000L
+            )
+            prefs.edit().putString(TEST_BUILD_KEY, BuildConfig.BUILD_ID).apply()
+            refreshWidgets()
+        }
     }
 
     private fun scheduleAlarm(event: Event, settings: AlarmSettings) {
@@ -114,7 +157,7 @@ class MainActivity : ComponentActivity() {
         repeatIntervalMinutes = 5,
         maxRepeats = 3,
         title = event.title,
-        startMillis = event.startDateTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli(),
+        startMillis = event.startDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
         note = event.note
     )
 
@@ -123,5 +166,10 @@ class MainActivity : ComponentActivity() {
         NextAFocusWidgetProvider.requestUpdate(this)
     }
 
-    companion object { private const val REQUEST_NOTIFICATIONS = 7001 }
+    companion object {
+        private const val REQUEST_NOTIFICATIONS = 7001
+        private const val TEST_PREFS = "nexta_debug_build_test"
+        private const val TEST_BUILD_KEY = "build_id"
+        private const val BUILD_TEST_EVENT_ID = "__nexta_build_test_alarm__"
+    }
 }

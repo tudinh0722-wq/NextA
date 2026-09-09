@@ -25,6 +25,24 @@ class AlarmScheduler(private val context: Context) {
         scheduleAt(eventId, triggerAt, repeatIndex)
     }
 
+    fun scheduleTestCleanup(eventId: String, triggerAt: Long) {
+        val intent = Intent(context, AlarmReceiver::class.java).apply {
+            action = ACTION_TEST_CLEANUP
+            putExtra(EXTRA_EVENT_ID, eventId)
+        }
+        val pending = PendingIntent.getBroadcast(
+            context,
+            cleanupRequestCode(eventId),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarmManager.canScheduleExactAlarms()) {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+        } else {
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+        }
+    }
+
     private fun scheduleAt(eventId: String, triggerAt: Long, repeatIndex: Int) {
         val intent = intentFor(eventId, repeatIndex)
         val pending = PendingIntent.getBroadcast(context, requestCode(eventId, repeatIndex), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
@@ -42,6 +60,19 @@ class AlarmScheduler(private val context: Context) {
                 alarmManager.cancel(pending)
                 pending.cancel()
             }
+        }
+        val cleanup = PendingIntent.getBroadcast(
+            context,
+            cleanupRequestCode(eventId),
+            Intent(context, AlarmReceiver::class.java).apply {
+                action = ACTION_TEST_CLEANUP
+                putExtra(EXTRA_EVENT_ID, eventId)
+            },
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+        )
+        if (cleanup != null) {
+            alarmManager.cancel(cleanup)
+            cleanup.cancel()
         }
         store.remove(eventId)
     }
@@ -75,8 +106,11 @@ class AlarmScheduler(private val context: Context) {
 
     private fun requestCode(eventId: String, repeatIndex: Int): Int = eventId.hashCode() * 10 + repeatIndex
 
+    private fun cleanupRequestCode(eventId: String): Int = eventId.hashCode() * 10 + 9
+
     companion object {
         const val ACTION_ALARM = "com.nexta.action.EVENT_ALARM"
+        const val ACTION_TEST_CLEANUP = "com.nexta.action.TEST_ALARM_CLEANUP"
         const val EXTRA_EVENT_ID = "event_id"
         const val EXTRA_REPEAT_INDEX = "repeat_index"
     }

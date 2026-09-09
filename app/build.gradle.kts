@@ -18,6 +18,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "BUILD_ID", "\"${System.currentTimeMillis()}\"")
     }
 
     buildTypes {
@@ -34,10 +35,6 @@ android {
     buildFeatures {
         buildConfig = true
         compose = true
-    }
-
-    defaultConfig {
-        buildConfigField("String", "BUILD_ID", "\"${System.currentTimeMillis()}\"")
     }
 }
 
