@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
 import android.os.Build
+import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import androidx.core.app.NotificationCompat
@@ -140,7 +141,13 @@ class AlarmReceiver : BroadcastReceiver() {
                     pending.finish()
                 }
             })
-            val result = engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "nexta-alarm")
+
+            // Maximise TTS stream volume, but deliberately do not request audio focus.
+            // TikTok/music keeps playing; NextA only speaks over it.
+            val params = Bundle().apply {
+                putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f)
+            }
+            val result = engine.speak(text, TextToSpeech.QUEUE_FLUSH, params, "nexta-alarm")
             if (result == TextToSpeech.ERROR) {
                 engine.shutdown()
                 pending.finish()
@@ -163,13 +170,16 @@ class AlarmReceiver : BroadcastReceiver() {
         if (manager.getNotificationChannel(CHANNEL_ID) == null) {
             val channel = NotificationChannel(CHANNEL_ID, "Nhắc sự kiện", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "Âm báo và nhắc TTS cho sự kiện NextA"
-                setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI, AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build())
+                setSound(
+                    android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM),
+                    AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build()
+                )
             }
             manager.createNotificationChannel(channel)
         }
     }
 
-    companion object { const val CHANNEL_ID = "nexta_event_alarm" }
+    companion object { const val CHANNEL_ID = "nexta_event_alarm_v2" }
 }
 
 class AlarmActionReceiver : BroadcastReceiver() {
