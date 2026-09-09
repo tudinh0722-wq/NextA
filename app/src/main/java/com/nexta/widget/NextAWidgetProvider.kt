@@ -137,6 +137,11 @@ class NextAWidgetProvider : AppWidgetProvider() {
             val note = if (index == 1) R.id.widget_note_1 else R.id.widget_note_2
             val progress = if (index == 1) R.id.widget_progress_1 else R.id.widget_progress_2
             val progressDot = if (index == 1) R.id.widget_progress_dot_1 else R.id.widget_progress_dot_2
+            val progressContainer = if (index == 1) {
+                R.id.widget_progress_container_1
+            } else {
+                R.id.widget_progress_container_2
+            }
 
             if (card == null) {
                 views.setTextViewText(title, "Trống")
@@ -146,6 +151,7 @@ class NextAWidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(location, "")
                 views.setViewVisibility(note, View.GONE)
                 views.setProgressBar(progress, 100, 0, false)
+                views.setViewVisibility(progressContainer, View.GONE)
                 views.setViewVisibility(progressDot, View.GONE)
                 return
             }
@@ -155,29 +161,31 @@ class NextAWidgetProvider : AppWidgetProvider() {
             val target = if (current) event.endDateTime else event.startDateTime
             val minutes = Duration.between(now, target).toMinutes().coerceAtLeast(0)
 
-            val totalMinutes = Duration.between(event.startDateTime, event.endDateTime)
-                .toMinutes()
-                .coerceAtLeast(1)
-            val elapsedMinutes = Duration.between(event.startDateTime, now)
-                .toMinutes()
-                .coerceIn(0, totalMinutes)
-            val progressPercent = if (current) {
-                ((elapsedMinutes * 100) / totalMinutes).toInt().coerceIn(0, 100)
-            } else {
-                0
-            }
-
             views.setTextViewText(title, event.title)
             views.setTextViewText(startTime, event.startDateTime.format(timeFormatter))
             views.setTextViewText(endTime, event.endDateTime.format(timeFormatter))
-            views.setProgressBar(progress, 100, progressPercent, false)
-            views.setViewVisibility(progressDot, View.VISIBLE)
-            views.setTextViewText(
-                countdown,
-                if (current) "Kết thúc sau ${formatDuration(minutes)}"
-                else "Bắt đầu sau ${formatDuration(minutes)}"
-            )
+            views.setTextViewText(countdown, formatCountdown(minutes))
             views.setTextViewText(location, event.location)
+
+            if (current) {
+                val totalMinutes = Duration.between(event.startDateTime, event.endDateTime)
+                    .toMinutes()
+                    .coerceAtLeast(1)
+                val elapsedMinutes = Duration.between(event.startDateTime, now)
+                    .toMinutes()
+                    .coerceIn(0, totalMinutes)
+                val progressPercent = ((elapsedMinutes * 100) / totalMinutes)
+                    .toInt()
+                    .coerceIn(0, 100)
+
+                views.setProgressBar(progress, 100, progressPercent, false)
+                views.setViewVisibility(progressContainer, View.VISIBLE)
+                views.setViewVisibility(progressDot, View.VISIBLE)
+            } else {
+                views.setProgressBar(progress, 100, 0, false)
+                views.setViewVisibility(progressContainer, View.GONE)
+                views.setViewVisibility(progressDot, View.GONE)
+            }
 
             if (event.note.isBlank()) {
                 views.setViewVisibility(note, View.GONE)
@@ -221,11 +229,11 @@ class NextAWidgetProvider : AppWidgetProvider() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        private fun formatDuration(minutes: Long): String = when {
-            minutes >= 24 * 60 -> "${minutes / (24 * 60)} ngày"
-            minutes >= 60 -> "${minutes / 60}h ${minutes % 60}m".replace(" 0m", "")
-            minutes > 0 -> "${minutes}m"
-            else -> "<1m"
+        private fun formatCountdown(minutes: Long): String = when {
+            minutes >= 24 * 60 -> "Còn ${minutes / (24 * 60)} ngày"
+            minutes >= 60 -> "Còn ${minutes / 60}h ${minutes % 60}m".trimEnd()
+            minutes > 0 -> "Còn ${minutes}m"
+            else -> "Còn <1m"
         }
     }
 }
