@@ -1,5 +1,18 @@
 # NextA Changelog
 
+## 2026-09-09 — Event + Alarm persistence standardized on Room
+
+Decisions:
+- Room is now the single source of truth for both event data and reminder configuration/state.
+- `events` and `event_alarms` are linked one-to-one by `eventId` with foreign-key cascade delete/update.
+- Event content and alarm settings are saved atomically through a Room transaction.
+- Alarm persistence no longer duplicates event title, note, or start time.
+- `AlarmManager` is treated only as the runtime scheduling adapter; reboot/timezone/exact-alarm-permission recovery rebuilds schedules from Room.
+- ACK state is persisted in `event_alarms.acknowledged`, then scheduled repeats are cancelled.
+- Room database version 2 → 3 uses an explicit migration; destructive migration fallback was removed.
+- Existing `nexta_alarms` SharedPreferences data is migrated once into Room before the legacy store is cleared.
+- Removed the old test-alarm cleanup path together with the former SharedPreferences alarm store.
+
 ## 2026-09-09 — Standardized Phase A/B/C and Phase C bulk import
 
 Decisions:
@@ -30,15 +43,6 @@ The former `NEXTA_PROJECT_CONTEXT.md` is retired as a separate context dump. Imp
 - Platform differences are modeled as capabilities/adapters rather than brand checks.
 - Android Lock Screen support must not be assumed from the existence of a Home Screen AppWidget.
 - Material/system semantic colors are preferred over hard-coded device-specific colors.
-- The existing concrete Event model, Room repository boundary, Hilt setup, Java 17 target, Android SDK/toolchain versions, and RemoteViews constraint remain part of the architecture.
-
-## 2026-09-08 — Countdown Horizon and Home Widget Refinement
-
-- Countdown is shown only for events within the next 14 days.
-- From 24 hours onward, countdown uses days rather than hours/minutes.
-- Main schedule refreshes one shared `now` value every 30 seconds instead of creating one timer per event.
-- Home Widget presents exactly two events: current + next, or next two when there is no current event.
-- Widget avoids unnecessary long-horizon minute refreshes.
 
 ## Product Boundaries
 1. App Screen — Weekly Planner.
