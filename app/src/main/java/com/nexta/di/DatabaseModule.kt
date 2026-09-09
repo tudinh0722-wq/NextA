@@ -28,7 +28,11 @@ object DatabaseModule {
             AppDatabase::class.java,
             "nexta_db"
         )
-            .addMigrations(DatabaseMigrations.MIGRATION_2_3)
+            .addMigrations(
+                DatabaseMigrations.MIGRATION_1_2,
+                DatabaseMigrations.MIGRATION_1_3,
+                DatabaseMigrations.MIGRATION_2_3,
+            )
             .build()
     }
 
