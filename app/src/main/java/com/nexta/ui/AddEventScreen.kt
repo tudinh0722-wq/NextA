@@ -82,21 +82,29 @@ fun AddEventScreen(
             }
             TextField(location, { location = it.take(MAX_LOCATION_LENGTH) }, label = { Text("Địa điểm") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             TextField(note, { note = it.take(MAX_NOTE_LENGTH) }, label = { Text("Ghi chú") }, modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 2)
+
+            // Alarm controls are deliberately stacked instead of putting several chips
+            // in one row, which previously caused the form to become cramped/overflow.
             Text("Nhắc trước", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = alarmEnabled, onClick = { alarmEnabled = !alarmEnabled }, label = { Text(if (alarmEnabled) "🔔 Có báo" else "Không báo") })
-                AlarmChoice("${leadTime} phút", listOf(5, 10, 15, 30, 60), leadTime) { leadTime = it }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(if (alarmEnabled) "Có báo" else "Không báo", modifier = Modifier.weight(1f))
+                if (alarmEnabled) {
+                    AlarmChoice("${leadTime} phút", listOf(5, 10, 15, 30, 60), leadTime) { leadTime = it }
+                }
+                Switch(checked = alarmEnabled, onCheckedChange = { alarmEnabled = it })
             }
             if (alarmEnabled) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = repeatEnabled, onClick = { repeatEnabled = !repeatEnabled }, label = { Text(if (repeatEnabled) "Lặp nếu chưa xác nhận" else "Không lặp") })
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Lặp nếu chưa xác nhận", modifier = Modifier.weight(1f))
                     if (repeatEnabled) {
                         AlarmChoice("Mỗi $repeatInterval phút", listOf(5, 10, 15), repeatInterval) { repeatInterval = it }
                         AlarmChoice("$maxRepeats lần", listOf(1, 2, 3, 4), maxRepeats) { maxRepeats = it }
                     }
+                    Switch(checked = repeatEnabled, onCheckedChange = { repeatEnabled = it })
                 }
                 Text("Mặc định: báo trước 15 phút, lặp 3 lần nếu chưa xác nhận.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+
             Text("Mức độ ưu tiên", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { PriorityButton(0, "Bình thường", priority, Modifier.weight(1f)) { priority = 0 }; PriorityButton(1, "Quan trọng", priority, Modifier.weight(1f)) { priority = 1 }; PriorityButton(2, "Rất quan trọng", priority, Modifier.weight(1f)) { priority = 2 } }
             errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
@@ -115,7 +123,7 @@ fun AddEventScreen(
     Box {
         OutlinedButton(onClick = { expanded = true }) { Text(label) }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            options.forEach { option -> DropdownMenuItem(text = { Text(option.toString() + if (options.maxOrNull() ?: 0 >= 60 && option == 60) " phút" else " phút") }, onClick = { onSelected(option); expanded = false }) }
+            options.forEach { option -> DropdownMenuItem(text = { Text("$option phút") }, onClick = { onSelected(option); expanded = false }) }
         }
     }
 }
