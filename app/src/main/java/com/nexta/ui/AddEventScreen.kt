@@ -29,6 +29,8 @@ private const val MAX_TITLE_LENGTH = 47
 private const val MAX_LOCATION_LENGTH = 30
 private const val MAX_NOTE_LENGTH = 30
 private val displayDateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+private val importantOrange = Color(0xFFFF9800)
+private val veryImportantRed = Color(0xFFF44336)
 
 @Composable
 fun AddEventScreen(
@@ -92,7 +94,10 @@ fun AddEventScreen(
             verticalArrangement = Arrangement.spacedBy(7.dp)
         ) {
             CompactTextField(title, { title = it.take(MAX_TITLE_LENGTH); errorMessage = null }, "Tên sự kiện", Modifier.fillMaxWidth())
+
+            // Theo đúng bố cục: nhãn "Loại sự kiện" bên trái, lựa chọn bên phải.
             EventTypeField(type) { type = it }
+
             DateTimeRow("Ngày - giờ bắt đầu", startDate, startTime, Modifier.fillMaxWidth(), { showStartDatePicker = true }, { startTime = it; errorMessage = null })
             DateTimeRow("Ngày - giờ kết thúc", endDate, endTime, Modifier.fillMaxWidth(), { showEndDatePicker = true }, { endTime = it; errorMessage = null })
             CompactTextField(location, { location = it.take(MAX_LOCATION_LENGTH) }, "Địa điểm", Modifier.fillMaxWidth())
@@ -119,14 +124,20 @@ fun AddEventScreen(
             Text("Mức độ ưu tiên", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.fillMaxWidth().height(36.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 PriorityButton(null, "Bình thường", priority, Modifier.weight(1f)) { priority = null }
-                PriorityButton(1, "Quan trọng", priority, Modifier.weight(1f), Color(0xFFFFC107)) { priority = 1 }
-                PriorityButton(2, "Rất quan trọng", priority, Modifier.weight(1.2f), Color(0xFFF44336)) { priority = 2 }
+                PriorityButton(1, "Quan trọng", priority, Modifier.weight(1f), importantOrange) { priority = 1 }
+                PriorityButton(2, "Rất quan trọng", priority, Modifier.weight(1.2f), veryImportantRed) { priority = 2 }
             }
 
             errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, maxLines = 1) }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = ::save, modifier = Modifier.weight(1f).height(44.dp)) { Text(if (initialEvent == null) "Lưu sự kiện" else "Lưu thay đổi") }
-                if (initialEvent == null) OutlinedButton(onClick = onBulkImport, modifier = Modifier.weight(1f).height(44.dp)) { Text("Nhập nhiều") }
+
+            // Hai hành động chính tách thành hai dòng, không chen ngang nhau.
+            Button(onClick = ::save, modifier = Modifier.fillMaxWidth().height(44.dp)) {
+                Text(if (initialEvent == null) "Lưu sự kiện" else "Lưu thay đổi")
+            }
+            if (initialEvent == null) {
+                OutlinedButton(onClick = onBulkImport, modifier = Modifier.fillMaxWidth().height(44.dp)) {
+                    Text("Thêm nhiều (hỗ trợ bởi AI)")
+                }
             }
         }
     }
@@ -163,11 +174,11 @@ private fun EventTypeField(value: EventType, onValueChange: (EventType) -> Unit)
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().height(40.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f).fillMaxHeight().clickable { expanded = true }, contentAlignment = Alignment.CenterStart) {
-                Text(value.toDisplayName(), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+                Text("Loại sự kiện", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Box(Modifier.weight(1f).fillMaxHeight().clickable { expanded = true }, contentAlignment = Alignment.CenterEnd) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Loại sự kiện", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(value.toDisplayName(), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
                     Text("⌄", modifier = Modifier.padding(start = 6.dp), fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
