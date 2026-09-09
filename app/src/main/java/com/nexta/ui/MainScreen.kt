@@ -8,7 +8,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -75,21 +75,31 @@ fun MainScreen(events: List<Event>, message: String? = null, onAddEvent: (LocalD
 private fun WeekDayIndicator(weekPagerState: PagerState, initialWeekPage: Int, currentDate: LocalDate, today: LocalDate, events: List<Event>) {
     HorizontalPager(state = weekPagerState, modifier = Modifier.fillMaxWidth()) { page ->
         val weekStart = today.with(DayOfWeek.MONDAY).plusWeeks((page - initialWeekPage).toLong())
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Bottom) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             (0..6).forEach { offset ->
                 val date = weekStart.plusDays(offset.toLong())
                 val isCurrent = date == currentDate
                 val isToday = date == today
                 val dayEvents = events.filter { date in it.startDateTime.toLocalDate()..it.endDateTime.toLocalDate() }
                 val priority = dayEvents.maxPriority()
-                val eventColor = when (priority) { 2 -> veryImportantRed; 1 -> importantOrange; else -> MaterialTheme.colorScheme.primary }
+                val priorityColor = when (priority) { 2 -> veryImportantRed; 1 -> importantOrange; else -> null }
+                val cushionColor = when {
+                    priorityColor != null -> priorityColor
+                    isCurrent -> selectedDayBlue
+                    else -> Color.Transparent
+                }
                 Column(Modifier.width(44.dp).padding(horizontal = 2.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(dayLabel(date.dayOfWeek), style = MaterialTheme.typography.labelMedium, fontWeight = if (isCurrent || isToday) FontWeight.Bold else FontWeight.Normal, color = when { isCurrent -> MaterialTheme.colorScheme.onSurface; isToday -> MaterialTheme.colorScheme.primary; else -> MaterialTheme.colorScheme.onSurfaceVariant })
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(34.dp)) {
-                        if (isCurrent) Surface(Modifier.fillMaxSize(), shape = CircleShape, color = Color.Transparent, border = BorderStroke(2.dp, selectedDayBlue)) {}
-                        Text(date.dayOfMonth.toString(), style = MaterialTheme.typography.bodyMedium, fontWeight = if (isCurrent || isToday) FontWeight.Bold else FontWeight.Normal, color = if (priority != 0) eventColor else if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color.Transparent,
+                        border = if (cushionColor != Color.Transparent) BorderStroke(3.dp, cushionColor) else null
+                    ) {
+                        Column(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(dayLabel(date.dayOfWeek), style = MaterialTheme.typography.labelMedium, fontWeight = if (isCurrent || isToday) FontWeight.Bold else FontWeight.Normal, color = when { isCurrent -> MaterialTheme.colorScheme.onSurface; isToday -> MaterialTheme.colorScheme.primary; else -> MaterialTheme.colorScheme.onSurfaceVariant })
+                            Text(date.dayOfMonth.toString(), style = MaterialTheme.typography.bodyMedium, fontWeight = if (isCurrent || isToday) FontWeight.Bold else FontWeight.Normal, color = if (priorityColor != null) priorityColor else if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                        }
                     }
-                    Surface(Modifier.fillMaxWidth().height(if (dayEvents.isNotEmpty()) 4.dp else 2.dp), shape = MaterialTheme.shapes.small, color = if (dayEvents.isNotEmpty()) eventColor else MaterialTheme.colorScheme.surfaceVariant) {}
                 }
             }
         }
