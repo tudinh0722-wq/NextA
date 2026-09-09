@@ -1,77 +1,57 @@
 # NextA Development Plan
 
-> **Status is based on the current `main` source tree, not on the retired project-context document.**
-> Source code is the final authority for implementation status.
+> Status is based on the current `main` source tree. Source code is the final authority.
 
-## Phase 1 — Core Data & App Foundation
-- [x] Android app foundation
-- [x] Hilt dependency injection
-- [x] Room database
-- [x] Event entity/model/DAO/repository
+## Phase A — Core + Manual Event Planner
+- [x] Android app foundation, Hilt, Room, repository
+- [x] Concrete Event model and shared schedule semantics
 - [x] Sample data seeding
-- [x] MainViewModel state flow
-- [x] Current/next schedule calculation
+- [x] Add event form and validation
+- [x] Main day/week planner with Material 3 navigation
+- [x] Current/upcoming/past states and countdown policy
 
-## Phase 2 — Event Management
-- [x] Add event form
-- [x] Event validation
-- [x] Persist new events
-- [x] Long-press delete flow
-- [x] Persist deletion
-- [ ] Edit event flow
+## Phase B — Event Management + Surfaces
+- [x] Long-press event actions
+- [x] Edit event flow preserving event identity
+- [x] Delete event flow with confirmation
+- [x] Home Widget 4x2 RemoteViews
+- [x] Widget current + next / next two selection
+- [x] Widget minute countdown refresh only while relevant
+- [x] Widget progress only for the active event
+- [x] Material/system dynamic colors for widget text
+- [x] Mica-style translucent widget background
+- [ ] Final device/launcher verification
+- [ ] Focus/Lock Screen capability verification
+- [ ] Notification fallback
 
-## Phase 3 — App Screen / Weekly Planner
-- [x] Seven-day horizontal week strip
-- [x] One-day-at-a-time main schedule paging
-- [x] Default to today
-- [x] Select a weekday within the displayed week
-- [x] Keep week strip and main day pager synchronized
-- [x] Show only selected-day events
-- [x] Centered week/date header
-- [x] Material 3 date picker for long-range jumps
-- [x] Minimal selected-day indicator without a filled selection box
-- [x] Current/upcoming/past event presentation
-- [x] Countdown presentation with 24h display switch
-- [ ] Final visual polish
-- [ ] Verify the full interaction flow on target devices
+> Phase B deliberately keeps `Event` concrete. Recurrence is not introduced into the data model until there is an explicit architecture decision; this avoids mixing recurring rules with concrete occurrences.
 
-## Phase 4 — Home Widget
-- [x] Dedicated `AppWidgetProvider`
-- [x] 4x2 RemoteViews layout/provider path
-- [x] Current + next event selection
-- [x] Next two events when there is no current event
-- [x] Event time/location/note presentation
-- [x] Countdown presentation
-- [x] Event-boundary refresh scheduling
-- [x] Minute refresh while an active countdown is relevant
-- [ ] Apply the same 14-day countdown horizon policy as the app
-- [ ] Finalize visual hierarchy
-- [ ] Verify launcher installation/rendering on target devices
+## Phase C — AI-Assisted Bulk Import
+- [x] Stable `NEXTA_V1` text contract concept using `NGÀY:` as the record boundary/key
+- [x] Copyable prompt for external AI/OCR tools
+- [x] Paste/import screen
+- [x] Parser tolerant of markdown fences and Vietnamese key accents
+- [x] Required-field and length validation
+- [x] Preview valid/invalid rows before persistence
+- [x] Bulk Room insert
+- [x] No AI/OCR dependency inside NextA
+- [ ] Duplicate/conflict detection
+- [ ] Inline correction of invalid rows
+- [ ] Versioned import contract and migration strategy
 
-## Phase 5 — Focus / Lock Screen Surface
-- [x] Separate Focus provider/presentation implementation exists
-- [x] Current/next event data path exists
-- [x] Large countdown-oriented presentation foundation exists
-- [ ] Verify whether the target OS/OEM exposes a usable Lock Screen surface
-- [ ] Integrate only through an official OS/OEM capability where available
-- [ ] Define and implement notification fallback when dedicated Lock Screen presentation is unavailable
-- [ ] Final visual polish
+## Product Surface Phases
+```text
+Phase A: create + plan
+        ↓
+Phase B: manage + glance
+        ↓
+Phase C: external AI → text → validate → preview → database
+```
 
-## Phase 6 — Cross-Device Platform Strategy
-- [x] Separate event/countdown semantics from presentation surfaces
-- [x] Treat platform/OEM differences as capabilities/adapters rather than core business logic
-- [x] Keep Home Widget on RemoteViews for launcher compatibility
-- [ ] Define a small runtime capability model where it provides real value
-- [ ] Verify Home Widget behavior across representative Android launchers/OEMs
-- [ ] Verify Focus/Lock Screen behavior across representative devices
-- [ ] Add platform-specific adapters only for documented official capabilities
-
-## Deferred Product Work
-- [ ] Event editing
-- [ ] Production timetable import
-- [ ] OCR/AI import
-- [ ] Backend/cloud synchronization
-- [ ] Other large platform integrations not yet required
+## Deferred
+- [ ] Recurrence rule model, only after explicit architecture redesign
+- [ ] Cloud/backend synchronization
+- [ ] Large platform integrations
 
 ## Working Rule
-Keep this file at high-level phase/status level. Keep exact current problems and the immediate next action in `docs/task.md`. Never mark platform or device support complete without testing the actual target surface/device.
+Keep the app's core Event/schedule semantics independent from UI surfaces. Home Widget remains `RemoteViews`; do not introduce Glance unless explicitly requested. Do not claim device/launcher support without real-device verification.
