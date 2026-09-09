@@ -19,8 +19,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.nexta.MainActivity
 import com.nexta.R
-import com.nexta.data.model.AlarmSettings
-import com.nexta.data.model.Event
 import com.nexta.data.repository.AlarmRepository
 import com.nexta.data.repository.LegacyAlarmMigrator
 import dagger.hilt.android.AndroidEntryPoint
@@ -32,7 +30,26 @@ import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+
+/**
+ * Scope helper: tạo Job riêng cho mỗi goAsync() call.
+ * Job bị cancel khi pending.finish() được gọi trong finally,
+ * tránh coroutine sống lâu hơn BroadcastReceiver window (10s).
+ */
+private fun BroadcastReceiver.PendingResult.launchAsync(block: suspend CoroutineScope.() -> Unit): Job {
+    val job = Job()
+    CoroutineScope(Dispatchers.IO + job).launch {
+        try {
+            block()
+        } finally {
+            finish()
+            job.cancel()
+        }
+    }
+    return job
+}
 
 @AndroidEntryPoint
 class AlarmReceiver : BroadcastReceiver() {
@@ -41,30 +58,16 @@ class AlarmReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
-            AlarmScheduler.ACTION_ALARM -> {
-                val pending = goAsync()
-                CoroutineScope(Dispatchers.IO).launch {
-                    try {
-                        legacyAlarmMigrator.migrate()
-                        handleAlarm(context, intent)
-                    } finally {
-                        pending.finish()
-                    }
-                }
+            AlarmScheduler.ACTION_ALARM -> goAsync().launchAsync {
+                legacyAlarmMigrator.migrate()
+                handleAlarm(context, intent)
             }
             Intent.ACTION_BOOT_COMPLETED,
             "android.intent.action.TIME_SET",
             Intent.ACTION_TIMEZONE_CHANGED,
-            "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" -> {
-                val pending = goAsync()
-                CoroutineScope(Dispatchers.IO).launch {
-                    try {
-                        legacyAlarmMigrator.migrate()
-                        AlarmScheduler(context, alarmRepository).rescheduleAll()
-                    } finally {
-                        pending.finish()
-                    }
-                }
+            "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" -> goAsync().launchAsync {
+                legacyAlarmMigrator.migrate()
+                AlarmScheduler(context, alarmRepository).rescheduleAll()
             }
         }
     }
@@ -357,14 +360,9 @@ class AlarmActionReceiver : BroadcastReceiver() {
         if (intent.action != ACTION_ACKNOWLEDGE) return
         val eventId = intent.getStringExtra(AlarmScheduler.EXTRA_EVENT_ID) ?: return
         AlarmPlaybackController.stop(eventId)
-        val pending = goAsync()
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                alarmRepository.acknowledge(eventId)
-                NotificationManagerCompat.from(context).cancel(eventId.hashCode())
-            } finally {
-                pending.finish()
-            }
+        goAsync().launchAsync {
+            alarmRepository.acknowledge(eventId)
+            NotificationManagerCompat.from(context).cancel(eventId.hashCode())
         }
     }
 
