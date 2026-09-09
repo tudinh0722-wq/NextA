@@ -55,9 +55,9 @@ class MainActivity : ComponentActivity() {
                 when {
                     showBulkImport -> BulkImportScreen(
                         onBack = { showBulkImport = false },
-                        onImport = { events ->
-                            viewModel.importEvents(events, events.map(::defaultAlarm)) {
-                                events.forEach { scheduleAlarm(it, defaultAlarm(it)) }
+                        onImport = { events, alarm ->
+                            viewModel.importEvents(events, events.map { alarm.copy(acknowledged = false) }) {
+                                events.forEach { scheduleAlarm(it, alarm) }
                                 refreshWidgets()
                                 showBulkImport = false
                             }
