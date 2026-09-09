@@ -4,60 +4,67 @@
 IN PROGRESS
 
 ## Current Objective
-Refine the App Screen and Home Widget while establishing a cross-device presentation strategy so NextA is not tied to one Android version, launcher, OEM, or UI implementation.
+Finish the current App Screen/Home Widget work and verify the separate Focus/Lock Screen surface against real Android device capabilities.
 
-## Current Change
-- App day planner keeps day-by-day horizontal paging for the main schedule.
-- The seven-day strip is its own horizontally swipable week pager; swiping it moves the main schedule by seven days while preserving the selected weekday.
-- The date/week header is centered and opens the Material 3 date picker for long-range jumps.
-- The seven-day strip has no filled selected-day border or large selection box.
-- Countdown is useful only within the next 14 days. For durations of 24 hours or more, show days instead of hours/minutes.
-- Home Widget keeps exactly two event slots: current + next, or next two when there is no current event.
-- Widget hierarchy remains status -> title -> time -> countdown -> location -> note, with countdown visually emphasized.
-- Widget avoids unnecessary minute-level refresh work when the next relevant event is beyond the countdown horizon.
-- App Screen, Home Widget, and Focus/Lock Screen are intentionally separate presentation surfaces.
-- Cross-device strategy now treats platform/OEM differences as capabilities and adapters rather than core business logic.
+## Verified Current State
+- Core Event model, Room persistence, repository, Hilt, sample seeding, and `MainViewModel` are implemented.
+- Add Event form, validation, persistence, and long-press delete are implemented.
+- Main Screen has day-by-day paging, an independent seven-day week pager, synchronization between them, centered date/week navigation, and Material 3 date picker jumps.
+- Main Screen shows event status and countdowns; countdown switches to days at 24 hours and is intended to be relevant only within the next 14 days.
+- Home Widget uses a dedicated `AppWidgetProvider` with `RemoteViews`, 4x2 layout, current/next selection, fallback to the next two events, and refresh scheduling.
+- A separate Focus provider exists with a countdown-oriented presentation, but that does not prove that Android/OEM Lock Screen placement is available.
+- `ScheduleState` is now implemented with `PAST`, `IN_PROGRESS`, and `UPCOMING`.
+
+## Current Issues / Gaps
+1. Home Widget countdown refresh/horizon still needs to match the app's 14-day policy consistently.
+2. Home Widget visual hierarchy needs final refinement while keeping the layout simple and launcher-compatible.
+3. Home Widget must be tested for actual 4x2 installation/rendering on target launchers/devices.
+4. Focus/Lock Screen behavior must be verified on representative devices; do not assume an AppWidget provider can appear on Lock Screen.
+5. Notification fallback should be defined only after confirming which dedicated Lock Screen surfaces are actually available on the target devices.
+6. Event editing is not implemented yet.
 
 ## Navigation Model
 1. Main schedule swipe — one day at a time.
-2. Week strip swipe — one week at a time, preserving weekday.
-3. Date picker — direct jump across the supported multi-year range.
-4. Today — remains the initial starting position.
+2. Week strip swipe — one week at a time while preserving the selected weekday.
+3. Centered date/week header — open Material 3 date picker for direct jumps.
+4. Today — initial starting position.
 
 ## Surface / Platform Model
 ```text
-NextA Core Event + Countdown Logic
+NextA Event + Schedule Semantics
                 ↓
-      ┌─────────┼─────────┐
-      ↓         ↓         ↓
-   App UI   Home Widget  Focus/Lock
-                          ↓
-                    Platform capability
-                          ↓
-                 Notification fallback
+      ┌─────────┼────────────┐
+      ↓         ↓            ↓
+   App UI   Home Widget   Focus/Lock
+                              ↓
+                       OS/OEM capability
+                              ↓
+                    Notification fallback
 ```
 
-Do not put OEM-specific conditions into the core event/countdown logic. A dedicated Lock Screen surface is optional and device/OS dependent; a user permission cannot manufacture a capability that the OS/OEM does not expose.
+Core logic must not contain OEM/brand checks. Platform-specific behavior belongs behind capability detection/adapters. A permission can grant access to an OS-exposed capability; it cannot create a Lock Screen surface that the OS/OEM does not provide.
 
 ## Constraints
-- Preserve the existing theme/color system and prefer semantic Material/system colors over hard-coded device-specific colors.
-- Keep the Home Widget launcher-compatible; avoid decorative nested `RemoteViews` that previously broke 4x2 installation.
-- Do not restore filled selected-day boxes or event-count labels.
-- Do not introduce Jetpack Glance unless explicitly requested.
-- Do not create per-event/per-second timers for countdowns.
+- Preserve the existing Material/system semantic color approach; do not hard-code device-specific background colors.
+- Keep Home Widget launcher-compatible and simple.
+- Use `RemoteViews` for the Home Widget; do not introduce Jetpack Glance unless explicitly requested.
+- Do not create per-event/per-second countdown timers.
+- Keep countdown computation independent from individual presentation surfaces.
+- Do not reintroduce the old recurrence-oriented Event fields.
 
 ## Verification
-Build and run in the user's Android environment. Check:
-- Main screen opens on today.
-- Main schedule swipe changes one day.
-- Week strip swipe changes one week.
-- Week strip and main schedule stay synchronized.
-- Date picker jumps to the correct day.
-- Countdown uses hours/minutes below 24h, days from 24h through 14 days, and is hidden beyond 14 days.
-- Widget shows current + next, or next two when there is no current event.
-- Widget remains readable and installable in 4x2.
-- Focus/Lock Screen behavior is verified separately on each target platform/device; do not infer support from another OEM.
-- Notification fallback is used where a dedicated Lock Screen surface is unavailable and the product explicitly requires Lock Screen visibility.
+Build and run in the Android environment. Check:
+- App opens on today.
+- Main schedule swipe changes exactly one day.
+- Week strip swipe changes exactly one week and preserves weekday selection.
+- Date picker jumps to the correct date.
+- Event status transitions correctly.
+- Countdown uses hours/minutes below 24h, days from 24h through 14 days, and is hidden beyond 14 days where the surface supports hiding.
+- Home Widget shows current + next, or next two when there is no current event.
+- Home Widget remains readable and installable at 4x2.
+- Home Widget refreshes at meaningful event/time boundaries without unnecessary long-horizon work.
+- Focus provider behavior is tested separately from actual Lock Screen availability.
+- Notification fallback is validated on devices where a dedicated Lock Screen surface is unavailable.
 
 ## Next Action
-Finish Home Widget visual refinement and target-device verification, then validate the Focus/Lock Screen capability on representative devices before adding OEM-specific adapters.
+Bring the Home Widget countdown horizon and visual hierarchy into final consistency with the App Screen, then perform target-device verification. After that, validate Focus/Lock Screen capabilities before considering any OEM-specific adapter.
