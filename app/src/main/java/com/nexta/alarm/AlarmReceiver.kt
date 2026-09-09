@@ -7,6 +7,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
+import android.media.MediaPlayer
+import android.media.RingtoneManager
 import android.os.Build
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
@@ -91,6 +93,7 @@ class AlarmReceiver : BroadcastReceiver() {
             .setStyle(NotificationCompat.BigTextStyle().bigText(spoken))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setSilent(true)
             .setAutoCancel(false)
             .setContentIntent(openIntent)
             .addAction(0, "Đã xác nhận", acknowledgeIntent)
@@ -100,7 +103,10 @@ class AlarmReceiver : BroadcastReceiver() {
             NotificationManagerCompat.from(context).notify(eventId.hashCode(), notification)
         }
 
-        speak(context, spoken)
+        // Do not let the notification sound and TTS overlap. Play the alarm tone
+        // through the ALARM stream first, then speak through the same stream.
+        // We deliberately do not request audio focus, so media apps keep playing.
+        playAlarmThenSpeak(context, spoken)
 
         if (!atStart && settings.repeatEnabled && repeatIndex < settings.maxRepeats) {
             val nextAt = minOf(settings.startMillis, now + settings.repeatIntervalMinutes * 60_000L)
@@ -110,8 +116,40 @@ class AlarmReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun speak(context: Context, text: String) {
+    private fun playAlarmThenSpeak(context: Context, text: String) {
         val pending = goAsync()
+        val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+        if (alarmUri == null) {
+            speak(context, text, pending)
+            return
+        }
+
+        try {
+            val player = MediaPlayer()
+            player.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            )
+            player.setDataSource(context, alarmUri)
+            player.setOnCompletionListener {
+                it.release()
+                speak(context, text, pending)
+            }
+            player.setOnErrorListener { mp, _, _ ->
+                mp.release()
+                speak(context, text, pending)
+                true
+            }
+            player.prepare()
+            player.start()
+        } catch (_: Exception) {
+            speak(context, text, pending)
+        }
+    }
+
+    private fun speak(context: Context, text: String, pending: PendingResult) {
         var tts: TextToSpeech? = null
         tts = TextToSpeech(context.applicationContext) { status ->
             if (status != TextToSpeech.SUCCESS) {
@@ -142,12 +180,13 @@ class AlarmReceiver : BroadcastReceiver() {
                 }
             })
 
-            // Maximise TTS stream volume, but deliberately do not request audio focus.
-            // TikTok/music keeps playing; NextA only speaks over it.
             val params = Bundle().apply {
+                // TTS is intentionally routed to the ALARM stream instead of the
+                // default media stream, so it uses the same loudness control as the alarm.
+                putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, android.media.AudioManager.STREAM_ALARM)
                 putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f)
             }
-            val result = engine.speak(text, TextToSpeech.QUEUE_FLUSH, params, "nexta-alarm")
+            val result = engine.speak(text, TextToSpeech.QUEUE_FLUSH, params, "nexta-alarm-tts")
             if (result == TextToSpeech.ERROR) {
                 engine.shutdown()
                 pending.finish()
@@ -169,17 +208,15 @@ class AlarmReceiver : BroadcastReceiver() {
         val manager = context.getSystemService(NotificationManager::class.java)
         if (manager.getNotificationChannel(CHANNEL_ID) == null) {
             val channel = NotificationChannel(CHANNEL_ID, "Nhắc sự kiện", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Âm báo và nhắc TTS cho sự kiện NextA"
-                setSound(
-                    android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM),
-                    AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build()
-                )
+                description = "Thông báo cho báo thức và TTS NextA"
+                // Sound is played manually so the alarm tone can finish before TTS starts.
+                setSound(null, null)
             }
             manager.createNotificationChannel(channel)
         }
     }
 
-    companion object { const val CHANNEL_ID = "nexta_event_alarm_v2" }
+    companion object { const val CHANNEL_ID = "nexta_event_alarm_v3" }
 }
 
 class AlarmActionReceiver : BroadcastReceiver() {
