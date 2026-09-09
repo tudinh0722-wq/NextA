@@ -12,35 +12,46 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.nexta.data.model.AlarmSettings
 import com.nexta.data.model.Event
 
-private const val NEXTA_PROMPT = """Hãy đọc ảnh thời khóa biểu tôi cung cấp và chuyển tất cả các sự kiện trong ảnh thành đúng định dạng dưới đây.
+private const val NEXTA_PROMPT = """Đọc ảnh thời khóa biểu và chuyển tất cả sự kiện thành dữ liệu NextA.
 
-QUY TẮC:
-- Mỗi sự kiện bắt đầu bằng một dòng NGÀY:
-- NGÀY là khóa chính để phân biệt các sự kiện.
-- Không bỏ sót sự kiện nào.
-- Không tự thêm thông tin không có trong ảnh.
-- Nếu không đọc được thông tin, để trống.
-- Giữ nguyên tên môn học.
-- Ngày dùng định dạng dd/MM/yyyy.
-- Giờ dùng định dạng HH:mm.
-- Chỉ trả về dữ liệu, không giải thích, không dùng markdown.
-
-MẪU:
+Mỗi sự kiện dùng đúng 6 dòng sau:
 NGÀY: dd/MM/yyyy
 TÊN: ...
 BẮT ĐẦU: HH:mm
 KẾT THÚC: HH:mm
 ĐỊA ĐIỂM: ...
+GHI CHÚ: ...
+
+Quy tắc:
+1. Mỗi sự kiện bắt đầu bằng NGÀY:.
+2. Không bỏ sót và không tự thêm thông tin không có trong ảnh.
+3. Không đọc được trường nào thì để trống trường đó.
+4. Giữ nguyên tên môn học, địa điểm và ghi chú theo ảnh.
+5. Ngày dùng dd/MM/yyyy, giờ dùng HH:mm.
+6. Chỉ trả về các dòng dữ liệu ở trên, không giải thích, không markdown.
+
+Ví dụ:
+NGÀY: 15/09/2026
+TÊN: Toán rời rạc
+BẮT ĐẦU: 08:00
+KẾT THÚC: 09:30
+ĐỊA ĐIỂM: A101
 GHI CHÚ: ..."""
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BulkImportScreen(onBack: () -> Unit, onImport: (List<Event>) -> Unit) {
+fun BulkImportScreen(onBack: () -> Unit, onImport: (List<Event>, AlarmSettings) -> Unit) {
     var text by remember { mutableStateOf("") }
     var rows by remember { mutableStateOf(emptyList<ImportRow>()) }
     var showPrompt by remember { mutableStateOf(false) }
+    var alarmEnabled by remember { mutableStateOf(true) }
+    var leadTime by remember { mutableIntStateOf(15) }
+    var repeatEnabled by remember { mutableStateOf(true) }
+    var repeatInterval by remember { mutableIntStateOf(5) }
+    var maxRepeats by remember { mutableIntStateOf(3) }
     val context = LocalContext.current
     val validEvents = rows.mapNotNull { it.event }
     val invalidCount = rows.count { it.event == null }
@@ -49,6 +60,14 @@ fun BulkImportScreen(onBack: () -> Unit, onImport: (List<Event>) -> Unit) {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(ClipData.newPlainText("NextA prompt", NEXTA_PROMPT))
     }
+
+    val alarmSettings = AlarmSettings(
+        enabled = alarmEnabled,
+        leadTimeMinutes = leadTime,
+        repeatEnabled = repeatEnabled,
+        repeatIntervalMinutes = repeatInterval,
+        maxRepeats = maxRepeats
+    )
 
     Scaffold(
         topBar = {
@@ -103,13 +122,36 @@ fun BulkImportScreen(onBack: () -> Unit, onImport: (List<Event>) -> Unit) {
                     }
                 }
             }
+            if (validEvents.isNotEmpty() && invalidCount == 0) {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Nhắc trước cho các sự kiện", fontWeight = FontWeight.SemiBold)
+                        Row(Modifier.fillMaxWidth().height(38.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            Text(if (alarmEnabled) "Có báo" else "Không báo", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                            if (alarmEnabled) AlarmChoice("${leadTime} phút", listOf(5, 10, 15, 30, 60), leadTime) { leadTime = it }
+                            Switch(checked = alarmEnabled, onCheckedChange = { alarmEnabled = it }, modifier = Modifier.padding(start = 6.dp))
+                        }
+                        if (alarmEnabled) {
+                            Row(Modifier.fillMaxWidth().height(36.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                Text("Lặp nếu chưa xác nhận", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                                if (repeatEnabled) {
+                                    AlarmChoice("Mỗi $repeatInterval phút", listOf(5, 10, 15), repeatInterval) { repeatInterval = it }
+                                    Spacer(Modifier.width(4.dp))
+                                    AlarmChoice("$maxRepeats lần", listOf(1, 2, 3, 4), maxRepeats) { maxRepeats = it }
+                                }
+                                Switch(checked = repeatEnabled, onCheckedChange = { repeatEnabled = it }, modifier = Modifier.padding(start = 6.dp))
+                            }
+                        }
+                    }
+                }
+            }
             Button(
                 onClick = { rows = BulkImportParser.parse(text) },
                 enabled = text.isNotBlank(),
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Kiểm tra dữ liệu") }
             Button(
-                onClick = { onImport(validEvents) },
+                onClick = { onImport(validEvents, alarmSettings) },
                 enabled = validEvents.isNotEmpty() && invalidCount == 0,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Thêm ${validEvents.size} sự kiện") }
@@ -127,5 +169,21 @@ fun BulkImportScreen(onBack: () -> Unit, onImport: (List<Event>) -> Unit) {
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun AlarmChoice(label: String, options: List<Int>, selected: Int, onSelected: (Int) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        OutlinedButton(onClick = { expanded = true }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp), modifier = Modifier.height(34.dp)) { Text(label, style = MaterialTheme.typography.labelSmall) }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(if (options == listOf(1, 2, 3, 4)) "$option lần" else "$option phút") },
+                    onClick = { onSelected(option); expanded = false }
+                )
+            }
+        }
     }
 }
