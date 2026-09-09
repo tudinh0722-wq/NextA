@@ -17,12 +17,15 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import com.nexta.BuildConfig
 import com.nexta.MainActivity
 import com.nexta.R
-import com.nexta.data.repository.EventRepository
+import com.nexta.data.model.AlarmSettings
+import com.nexta.data.model.Event
+import com.nexta.data.repository.AlarmRepository
+import com.nexta.data.repository.LegacyAlarmMigrator
 import dagger.hilt.android.AndroidEntryPoint
 import java.time.Duration
+import java.time.ZoneId
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -33,56 +36,61 @@ import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class AlarmReceiver : BroadcastReceiver() {
-    @Inject lateinit var repository: EventRepository
+    @Inject lateinit var alarmRepository: AlarmRepository
+    @Inject lateinit var legacyAlarmMigrator: LegacyAlarmMigrator
 
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
-            AlarmScheduler.ACTION_ALARM -> handleAlarm(context, intent)
-            AlarmScheduler.ACTION_TEST_CLEANUP -> handleTestCleanup(context, intent)
+            AlarmScheduler.ACTION_ALARM -> {
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        legacyAlarmMigrator.migrate()
+                        handleAlarm(context, intent)
+                    } finally {
+                        pending.finish()
+                    }
+                }
+            }
             Intent.ACTION_BOOT_COMPLETED,
             "android.intent.action.TIME_SET",
             Intent.ACTION_TIMEZONE_CHANGED,
-            "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" -> AlarmScheduler(context).rescheduleAll()
-        }
-    }
-
-    private fun handleTestCleanup(context: Context, intent: Intent) {
-        if (!BuildConfig.DEBUG) return
-        val eventId = intent.getStringExtra(AlarmScheduler.EXTRA_EVENT_ID) ?: return
-        AlarmPlaybackController.stop(eventId)
-        val pending = goAsync()
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                AlarmScheduler(context).cancel(eventId)
-                repository.deleteEvent(eventId)
-                NextAWidgetRefresh.refresh(context)
-            } finally {
-                pending.finish()
+            "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" -> {
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        legacyAlarmMigrator.migrate()
+                        AlarmScheduler(context, alarmRepository).rescheduleAll()
+                    } finally {
+                        pending.finish()
+                    }
+                }
             }
         }
     }
 
-    private fun handleAlarm(context: Context, intent: Intent) {
+    private suspend fun handleAlarm(context: Context, intent: Intent) {
         val eventId = intent.getStringExtra(AlarmScheduler.EXTRA_EVENT_ID) ?: return
         val repeatIndex = intent.getIntExtra(AlarmScheduler.EXTRA_REPEAT_INDEX, 0)
-        val store = AlarmSettingsStore(context)
-        val settings = store.get(eventId) ?: return
-        if (!settings.enabled || store.isAcknowledged(eventId)) return
+        val settings = alarmRepository.getAlarm(eventId) ?: return
+        val event = alarmRepository.getEvent(eventId) ?: return
+        if (!settings.enabled || settings.acknowledged) return
 
         val now = System.currentTimeMillis()
-        val remaining = (settings.startMillis - now).coerceAtLeast(0L)
+        val startMillis = event.startDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val remaining = (startMillis - now).coerceAtLeast(0L)
         val remainingText = formatRemaining(remaining)
         val atStart = remaining <= 30_000L
-        val firstSpeech = if (atStart) "Đến giờ ${settings.title}." else "NextA nhắc bạn: còn $remainingText đến ${settings.title}."
+        val firstSpeech = if (atStart) "Đến giờ ${event.title}." else "NextA nhắc bạn: còn $remainingText đến ${event.title}."
         val finalSpeech = if (atStart) {
             buildString {
-                append("Đã đến giờ ${settings.title}.")
-                if (settings.note.isNotBlank()) append(" Ghi chú: ${settings.note}.")
+                append("Đã đến giờ ${event.title}.")
+                if (event.note.isNotBlank()) append(" Ghi chú: ${event.note}.")
             }
         } else {
             buildString {
-                append("Còn $remainingText đến ${settings.title}.")
-                if (settings.note.isNotBlank()) append(" Ghi chú: ${settings.note}.")
+                append("Còn $remainingText đến ${event.title}.")
+                if (event.note.isNotBlank()) append(" Ghi chú: ${event.note}.")
             }
         }
 
@@ -108,7 +116,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(if (atStart) "Đến giờ" else "$remainingText nữa")
-            .setContentText(settings.title + if (settings.note.isNotBlank()) " · ${settings.note}" else "")
+            .setContentText(event.title + if (event.note.isNotBlank()) " · ${event.note}" else "")
             .setStyle(NotificationCompat.BigTextStyle().bigText(finalSpeech))
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
@@ -122,12 +130,11 @@ class AlarmReceiver : BroadcastReceiver() {
             NotificationManagerCompat.from(context).notify(eventId.hashCode(), notification)
         }
 
-        // TTS -> full default alarm tone -> TTS. The sequence can be interrupted immediately by ACK.
         AlarmPlaybackController.start(context, eventId, firstSpeech, finalSpeech)
 
         if (!atStart && settings.repeatEnabled && repeatIndex < settings.maxRepeats) {
-            val nextAt = minOf(settings.startMillis, now + settings.repeatIntervalMinutes * 60_000L)
-            if (nextAt > now) AlarmScheduler(context).scheduleRepeat(eventId, nextAt, repeatIndex + 1)
+            val nextAt = minOf(startMillis, now + settings.repeatIntervalMinutes * 60_000L)
+            if (nextAt > now) AlarmScheduler(context, alarmRepository).scheduleRepeat(eventId, nextAt, repeatIndex + 1)
         }
     }
 
@@ -156,7 +163,6 @@ class AlarmReceiver : BroadcastReceiver() {
     companion object { const val CHANNEL_ID = "nexta_event_alarm_v5" }
 }
 
-/** Keeps active TTS/media objects addressable by eventId so ACK can stop them immediately. */
 private object AlarmPlaybackController {
     private val sessions = ConcurrentHashMap<String, PlaybackSession>()
 
@@ -343,22 +349,24 @@ private object AlarmPlaybackController {
     }
 }
 
+@AndroidEntryPoint
 class AlarmActionReceiver : BroadcastReceiver() {
+    @Inject lateinit var alarmRepository: AlarmRepository
+
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == ACTION_ACKNOWLEDGE) {
-            val eventId = intent.getStringExtra(AlarmScheduler.EXTRA_EVENT_ID) ?: return
-            AlarmPlaybackController.stop(eventId)
-            AlarmScheduler(context).acknowledge(eventId)
-            NotificationManagerCompat.from(context).cancel(eventId.hashCode())
+        if (intent.action != ACTION_ACKNOWLEDGE) return
+        val eventId = intent.getStringExtra(AlarmScheduler.EXTRA_EVENT_ID) ?: return
+        AlarmPlaybackController.stop(eventId)
+        val pending = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                alarmRepository.acknowledge(eventId)
+                NotificationManagerCompat.from(context).cancel(eventId.hashCode())
+            } finally {
+                pending.finish()
+            }
         }
     }
 
     companion object { const val ACTION_ACKNOWLEDGE = "com.nexta.action.ALARM_ACKNOWLEDGE" }
-}
-
-private object NextAWidgetRefresh {
-    fun refresh(context: Context) {
-        com.nexta.widget.NextAWidgetProvider.requestUpdate(context)
-        com.nexta.widget.NextAFocusWidgetProvider.requestUpdate(context)
-    }
 }
