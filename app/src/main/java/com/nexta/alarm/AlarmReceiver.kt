@@ -113,9 +113,8 @@ class AlarmReceiver : BroadcastReceiver() {
             NotificationManagerCompat.from(context).notify(eventId.hashCode(), notification)
         }
 
-        // This is intentionally an attention-grabbing alarm sequence:
-        // TTS -> short alarm tone -> TTS.
-        // Audio focus temporarily interrupts/ducks other media so the speech is audible.
+        // Attention sequence: TTS -> full default alarm tone -> TTS.
+        // Audio focus temporarily interrupts/ducks other media so both speech parts are audible.
         playAttentionSequence(context, firstSpeech, finalSpeech)
 
         if (!atStart && settings.repeatEnabled && repeatIndex < settings.maxRepeats) {
@@ -164,7 +163,7 @@ class AlarmReceiver : BroadcastReceiver() {
 
         speak(context, firstSpeech, object : SequenceCallback {
             override fun onDone() {
-                playShortAlarm(context, {
+                playDefaultAlarm(context, {
                     speak(context, finalSpeech, object : SequenceCallback {
                         override fun onDone() {
                             releaseFocus()
@@ -183,7 +182,7 @@ class AlarmReceiver : BroadcastReceiver() {
         })
     }
 
-    private fun playShortAlarm(context: Context, onComplete: () -> Unit, onError: () -> Unit) {
+    private fun playDefaultAlarm(context: Context, onComplete: () -> Unit, onError: () -> Unit) {
         val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
         if (alarmUri == null) {
             onError()
@@ -203,7 +202,6 @@ class AlarmReceiver : BroadcastReceiver() {
             fun finish(success: Boolean) {
                 if (completed) return
                 completed = true
-                try { player.stop() } catch (_: Exception) { }
                 player.release()
                 if (success) onComplete() else onError()
             }
@@ -211,9 +209,8 @@ class AlarmReceiver : BroadcastReceiver() {
             player.setOnErrorListener { _, _, _ -> finish(false); true }
             player.prepare()
             player.start()
-            // The alarm is an attention cue, not the main information channel.
-            // Cap it so a long/default alarm sound cannot bury the second TTS message.
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ finish(true) }, 3_000L)
+            // Do not cap the user's default alarm tone. Let it play to its natural end,
+            // then start the second TTS so the speech is never buried under the tone.
         } catch (_: Exception) {
             onError()
         }
@@ -287,7 +284,7 @@ class AlarmReceiver : BroadcastReceiver() {
         }
     }
 
-    companion object { const val CHANNEL_ID = "nexta_event_alarm_v4" }
+    companion object { const val CHANNEL_ID = "nexta_event_alarm_v5" }
 }
 
 class AlarmActionReceiver : BroadcastReceiver() {
