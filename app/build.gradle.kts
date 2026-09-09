@@ -49,6 +49,9 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
 
+    // Material 3 XML theme for RemoteViews widget dynamic colors
+    implementation(libs.material)
+
     // Room
     implementation(libs.androidx.room.runtime)
     ksp(libs.room.compiler)
