@@ -50,7 +50,17 @@ fun MainScreen(events: List<Event>, message: String? = null, onAddEvent: (LocalD
     val currentDate = today.plusDays((dayPagerState.currentPage - initialDayPage).toLong()); val currentWeekStart = currentDate.with(DayOfWeek.MONDAY); val todayWeekStart = today.with(DayOfWeek.MONDAY)
     val currentWeekOffset = ChronoUnit.WEEKS.between(todayWeekStart, currentWeekStart).toInt(); val scope = rememberCoroutineScope()
     val minSelectableDate = today.minusDays(DAYS_BEFORE_TODAY.toLong()); val maxSelectableDate = today.plusDays(DAYS_AFTER_TODAY.toLong())
-    LaunchedEffect(Unit) { while (true) { now = LocalDateTime.now(); delay(30_000) } }
+
+    // Refresh exactly on minute boundaries instead of polling every 30 seconds.
+    LaunchedEffect(Unit) {
+        while (true) {
+            val current = LocalDateTime.now()
+            now = current
+            val nextMinute = current.truncatedTo(ChronoUnit.MINUTES).plusMinutes(1)
+            delay(Duration.between(current, nextMinute).toMillis().coerceAtLeast(100L))
+        }
+    }
+
     LaunchedEffect(currentWeekOffset) { val target = (initialWeekPage + currentWeekOffset).coerceIn(0, TOTAL_WEEK_PAGES - 1); if (weekPagerState.currentPage != target) weekPagerState.animateScrollToPage(target) }
     LaunchedEffect(weekPagerState.currentPage) { val weekOffset = weekPagerState.currentPage - initialWeekPage; if (weekOffset != currentWeekOffset) { val weekdayOffset = currentDate.dayOfWeek.value - DayOfWeek.MONDAY.value; val targetDate = todayWeekStart.plusWeeks(weekOffset.toLong()).plusDays(weekdayOffset.toLong()); dayPagerState.animateScrollToPage((initialDayPage + ChronoUnit.DAYS.between(today, targetDate).toInt()).coerceIn(0, TOTAL_DAY_PAGES - 1)) } }
     Scaffold(
@@ -123,7 +133,22 @@ private fun List<Event>.maxPriority(): Int = maxOfOrNull { it.priority.coerceIn(
 }
 @Composable private fun StatusDot(state: ScheduleState, active: Boolean) { val label = when (state) { ScheduleState.PAST -> "ĐÃ XONG"; ScheduleState.IN_PROGRESS -> "ĐANG HỌC"; ScheduleState.UPCOMING -> "SẮP TỚI" }; Surface(shape = MaterialTheme.shapes.small, color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest) { Text(label, Modifier.padding(horizontal = 7.dp, vertical = 4.dp), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp) } }
 private fun countdownText(event: Event, state: ScheduleState, now: LocalDateTime) = when (state) { ScheduleState.IN_PROGRESS -> "Kết thúc sau ${formatDuration(Duration.between(now, event.endDateTime))}"; ScheduleState.UPCOMING -> { val duration = Duration.between(now, event.startDateTime); if (duration.toDays() > COUNTDOWN_DAYS_LIMIT) "" else "Bắt đầu sau ${formatDuration(duration)}" }; ScheduleState.PAST -> "Đã kết thúc" }
-private fun formatDuration(duration: Duration): String { val totalMinutes = duration.toMinutes().coerceAtLeast(0); val days = duration.toDays(); val hours = totalMinutes / 60; val minutes = totalMinutes % 60; return when { days >= 1 -> "$days ngày"; hours > 0 && minutes > 0 -> "${hours}h ${minutes}p"; hours > 0 -> "${hours}h"; minutes > 0 -> "${minutes}p"; else -> "<1p" } }
+
+private fun formatDuration(duration: Duration): String {
+    val totalSeconds = duration.seconds.coerceAtLeast(0L)
+    val totalMinutes = ((totalSeconds + 59L) / 60L).coerceAtLeast(0L)
+    val days = totalMinutes / 1440L
+    val hours = totalMinutes / 60L
+    val minutes = totalMinutes % 60L
+    return when {
+        days >= 1 -> "$days ngày"
+        hours > 0 && minutes > 0 -> "${hours}h ${minutes}p"
+        hours > 0 -> "${hours}h"
+        minutes > 0 -> "${minutes}p"
+        else -> "<1p"
+    }
+}
+
 private fun dayLabel(dayOfWeek: DayOfWeek) = when (dayOfWeek) { DayOfWeek.MONDAY -> "T2"; DayOfWeek.TUESDAY -> "T3"; DayOfWeek.WEDNESDAY -> "T4"; DayOfWeek.THURSDAY -> "T5"; DayOfWeek.FRIDAY -> "T6"; DayOfWeek.SATURDAY -> "T7"; DayOfWeek.SUNDAY -> "CN" }
 private fun vietnameseWeekday(dayOfWeek: DayOfWeek) = when (dayOfWeek) { DayOfWeek.MONDAY -> "Thứ Hai"; DayOfWeek.TUESDAY -> "Thứ Ba"; DayOfWeek.WEDNESDAY -> "Thứ Tư"; DayOfWeek.THURSDAY -> "Thứ Năm"; DayOfWeek.FRIDAY -> "Thứ Sáu"; DayOfWeek.SATURDAY -> "Thứ Bảy"; DayOfWeek.SUNDAY -> "Chủ Nhật" }
 private fun LocalDate.toEpochMillis() = atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
