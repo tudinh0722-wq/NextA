@@ -3,12 +3,11 @@ package com.nexta.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.unit.dp
 import com.nexta.alarm.AlarmSettings
 import com.nexta.data.model.Event
@@ -69,47 +68,61 @@ fun AddEventScreen(
         onSave(event, alarm)
     }
 
-    Scaffold(topBar = { TopAppBar(title = { Text(if (initialEvent == null) "Thêm sự kiện" else "Sửa sự kiện") }, navigationIcon = { TextButton(onClick = onBack) { Text("Quay lại") } }) }) { innerPadding ->
-        Column(Modifier.fillMaxSize().padding(innerPadding).verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextField(title, { title = it.take(MAX_TITLE_LENGTH); errorMessage = null }, label = { Text("Tên sự kiện") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(if (initialEvent == null) "Thêm sự kiện" else "Sửa sự kiện") },
+                navigationIcon = { TextButton(onClick = onBack) { Text("Quay lại") } }
+            )
+        }
+    ) { innerPadding ->
+        Column(
+            Modifier.fillMaxSize().padding(innerPadding).padding(horizontal = 12.dp, vertical = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            CompactTextField(title, { title = it.take(MAX_TITLE_LENGTH); errorMessage = null }, "Tên sự kiện", Modifier.fillMaxWidth())
             EventTypeField(type) { type = it }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DateField("Ngày bắt đầu", startDate, Modifier.weight(1.2f)) { showStartDatePicker = true }
-                TimeField("Bắt đầu", startTime, Modifier.weight(.8f)) { startTime = it; errorMessage = null }
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DateField("Ngày kết thúc", endDate, Modifier.weight(1.2f)) { showEndDatePicker = true }
-                TimeField("Kết thúc", endTime, Modifier.weight(.8f)) { endTime = it; errorMessage = null }
-            }
-            TextField(location, { location = it.take(MAX_LOCATION_LENGTH) }, label = { Text("Địa điểm") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-            TextField(note, { note = it.take(MAX_NOTE_LENGTH) }, label = { Text("Ghi chú") }, modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 2)
 
-            Text("Nhắc trước", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(if (alarmEnabled) "Có báo" else "Không báo", modifier = Modifier.weight(1f))
-                if (alarmEnabled) {
-                    AlarmChoice("${leadTime} phút", listOf(5, 10, 15, 30, 60), leadTime) { leadTime = it }
-                }
-                Switch(checked = alarmEnabled, onCheckedChange = { alarmEnabled = it })
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                DateField("Ngày bắt đầu", startDate, Modifier.weight(1.1f)) { showStartDatePicker = true }
+                TimeField("Bắt đầu", startTime, Modifier.weight(.75f)) { startTime = it; errorMessage = null }
+                TimeField("Kết thúc", endTime, Modifier.weight(.75f)) { endTime = it; errorMessage = null }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                DateField("Ngày kết thúc", endDate, Modifier.weight(1.1f)) { showEndDatePicker = true }
+                CompactTextField(location, { location = it.take(MAX_LOCATION_LENGTH) }, "Địa điểm", Modifier.weight(1.5f))
+            }
+            CompactTextField(note, { note = it.take(MAX_NOTE_LENGTH) }, "Ghi chú", Modifier.fillMaxWidth())
+
+            Text("Nhắc trước", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text(if (alarmEnabled) "Có báo" else "Không báo", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                if (alarmEnabled) AlarmChoice("${leadTime} phút", listOf(5, 10, 15, 30, 60), leadTime) { leadTime = it }
+                Switch(checked = alarmEnabled, onCheckedChange = { alarmEnabled = it }, modifier = Modifier.height(36.dp))
             }
             if (alarmEnabled) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Lặp nếu chưa xác nhận", modifier = Modifier.weight(1f))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text("Lặp", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                     if (repeatEnabled) {
                         AlarmChoice("Mỗi $repeatInterval phút", listOf(5, 10, 15), repeatInterval) { repeatInterval = it }
                         AlarmChoice("$maxRepeats lần", listOf(1, 2, 3, 4), maxRepeats) { maxRepeats = it }
                     }
-                    Switch(checked = repeatEnabled, onCheckedChange = { repeatEnabled = it })
+                    Switch(checked = repeatEnabled, onCheckedChange = { repeatEnabled = it }, modifier = Modifier.height(36.dp))
                 }
-                Text("Mặc định: báo trước 15 phút, lặp 3 lần nếu chưa xác nhận.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
-            Text("Mức độ ưu tiên", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { PriorityButton(0, "Bình thường", priority, Modifier.weight(1f)) { priority = 0 }; PriorityButton(1, "Quan trọng", priority, Modifier.weight(1f)) { priority = 1 }; PriorityButton(2, "Rất quan trọng", priority, Modifier.weight(1f)) { priority = 2 } }
-            errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-            Button(onClick = ::save, modifier = Modifier.fillMaxWidth()) { Text(if (initialEvent == null) "Lưu sự kiện" else "Lưu thay đổi") }
-            if (initialEvent == null) OutlinedButton(onClick = onBulkImport, modifier = Modifier.fillMaxWidth()) { Text("Nhập nhiều sự kiện từ AI") }
-            Spacer(Modifier.height(4.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text("Ưu tiên", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(.55f))
+                PriorityButton(0, "Bình thường", priority, Modifier.weight(1f)) { priority = 0 }
+                PriorityButton(1, "Quan trọng", priority, Modifier.weight(1f)) { priority = 1 }
+                PriorityButton(2, "Rất quan trọng", priority, Modifier.weight(1f)) { priority = 2 }
+            }
+
+            errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, maxLines = 1) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Button(onClick = ::save, modifier = Modifier.weight(1f)) { Text(if (initialEvent == null) "Lưu sự kiện" else "Lưu thay đổi") }
+                if (initialEvent == null) OutlinedButton(onClick = onBulkImport, modifier = Modifier.weight(1f)) { Text("Nhập nhiều") }
+            }
         }
     }
 
@@ -117,24 +130,59 @@ fun AddEventScreen(
     if (showEndDatePicker) DatePickerDialogFor(endDate, { showEndDatePicker = false }) { selected -> if (selected.isBefore(startDate)) errorMessage = "Ngày kết thúc không được trước ngày bắt đầu." else { endDate = selected; errorMessage = null } }
 }
 
+@Composable private fun CompactTextField(value: String, onValueChange: (String) -> Unit, label: String, modifier: Modifier) {
+    var focused by remember { mutableStateOf(false) }
+    TextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        modifier = modifier.onFocusChanged { focused = it.isFocused },
+        singleLine = true,
+        minLines = 1,
+        maxLines = 1,
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = if (focused) 10.dp else 5.dp)
+    )
+}
+
 @Composable private fun AlarmChoice(label: String, options: List<Int>, selected: Int, onSelected: (Int) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Box {
-        OutlinedButton(onClick = { expanded = true }) { Text(label) }
+        OutlinedButton(onClick = { expanded = true }, contentPadding = PaddingValues(horizontal = 9.dp, vertical = 0.dp)) { Text(label, style = MaterialTheme.typography.labelSmall) }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { option -> DropdownMenuItem(text = { Text("$option phút") }, onClick = { onSelected(option); expanded = false }) }
         }
     }
 }
 
-@Composable private fun DateField(label: String, value: LocalDate, modifier: Modifier, onClick: () -> Unit) { TextField(value = value.format(displayDateFormatter), onValueChange = {}, readOnly = true, label = { Text(label) }, modifier = modifier, singleLine = true, trailingIcon = { TextButton(onClick = onClick) { Text("Chọn") } }) }
-@Composable private fun TimeField(label: String, value: String, modifier: Modifier, onValueChange: (String) -> Unit) { TextField(value = value, onValueChange = onValueChange, label = { Text(label) }, modifier = modifier, singleLine = true) }
+@Composable private fun DateField(label: String, value: LocalDate, modifier: Modifier, onClick: () -> Unit) {
+    TextField(value = value.format(displayDateFormatter), onValueChange = {}, readOnly = true, label = { Text(label) }, modifier = modifier, singleLine = true, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 5.dp), trailingIcon = { TextButton(onClick = onClick, contentPadding = PaddingValues(horizontal = 4.dp)) { Text("Chọn", style = MaterialTheme.typography.labelSmall) } })
+}
+
+@Composable private fun TimeField(label: String, value: String, modifier: Modifier, onValueChange: (String) -> Unit) {
+    TextField(value = value, onValueChange = onValueChange, label = { Text(label) }, modifier = modifier, singleLine = true, contentPadding = PaddingValues(horizontal = 9.dp, vertical = 5.dp))
+}
 
 @Composable private fun DatePickerDialogFor(value: LocalDate, onDismiss: () -> Unit, onSelected: (LocalDate) -> Unit) {
     val state = rememberDatePickerState(initialSelectedDateMillis = value.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli())
     DatePickerDialog(onDismissRequest = onDismiss, confirmButton = { TextButton(onClick = { state.selectedDateMillis?.let { onSelected(java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate()); onDismiss() } }) { Text("Chọn") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Hủy") } }) { DatePicker(state = state) }
 }
 
-@Composable private fun EventTypeField(value: EventType, onValueChange: (EventType) -> Unit) { var expanded by remember { mutableStateOf(false) }; ExposedDropdownMenuBox(expanded, { expanded = !expanded }) { TextField(value.toDisplayName(), {}, readOnly = true, label = { Text("Loại sự kiện") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) }, modifier = Modifier.fillMaxWidth().menuAnchor()); DropdownMenu(expanded, { expanded = false }) { EventType.entries.forEach { option -> DropdownMenuItem(text = { Text(option.toDisplayName()) }, onClick = { onValueChange(option); expanded = false }) } } } }
-@Composable private fun PriorityButton(value: Int, label: String, selected: Int, modifier: Modifier, onClick: () -> Unit) { if (value == selected) Button(onClick, modifier) { Text(label) } else OutlinedButton(onClick, modifier) { Text(label) } }
-private fun EventType.toDisplayName() = when (this) { EventType.CLASS_OFFLINE -> "Học trực tiếp"; EventType.CLASS_ONLINE -> "Học trực tuyến"; EventType.TASK -> "Công việc"; EventType.OTHER -> "Khác" }
+@Composable private fun EventTypeField(value: EventType, onValueChange: (EventType) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded, { expanded = !expanded }) {
+        TextField(value.toDisplayName(), {}, readOnly = true, label = { Text("Loại sự kiện") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) }, modifier = Modifier.fillMaxWidth().menuAnchor(), singleLine = true, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 5.dp))
+        DropdownMenu(expanded, { expanded = false }) { EventType.entries.forEach { option -> DropdownMenuItem(text = { Text(option.toDisplayName()) }, onClick = { onValueChange(option); expanded = false }) } }
+    }
+}
+
+@Composable private fun PriorityButton(value: Int, label: String, selected: Int, modifier: Modifier, onClick: () -> Unit) {
+    if (value == selected) Button(onClick, modifier, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)) { Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1) }
+    else OutlinedButton(onClick, modifier, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)) { Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1) }
+}
+
+private fun EventType.toDisplayName() = when (this) {
+    EventType.CLASS_OFFLINE -> "Học trực tiếp"
+    EventType.CLASS_ONLINE -> "Học trực tuyến"
+    EventType.TASK -> "Công việc"
+    EventType.OTHER -> "Khác"
+}
