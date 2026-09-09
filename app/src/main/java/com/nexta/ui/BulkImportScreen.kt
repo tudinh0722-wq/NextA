@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.nexta.data.model.Event
 
@@ -34,6 +35,7 @@ KẾT THÚC: HH:mm
 ĐỊA ĐIỂM: ...
 GHI CHÚ: ..."""
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BulkImportScreen(onBack: () -> Unit, onImport: (List<Event>) -> Unit) {
     var text by remember { mutableStateOf("") }
@@ -43,8 +45,18 @@ fun BulkImportScreen(onBack: () -> Unit, onImport: (List<Event>) -> Unit) {
     val validEvents = rows.mapNotNull { it.event }
     val invalidCount = rows.count { it.event == null }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Nhập nhiều sự kiện") }, navigationIcon = { TextButton(onClick = onBack) { Text("Quay lại") } }) }) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Nhập nhiều sự kiện") },
+                navigationIcon = { TextButton(onClick = onBack) { Text("Quay lại") } }
+            )
+        }
+    ) { padding ->
+        Column(
+            Modifier.fillMaxSize().padding(padding).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { showPrompt = true }, modifier = Modifier.weight(1f)) { Text("Xem mẫu") }
                 OutlinedButton(onClick = {
@@ -52,18 +64,61 @@ fun BulkImportScreen(onBack: () -> Unit, onImport: (List<Event>) -> Unit) {
                     clipboard.setPrimaryClip(ClipData.newPlainText("NextA prompt", NEXTA_PROMPT))
                 }, modifier = Modifier.weight(1f)) { Text("Copy prompt") }
             }
-            OutlinedTextField(value = text, onValueChange = { text = it }, modifier = Modifier.fillMaxWidth().weight(1f), label = { Text("Dán dữ liệu từ AI") }, placeholder = { Text("NGÀY: 15/09/2026\nTÊN: ...") })
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                label = { Text("Dán dữ liệu từ AI") },
+                placeholder = { Text("NGÀY: 15/09/2026\nTÊN: ...") }
+            )
             if (rows.isNotEmpty()) {
-                Text("✓ ${validEvents.size} hợp lệ" + if (invalidCount > 0) "   ⚠ $invalidCount lỗi" else "", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    "✓ ${validEvents.size} hợp lệ" + if (invalidCount > 0) "   ⚠ $invalidCount lỗi" else "",
+                    style = MaterialTheme.typography.labelLarge
+                )
                 LazyColumn(Modifier.weight(.8f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(rows) { row ->
-                        Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(12.dp)) { Text(row.event?.title ?: "Sự kiện ${row.rawIndex}", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold); if (row.event != null) Text("${row.event.startDateTime} → ${row.event.endDateTime}\n${row.event.location}", style = MaterialTheme.typography.bodySmall) else Text(row.errors.joinToString(" • "), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) } }
+                        Card(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(12.dp)) {
+                                Text(
+                                    row.event?.title ?: "Sự kiện ${row.rawIndex}",
+                                    fontWeight = FontWeight.Bold
+                                )
+                                if (row.event != null) {
+                                    Text(
+                                        "${row.event.startDateTime} → ${row.event.endDateTime}\n${row.event.location}",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                } else {
+                                    Text(
+                                        row.errors.joinToString(" • "),
+                                        color = MaterialTheme.colorScheme.error,
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
-            Button(onClick = { rows = BulkImportParser.parse(text) }, enabled = text.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Kiểm tra dữ liệu") }
-            Button(onClick = { onImport(validEvents) }, enabled = validEvents.isNotEmpty() && invalidCount == 0, modifier = Modifier.fillMaxWidth()) { Text("Thêm ${validEvents.size} sự kiện") }
+            Button(
+                onClick = { rows = BulkImportParser.parse(text) },
+                enabled = text.isNotBlank(),
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Kiểm tra dữ liệu") }
+            Button(
+                onClick = { onImport(validEvents) },
+                enabled = validEvents.isNotEmpty() && invalidCount == 0,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Thêm ${validEvents.size} sự kiện") }
         }
     }
-    if (showPrompt) AlertDialog(onDismissRequest = { showPrompt = false }, title = { Text("Prompt cho AI") }, text = { Text(NEXTA_PROMPT) }, confirmButton = { TextButton(onClick = { showPrompt = false }) { Text("Đóng") } })
+    if (showPrompt) {
+        AlertDialog(
+            onDismissRequest = { showPrompt = false },
+            title = { Text("Prompt cho AI") },
+            text = { Text(NEXTA_PROMPT) },
+            confirmButton = { TextButton(onClick = { showPrompt = false }) { Text("Đóng") } }
+        )
+    }
 }
