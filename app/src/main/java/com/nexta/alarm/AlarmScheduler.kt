@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import com.nexta.data.model.Event
-import java.time.Duration
 import java.time.ZoneId
 
 class AlarmScheduler(private val context: Context) {
@@ -19,15 +18,20 @@ class AlarmScheduler(private val context: Context) {
         if (!settings.enabled) return
 
         val triggerAt = event.startDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() - settings.leadTimeMinutes * 60_000L
-        val now = System.currentTimeMillis()
-        val safeTrigger = triggerAt.coerceAtLeast(now + 1_000L)
-        val intent = intentFor(event.id, 0)
-        val pending = PendingIntent.getBroadcast(context, requestCode(event.id, 0), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        scheduleAt(event.id, triggerAt.coerceAtLeast(System.currentTimeMillis() + 1_000L), 0)
+    }
 
+    fun scheduleRepeat(eventId: String, triggerAt: Long, repeatIndex: Int) {
+        scheduleAt(eventId, triggerAt, repeatIndex)
+    }
+
+    private fun scheduleAt(eventId: String, triggerAt: Long, repeatIndex: Int) {
+        val intent = intentFor(eventId, repeatIndex)
+        val pending = PendingIntent.getBroadcast(context, requestCode(eventId, repeatIndex), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarmManager.canScheduleExactAlarms()) {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, safeTrigger, pending)
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
         } else {
-            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, safeTrigger, pending)
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
         }
     }
 
@@ -57,17 +61,7 @@ class AlarmScheduler(private val context: Context) {
         store.allIds().forEach { eventId ->
             store.get(eventId)?.let { settings ->
                 if (settings.enabled && !store.isAcknowledged(eventId) && settings.startMillis > System.currentTimeMillis()) {
-                    val event = Event(
-                        eventId,
-                        settings.title,
-                        com.nexta.data.model.EventType.OTHER,
-                        java.time.Instant.ofEpochMilli(settings.startMillis).atZone(ZoneId.systemDefault()).toLocalDateTime(),
-                        java.time.Instant.ofEpochMilli(settings.startMillis).atZone(ZoneId.systemDefault()).toLocalDateTime(),
-                        "",
-                        settings.note,
-                        0
-                    )
-                    schedule(event, settings)
+                    scheduleAt(eventId, (settings.startMillis - settings.leadTimeMinutes * 60_000L).coerceAtLeast(System.currentTimeMillis() + 1_000L), 0)
                 }
             }
         }
