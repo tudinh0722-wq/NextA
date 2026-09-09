@@ -93,14 +93,16 @@ class MainActivity : ComponentActivity() {
         createBuildTestAlarmIfNeeded()
     }
 
+    /**
+     * DEBUG-only alarm smoke test. It is deliberately short so the alarm can be
+     * verified before packaging a release APK. The same fixed ID is reused;
+     * opening the debug app again recreates/reschedules it if it was deleted.
+     */
     private fun createBuildTestAlarmIfNeeded() {
         if (!BuildConfig.DEBUG) return
 
-        val prefs = getSharedPreferences(TEST_PREFS, MODE_PRIVATE)
-        if (prefs.getString(TEST_BUILD_KEY, null) == BuildConfig.BUILD_ID) return
-
-        val start = LocalDateTime.now().plusMinutes(3)
-        val end = start.plusMinutes(10)
+        val start = LocalDateTime.now().plusMinutes(2)
+        val end = start.plusMinutes(5)
         val event = Event(
             id = BUILD_TEST_EVENT_ID,
             title = "🔔 TEST ALARM",
@@ -108,12 +110,12 @@ class MainActivity : ComponentActivity() {
             startDateTime = start,
             endDateTime = end,
             location = "Debug build",
-            note = "Sự kiện tự tạo để kiểm tra báo thức. Tự xóa sau khi test.",
+            note = "Test báo thức · tự xóa sau khi kết thúc",
             priority = 0
         )
         val settings = AlarmSettings(
             enabled = true,
-            leadTimeMinutes = 2,
+            leadTimeMinutes = 1,
             repeatEnabled = true,
             repeatIntervalMinutes = 1,
             maxRepeats = 3,
@@ -128,7 +130,6 @@ class MainActivity : ComponentActivity() {
                 event.id,
                 end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() + 5_000L
             )
-            prefs.edit().putString(TEST_BUILD_KEY, BuildConfig.BUILD_ID).apply()
             refreshWidgets()
         }
     }
@@ -168,8 +169,6 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val REQUEST_NOTIFICATIONS = 7001
-        private const val TEST_PREFS = "nexta_debug_build_test"
-        private const val TEST_BUILD_KEY = "build_id"
         private const val BUILD_TEST_EVENT_ID = "__nexta_build_test_alarm__"
     }
 }
