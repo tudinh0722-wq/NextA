@@ -16,7 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.nexta.alarm.AlarmSettings
+import com.nexta.data.model.AlarmSettings
 import com.nexta.data.model.Event
 import com.nexta.data.model.EventType
 import java.time.LocalDate
@@ -71,7 +71,7 @@ fun AddEventScreen(
         } catch (_: Exception) { errorMessage = "Ngày hoặc giờ không hợp lệ."; return }
         if (!endDateTime.isAfter(startDateTime)) { errorMessage = "Thời điểm kết thúc phải sau thời điểm bắt đầu."; return }
         val event = Event(initialEvent?.id ?: UUID.randomUUID().toString(), trimmedTitle, type, startDateTime, endDateTime, location.trim(), note.trim(), priority ?: 0)
-        val alarm = AlarmSettings(alarmEnabled, leadTime, repeatEnabled, repeatInterval, maxRepeats, event.title, startDateTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli(), event.note)
+        val alarm = AlarmSettings(alarmEnabled, leadTime, repeatEnabled, repeatInterval, maxRepeats)
         onSave(event, alarm)
     }
 
