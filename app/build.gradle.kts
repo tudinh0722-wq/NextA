@@ -19,6 +19,12 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "BUILD_ID", "\"${System.currentTimeMillis()}\"")
+
+        // Room schema export — KSP ghi file vào app/schemas/
+        ksp {
+            arg("room.schemaLocation", "$projectDir/schemas")
+            arg("room.generateKotlin", "true")
+        }
     }
 
     buildTypes {
