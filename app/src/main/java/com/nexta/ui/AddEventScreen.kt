@@ -7,6 +7,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.nexta.alarm.AlarmSettings
@@ -83,8 +84,6 @@ fun AddEventScreen(
             TextField(location, { location = it.take(MAX_LOCATION_LENGTH) }, label = { Text("Địa điểm") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             TextField(note, { note = it.take(MAX_NOTE_LENGTH) }, label = { Text("Ghi chú") }, modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 2)
 
-            // Alarm controls are deliberately stacked instead of putting several chips
-            // in one row, which previously caused the form to become cramped/overflow.
             Text("Nhắc trước", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(if (alarmEnabled) "Có báo" else "Không báo", modifier = Modifier.weight(1f))
