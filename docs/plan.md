@@ -20,9 +20,10 @@
 - [x] Widget progress only for the active event
 - [x] Material/system dynamic colors for widget text
 - [x] Mica-style translucent widget background
+- [x] Focus/Lock Screen widget provider and compact Now/Next surface
 - [ ] Final device/launcher verification
-- [ ] Focus/Lock Screen capability verification
-- [ ] Notification fallback
+- [ ] Focus/Lock Screen real-device capability verification
+- [x] Notification fallback surface
 
 > Phase B deliberately keeps `Event` concrete. Recurrence is not introduced into the data model until there is an explicit architecture decision; this avoids mixing recurring rules with concrete occurrences.
 
@@ -54,4 +55,4 @@ Phase C: external AI → text → validate → preview → database
 - [ ] Large platform integrations
 
 ## Working Rule
-Keep the app's core Event/schedule semantics independent from UI surfaces. Home Widget remains `RemoteViews`; do not introduce Glance unless explicitly requested. Do not claim device/launcher support without real-device verification.
+Keep the app's core Event/schedule semantics independent from UI surfaces. Home Widget and Focus/Lock Screen remain `RemoteViews`; do not introduce Glance unless explicitly requested. Do not claim device/launcher support without real-device verification.
