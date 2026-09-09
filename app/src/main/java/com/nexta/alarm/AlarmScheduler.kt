@@ -28,10 +28,12 @@ class AlarmScheduler(
     }
 
     suspend fun rescheduleAll() {
+        val now = System.currentTimeMillis()
         alarmRepository.getPendingAlarms().forEach { record ->
-            val triggerAt = record.event.startDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() - record.settings.leadTimeMinutes * 60_000L
-            if (triggerAt > System.currentTimeMillis()) {
-                scheduleAt(record.event.id, triggerAt, 0)
+            val startMillis = record.event.startDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            if (startMillis > now) {
+                val triggerAt = startMillis - record.settings.leadTimeMinutes * 60_000L
+                scheduleAt(record.event.id, triggerAt.coerceAtLeast(now + 1_000L), 0)
             }
         }
     }
