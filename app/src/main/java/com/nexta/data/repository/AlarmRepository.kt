@@ -18,9 +18,8 @@ class AlarmRepository @Inject constructor(
     suspend fun getAlarm(eventId: String): AlarmSettings? =
         alarmDao.getByEventId(eventId)?.toDomain()
 
-    suspend fun saveAlarm(eventId: String, settings: AlarmSettings) {
-        alarmDao.upsert(settings.toEntity(eventId))
-    }
+    suspend fun getEvent(eventId: String): Event? =
+        eventDao.getById(eventId)?.toDomain()
 
     suspend fun acknowledge(eventId: String) {
         alarmDao.acknowledge(eventId)
@@ -40,16 +39,6 @@ data class AlarmRecord(
 )
 
 private fun EventAlarmEntity.toDomain() = AlarmSettings(
-    enabled = enabled,
-    leadTimeMinutes = leadTimeMinutes,
-    repeatEnabled = repeatEnabled,
-    repeatIntervalMinutes = repeatIntervalMinutes,
-    maxRepeats = maxRepeats,
-    acknowledged = acknowledged
-)
-
-private fun AlarmSettings.toEntity(eventId: String) = EventAlarmEntity(
-    eventId = eventId,
     enabled = enabled,
     leadTimeMinutes = leadTimeMinutes,
     repeatEnabled = repeatEnabled,
