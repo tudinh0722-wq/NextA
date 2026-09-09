@@ -3,13 +3,9 @@ package com.nexta.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexta.data.model.Event
-import com.nexta.data.model.ScheduleResult
 import com.nexta.data.repository.EventRepository
-import com.nexta.domain.ScheduleStateEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.time.LocalDateTime
 import javax.inject.Inject
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -17,25 +13,11 @@ import kotlinx.coroutines.launch
 class MainViewModel @Inject constructor(private val repository: EventRepository) : ViewModel() {
     private val _saveMessage = MutableStateFlow<String?>(null)
     val saveMessage: StateFlow<String?> = _saveMessage.asStateFlow()
+
     val uiState: StateFlow<MainUiState> = repository.getAllEvents()
         .map { MainUiState.Success(it.sortedBy { event -> event.startDateTime }) as MainUiState }
         .catch { emit(MainUiState.Error(it.message ?: "Không thể tải danh sách sự kiện.")) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainUiState.Loading)
-
-    private val now: Flow<LocalDateTime> = flow {
-        while (true) {
-            emit(LocalDateTime.now())
-            delay(30_000)
-        }
-    }
-
-    val scheduleResult: StateFlow<ScheduleResult> = combine(uiState, now) { state, currentTime ->
-        if (state is MainUiState.Success) {
-            ScheduleStateEngine.calculateResult(state.events, currentTime)
-        } else {
-            ScheduleResult(null, null)
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ScheduleResult(null, null))
 
     fun saveEvent(event: Event, onSaved: () -> Unit = {}) {
         viewModelScope.launch {
