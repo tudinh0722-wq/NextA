@@ -49,14 +49,12 @@ class AlarmScheduler(
 
     /**
      * Cancel đồng bộ khi đã biết maxRepeats (vd: vừa save settings).
-     * Dùng cancel(id, settings.maxRepeats) thay vì cancel(id) để tránh bỏ sót slot.
      */
     fun cancel(eventId: String, maxRepeats: Int = MAX_REPEATS_FALLBACK) {
         cancelSlots(eventId, maxRepeats)
     }
 
     private fun cancelSlots(eventId: String, maxRepeats: Int) {
-        // slot 0 = alarm chính, slot 1..maxRepeats = repeat
         for (index in 0..maxRepeats) {
             val pending = PendingIntent.getBroadcast(
                 context,
@@ -72,11 +70,10 @@ class AlarmScheduler(
     }
 
     private fun scheduleAt(eventId: String, triggerAt: Long, repeatIndex: Int) {
-        val intent = intentFor(eventId, repeatIndex)
         val pending = PendingIntent.getBroadcast(
             context,
             requestCode(eventId, repeatIndex),
-            intent,
+            intentFor(eventId, repeatIndex),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarmManager.canScheduleExactAlarms()) {
@@ -86,20 +83,25 @@ class AlarmScheduler(
         }
     }
 
-    private fun intentFor(eventId: String, repeatIndex: Int): Intent = Intent(context, AlarmReceiver::class.java).apply {
-        action = ACTION_ALARM
-        putExtra(EXTRA_EVENT_ID, eventId)
-        putExtra(EXTRA_REPEAT_INDEX, repeatIndex)
-    }
+    private fun intentFor(eventId: String, repeatIndex: Int): Intent =
+        Intent(context, AlarmReceiver::class.java).apply {
+            action = ACTION_ALARM
+            putExtra(EXTRA_EVENT_ID, eventId)
+            putExtra(EXTRA_REPEAT_INDEX, repeatIndex)
+        }
 
-    private fun requestCode(eventId: String, repeatIndex: Int): Int = eventId.hashCode() * 10 + repeatIndex
+    /**
+     * RequestCode luôn dương — hashCode() có thể âm trên một số ROM.
+     * and(0x7FFFFFFF) bỏ sign bit, giữ 31 bit còn lại.
+     * Nhân 100 thay vì 10 để chứa tối đa 99 repeat slot mà không overlap.
+     */
+    private fun requestCode(eventId: String, repeatIndex: Int): Int =
+        (eventId.hashCode() and 0x7FFFFFFF) * 100 + repeatIndex
 
     companion object {
         const val ACTION_ALARM = "com.nexta.action.EVENT_ALARM"
         const val EXTRA_EVENT_ID = "event_id"
         const val EXTRA_REPEAT_INDEX = "repeat_index"
-
-        // Fallback khi không đọc được Room — đủ lớn để cover mọi trường hợp thực tế
         const val MAX_REPEATS_FALLBACK = 10
     }
 }
