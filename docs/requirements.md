@@ -8,8 +8,8 @@ NextA is a student-focused personal schedule management Android app.
 - Default selected day is today when the screen opens.
 - User can select another day.
 - Show only events belonging to the selected day below the day strip.
-- Day background/load should reflect the total event weight for that day.
-- Events expose a priority value: 0 normal, 1 important, 2 very important.
+- Day background/load should reflect total event weight for that day.
+- Event priority: `0` normal, `1` important, `2` very important.
 - Provide a circular `+` floating action button at the bottom-right.
 - Long press an event to delete it.
 - Show event start/end time, title, location, note, and current status where useful.
@@ -17,23 +17,47 @@ NextA is a student-focused personal schedule management Android app.
 ## Event Management
 - User can create an event with title, type, date, start/end time, location, note, and priority.
 - End time must be after start time.
-- Persist events locally.
+- Persist events locally through the existing Room repository layer.
+- Keep the existing concrete Event model based on `startDateTime` and `endDateTime` unless an explicit architecture change is approved.
+
+## Countdown
+- Countdown is derived from event timestamps; it must not depend on a particular UI surface.
+- For an active event, countdown is to its end time.
+- For an upcoming event, countdown is to its start time.
+- Show countdown only within the next 14 days.
+- Below 24 hours, show hours/minutes.
+- From 24 hours through 14 days, show days rather than hours/minutes.
+- Do not create one timer per event. Prefer shared time evaluation and boundary-based refreshes.
 
 ## Home Widget — Today Schedule
-- This is a separate UI from the app screen.
+- Separate UI from the app screen.
 - Target size is 4x2.
-- Show up to two relevant events, prioritizing the currently active event and then upcoming event(s).
+- Use traditional Android `RemoteViews`.
+- Show up to two relevant events: current + next, or next two when there is no current event.
 - Primary information: event title, start/end time, and countdown.
-- If an event is active, countdown is to its end time.
-- If an event is upcoming, countdown is to its start time.
 - Location and note are secondary information.
-- Countdown should refresh approximately every minute and at event boundaries.
-- Prefer launcher-compatible/simple `RemoteViews` layouts over decorative complexity.
+- Refresh approximately at useful minute/event boundaries rather than every second.
+- Prefer launcher-compatible/simple layouts over decorative complexity.
 
 ## Focus / Lock Screen Surface
-- This is intentionally different from both the App Screen and Home Widget.
+- Separate UI from both the App Screen and Home Widget.
 - Focus on Now/Next and a large countdown.
-- Keep the information hierarchy optimized for glanceability.
+- Optimize for glanceability.
+- Treat Lock Screen support as capability-dependent. Do not assume that an Android Home Screen `AppWidget` can appear on every device's Lock Screen.
+- Do not require a hypothetical universal Lock Screen widget permission.
+- If a dedicated Lock Screen API is unavailable, use a standard Android notification/Lock Screen notification as the fallback where appropriate.
+
+## Cross-Device Compatibility
+- NextA must target multiple Android devices and OEMs rather than a single device/UI version.
+- Same product semantics should be preserved while presentation adapts to platform capabilities.
+- Prefer capability detection over device-brand checks.
+- OEM-specific integrations are optional adapters, not core product logic.
+- Platform limitations must not force Samsung/Pixel/Xiaomi/etc. conditions into the event/countdown engine.
+
+## Design System
+- Prefer Material 3 / dynamic system colors where supported.
+- Avoid hard-coded device-specific colors when a semantic Material/system token can be used.
+- Restricted surfaces such as `RemoteViews` may implement the same visual hierarchy differently because of platform limitations.
 
 ## Current Scope
-The project is still under active development. Requirements above describe the intended behavior; implementation status belongs in `docs/task.md` and `docs/plan.md`.
+Requirements describe intended behavior. Implementation status belongs in `docs/task.md` and `docs/plan.md`. Verify actual source and target-device behavior before marking a capability complete.
