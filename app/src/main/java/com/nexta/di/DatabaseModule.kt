@@ -27,8 +27,6 @@ object DatabaseModule {
             AppDatabase::class.java,
             "nexta_db"
         )
-            // Không có migration nào — mọi version cũ đều reset sạch lên v3.
-            // TODO: xóa 2 dòng này và viết migration đầy đủ trước khi lên store.
             .fallbackToDestructiveMigration(true)
             .build()
     }
