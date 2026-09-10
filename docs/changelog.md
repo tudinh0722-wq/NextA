@@ -1,5 +1,16 @@
 # NextA Changelog
 
+## 2026-09-10 — Planner UI refactor
+
+Decisions:
+- Split the Samsung Calendar-inspired planner into a thin `MainScreen` orchestration layer and dedicated calendar/search UI components.
+- Centralized calendar interaction state in `CalendarState` so month/week navigation, selected date, Today, and search visibility are not mixed with rendering code.
+- Isolated `CalendarSurface`, `Agenda`, `AddEventBar`, and `SearchDialog` as reusable presentation components.
+- Grouped events by date before rendering calendar cells to avoid repeatedly filtering the full event list for every cell.
+- Kept the existing `MainActivity` → `MainScreen` callback contract and Room-backed data flow unchanged.
+- Centralized the local-midnight Today refresh in the calendar UI layer.
+- Replaced fixed event RGB accents with Material 3 semantic colors.
+
 ## 2026-09-10 — Samsung Calendar-inspired planner UI
 
 Decisions:
@@ -8,7 +19,7 @@ Decisions:
 - Added horizontal swipe navigation between months and vertical swipe collapse/expand between month and week views.
 - Added tap selection and long-press add-event gestures on calendar dates.
 - Added functional event search from the top bar.
-- Month view uses rounded-rectangle selected-day emphasis, Sunday red typography, and compact pastel event bars.
+- Month view uses rounded-rectangle selected-day emphasis, Sunday red typography, and compact event bars.
 - Event cards retain start/end time, title, location, and event-type accent colors.
 - The primary add-event action remains connected to the existing `MainActivity` event flow.
 - Home Widget and Focus/Lock Screen remain separate presentation surfaces.
