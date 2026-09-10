@@ -33,6 +33,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
   bool _expanded = true;
   final _countdownPolicy = const CountdownPolicy();
 
+  static const _pageAnimationDuration = Duration(milliseconds: 420);
+
   @override
   void initState() {
     super.initState();
@@ -152,6 +154,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                         expanded: _expanded,
                         eventsFor: _eventsFor,
                         onSelect: _selectDay,
+                        animationDuration: _pageAnimationDuration,
                       ),
                     ),
                     Expanded(
