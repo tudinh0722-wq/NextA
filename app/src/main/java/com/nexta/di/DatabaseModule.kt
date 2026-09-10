@@ -28,13 +28,11 @@ object DatabaseModule {
             AppDatabase::class.java,
             "nexta_db"
         )
-            .addMigrations(
-                DatabaseMigrations.MIGRATION_1_2,
-                DatabaseMigrations.MIGRATION_1_3,
-                DatabaseMigrations.MIGRATION_2_3,
-            )
-            // Reset DB nếu downgrade version (cài bản cũ hơn) thay vì crash.
-            // Không conflict với addMigrations() vì chỉ áp dụng khi version giảm.
+            .addMigrations(DatabaseMigrations.MIGRATION_2_3)
+            // Mọi path không có migration (vd: version 1 cũ còn sót)
+            // → xóa DB và tạo lại thay vì crash.
+            // Sau khi release chính thức: xóa dòng này và viết đủ migration.
+            .fallbackToDestructiveMigration()
             .fallbackToDestructiveMigrationOnDowngrade()
             .build()
     }
