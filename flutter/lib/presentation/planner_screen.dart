@@ -77,7 +77,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
     });
   }
 
-  void _handleCalendarVerticalSwipe(DragEndDetails details) {
+  void _handleVerticalSwipe(DragEndDetails details) {
     final velocity = details.primaryVelocity ?? 0;
     if (velocity.abs() < 220) return;
 
@@ -132,48 +132,57 @@ class _PlannerScreenState extends State<PlannerScreen> {
               onSearch: () => _showSearch(context),
               onToday: () => _selectDay(DateTime.now()),
             ),
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onHorizontalDragEnd: (details) {
-                final velocity = details.primaryVelocity ?? 0;
-                if (velocity.abs() > 200) {
-                  _shiftMonth(velocity < 0 ? 1 : -1);
-                }
-              },
-              onVerticalDragEnd: _handleCalendarVerticalSwipe,
-              child: PlannerCalendar(
-                month: _month,
-                selected: _selected,
-                expanded: _expanded,
-                eventsFor: _eventsFor,
-                onSelect: _selectDay,
-              ),
-            ),
             Expanded(
               child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onHorizontalDragEnd: (details) {
-                  final velocity = details.primaryVelocity ?? 0;
-                  if (velocity.abs() > 200) {
-                    _shiftDay(velocity < 0 ? 1 : -1);
-                  }
-                },
-                child: Stack(
+                behavior: HitTestBehavior.translucent,
+                onVerticalDragEnd: _handleVerticalSwipe,
+                child: Column(
                   children: [
-                    PlannerAgenda(
-                      header: _selectedHeader(),
-                      events: _eventsFor(_selected),
-                      policy: _countdownPolicy,
-                      onEventTap: _editEvent,
-                      onEmptyTap: () => _editEvent(null),
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onHorizontalDragEnd: (details) {
+                        final velocity = details.primaryVelocity ?? 0;
+                        if (velocity.abs() > 200) {
+                          _shiftMonth(velocity < 0 ? 1 : -1);
+                        }
+                      },
+                      child: PlannerCalendar(
+                        month: _month,
+                        selected: _selected,
+                        expanded: _expanded,
+                        eventsFor: _eventsFor,
+                        onSelect: _selectDay,
+                      ),
                     ),
-                    Positioned(
-                      left: 28,
-                      right: 28,
-                      bottom: 14,
-                      child: PlannerFab(
-                        label: 'Thêm vào ${_selected.day} Th${_selected.month}',
-                        onTap: () => _editEvent(null),
+                    Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onHorizontalDragEnd: (details) {
+                          final velocity = details.primaryVelocity ?? 0;
+                          if (velocity.abs() > 200) {
+                            _shiftDay(velocity < 0 ? 1 : -1);
+                          }
+                        },
+                        child: Stack(
+                          children: [
+                            PlannerAgenda(
+                              header: _selectedHeader(),
+                              events: _eventsFor(_selected),
+                              policy: _countdownPolicy,
+                              onEventTap: _editEvent,
+                              onEmptyTap: () => _editEvent(null),
+                            ),
+                            Positioned(
+                              left: 28,
+                              right: 28,
+                              bottom: 14,
+                              child: PlannerFab(
+                                label: 'Thêm vào ${_selected.day} Th${_selected.month}',
+                                onTap: () => _editEvent(null),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
