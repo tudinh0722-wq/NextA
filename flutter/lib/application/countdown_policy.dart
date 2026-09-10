@@ -6,9 +6,16 @@ class CountdownPolicy {
   final Duration horizon;
 
   Duration? remaining(NextAEvent event, DateTime now) {
-    final delta = event.start.difference(now);
-    if (delta.isNegative || delta > horizon) return null;
-    return delta;
+    if (now.isBefore(event.start)) {
+      final delta = event.start.difference(now);
+      return delta <= horizon ? delta : null;
+    }
+
+    if (now.isBefore(event.end)) {
+      return event.end.difference(now);
+    }
+
+    return null;
   }
 
   String format(Duration remaining) {
