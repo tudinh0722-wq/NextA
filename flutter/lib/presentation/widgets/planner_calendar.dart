@@ -10,6 +10,7 @@ class PlannerCalendar extends StatelessWidget {
     required this.expanded,
     required this.eventsFor,
     required this.onSelect,
+    this.animationDuration = const Duration(milliseconds: 420),
   });
 
   final DateTime month;
@@ -17,6 +18,7 @@ class PlannerCalendar extends StatelessWidget {
   final bool expanded;
   final List<NextAEvent> Function(DateTime) eventsFor;
   final ValueChanged<DateTime> onSelect;
+  final Duration animationDuration;
 
   List<DateTime> get _monthDays {
     final first = DateTime(month.year, month.month, 1);
@@ -31,12 +33,9 @@ class PlannerCalendar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Keep the calendar height explicitly bounded during the transition.
-    // This avoids an unbounded GridView/AnimatedSize layout when the agenda
-    // simultaneously grows into the released space.
     final targetHeight = expanded ? 299.0 : 83.0;
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
+      duration: animationDuration,
       curve: Curves.easeOutCubic,
       height: targetHeight,
       clipBehavior: Clip.hardEdge,
