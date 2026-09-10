@@ -4,15 +4,15 @@
 
 Decisions:
 - Refactored the main planner screen around the interaction hierarchy of Samsung Calendar while keeping NextA's own product semantics and implementation boundaries.
-- Added Month / Week / Day presentation modes in the app planner.
-- Month view keeps the selected day and event dots; day load is represented using `Event.priority` as a subtle semantic-color background weight.
-- Week view provides a compact seven-day strip and visual event-load indicators.
-- Day view provides a focused date header and shares the selected-day agenda below.
-- Horizontal swipes navigate month/week/day depending on the active mode.
+- Replaced the earlier mode-tab presentation with a Samsung Calendar-style month-first surface: hamburger menu, compact month title, search, Today affordance, selected-day agenda, and bottom add-event pill.
+- Added horizontal swipe navigation between months and vertical swipe collapse/expand between month and week views.
+- Added tap selection and long-press add-event gestures on calendar dates.
+- Added functional event search from the top bar.
+- Month view uses rounded-rectangle selected-day emphasis, Sunday red typography, and compact pastel event bars.
+- Event cards retain start/end time, title, location, and event-type accent colors.
 - The primary add-event action remains connected to the existing `MainActivity` event flow.
-- Event rows retain start/end time, title, location, and note where available, with event-type colors mapped to Material 3 semantic colors.
-- Removed device-specific hard-coded calendar colors from the planner surface.
 - Home Widget and Focus/Lock Screen remain separate presentation surfaces.
+- Added valid vector toolbar icons after removing invalid/empty drawable XML resources.
 
 ## 2026-09-09 — Event + Alarm persistence standardized on Room
 
