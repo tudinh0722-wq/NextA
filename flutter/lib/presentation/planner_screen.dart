@@ -60,7 +60,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
     });
   }
 
-  void _shiftDay(int delta) => _selectDay(_selected.add(Duration(days: delta)));
+  void _shiftDay(int delta) {
+    _selectDay(_selected.add(Duration(days: delta)));
+  }
 
   void _shiftMonth(int delta) {
     final target = DateTime(_month.year, _month.month + delta);
@@ -78,6 +80,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
   void _handleCalendarVerticalSwipe(DragEndDetails details) {
     final velocity = details.primaryVelocity ?? 0;
     if (velocity.abs() < 220) return;
+
     if (velocity < 0 && _expanded) {
       setState(() => _expanded = false);
     } else if (velocity > 0 && !_expanded) {
@@ -98,8 +101,10 @@ class _PlannerScreenState extends State<PlannerScreen> {
         _events.removeWhere((item) => item.id == event.id);
         return;
       }
+
       final updated = result.event;
       if (updated == null) return;
+
       if (event == null) {
         _events.add(updated);
       } else {
@@ -236,7 +241,14 @@ class _PlannerScreenState extends State<PlannerScreen> {
                   Color(0xFF006A6A),
                   Color(0xFF8E4A2F),
                   Color(0xFF7A4E00),
-                ].map((color) => _SeedColorButton(color: color)).toList(),
+                ]
+                    .map(
+                      (color) => _SeedColorButton(
+                        color: color,
+                        onSelected: widget.onSeedColorChanged,
+                      ),
+                    )
+                    .toList(),
               ),
               const SizedBox(height: 10),
               const Text(
@@ -251,16 +263,19 @@ class _PlannerScreenState extends State<PlannerScreen> {
 }
 
 class _SeedColorButton extends StatelessWidget {
-  const _SeedColorButton({required this.color});
+  const _SeedColorButton({
+    required this.color,
+    required this.onSelected,
+  });
 
   final Color color;
+  final ValueChanged<Color>? onSelected;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        final screen = context.findAncestorStateOfType<_PlannerScreenState>();
-        screen?.widget.onSeedColorChanged?.call(color);
+        onSelected?.call(color);
         Navigator.pop(context);
       },
       child: CircleAvatar(
@@ -293,20 +308,14 @@ class PlannerTopBar extends StatelessWidget {
       height: 64,
       child: Row(
         children: [
-          IconButton(
-            onPressed: onMenu,
-            icon: const Icon(Icons.menu_rounded),
-          ),
+          IconButton(onPressed: onMenu, icon: const Icon(Icons.menu_rounded)),
           const Spacer(),
           Text(
             monthLabel,
             style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700),
           ),
           const Spacer(),
-          IconButton(
-            onPressed: onSearch,
-            icon: const Icon(Icons.search_rounded),
-          ),
+          IconButton(onPressed: onSearch, icon: const Icon(Icons.search_rounded)),
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: InkWell(
@@ -348,10 +357,11 @@ class PlannerFab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Material(
       elevation: 2,
-      shadowColor: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.18),
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      shadowColor: scheme.shadow.withValues(alpha: 0.18),
+      color: scheme.surfaceContainerHighest,
       shape: const StadiumBorder(),
       child: InkWell(
         onTap: onTap,
@@ -364,10 +374,7 @@ class PlannerFab extends StatelessWidget {
             children: [
               const Icon(Icons.add_rounded, size: 20),
               const SizedBox(width: 8),
-              Text(
-                label,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
+              Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
             ],
           ),
         ),
