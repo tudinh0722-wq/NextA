@@ -51,12 +51,15 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
   List<DateTime> _calendarDays() {
     final first = DateTime(_visibleMonth.year, _visibleMonth.month, 1);
-    // Monday = 0 ... Sunday = 6.
+    // Monday = 1 ... Sunday = 7. The month view intentionally uses five rows;
+    // the final row contains only the first days of the following month when needed.
     final leading = first.weekday - DateTime.monday;
     final firstCell = first.subtract(Duration(days: leading));
-    final rowCount = _calendarExpanded ? 6 : 1;
-    return List.generate(rowCount * 7, (index) =>
-        DateTime(firstCell.year, firstCell.month, firstCell.day + index));
+    final rowCount = _calendarExpanded ? 5 : 1;
+    return List.generate(
+      rowCount * 7,
+      (index) => DateTime(firstCell.year, firstCell.month, firstCell.day + index),
+    );
   }
 
   List<DateTime> _weekDays() {
@@ -82,12 +85,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
   String _selectedHeader(DateTime date) {
     const weekdays = ['T.2', 'T.3', 'T.4', 'T.5', 'T.6', 'T.7', 'CN'];
-    return '${date.day}   ${weekdays[date.weekday - 1]}   ÂL';
+    return '${date.day}   ${weekdays[date.weekday - 1]}';
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final days = _calendarDays();
 
     return Scaffold(
@@ -292,7 +294,7 @@ class _MonthCalendar extends StatelessWidget {
           itemCount: days.length,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 7,
-            mainAxisExtent: 57,
+            mainAxisExtent: 54,
           ),
           itemBuilder: (context, index) {
             final date = days[index];
@@ -307,21 +309,23 @@ class _MonthCalendar extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 2),
                 child: Column(
                   children: [
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 1),
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 120),
-                      width: 32,
-                      height: 32,
+                      width: 38,
+                      height: 38,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: selected ? Border.all(color: scheme.onSurface, width: 1.5) : null,
+                        border: selected
+                            ? Border.all(color: scheme.onSurface, width: 2)
+                            : null,
                       ),
                       alignment: Alignment.center,
                       child: Text(
                         '${date.day}',
                         style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                          fontSize: 14,
+                          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                           color: !inMonth
                               ? scheme.onSurface.withValues(alpha: .28)
                               : sunday
@@ -330,19 +334,19 @@ class _MonthCalendar extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 1),
                     SizedBox(
-                      height: 18,
-                      child: Row(
-                        children: events.take(3).map((event) {
-                          return Expanded(
-                            child: Container(
-                              height: 4,
-                              margin: const EdgeInsets.symmetric(horizontal: 1),
-                              decoration: BoxDecoration(
-                                color: _eventColor(context, event),
-                                borderRadius: BorderRadius.circular(2),
-                              ),
+                      height: 11,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: events.take(2).map((event) {
+                          return Container(
+                            width: double.infinity,
+                            height: 3,
+                            margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: _eventColor(context, event),
+                              borderRadius: BorderRadius.circular(2),
                             ),
                           );
                         }).toList(),
@@ -386,7 +390,7 @@ class _WeekCalendar extends StatelessWidget {
             children: days.map((date) {
               final selected = sameDay(date, selectedDate);
               final sunday = date.weekday == DateTime.sunday;
-              final hasEvents = eventsFor(date).isNotEmpty;
+              final events = eventsFor(date);
               return Expanded(
                 child: GestureDetector(
                   onTap: () => onSelect(date),
@@ -395,32 +399,41 @@ class _WeekCalendar extends StatelessWidget {
                     child: Column(
                       children: [
                         Container(
-                          width: 32,
-                          height: 32,
+                          width: 38,
+                          height: 38,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: selected ? Border.all(color: scheme.onSurface, width: 1.5) : null,
+                            border: selected
+                                ? Border.all(color: scheme.onSurface, width: 2)
+                                : null,
                           ),
                           alignment: Alignment.center,
                           child: Text(
                             '${date.day}',
                             style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                              fontSize: 14,
+                              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                               color: sunday ? scheme.error : scheme.onSurface,
                             ),
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        if (hasEvents)
-                          Container(
-                            width: 5,
-                            height: 5,
-                            decoration: BoxDecoration(
-                              color: scheme.primary,
-                              shape: BoxShape.circle,
-                            ),
+                        const SizedBox(height: 2),
+                        SizedBox(
+                          height: 10,
+                          child: Column(
+                            children: events.take(2).map((event) {
+                              return Container(
+                                width: double.infinity,
+                                height: 3,
+                                margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: _eventColor(context, event),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              );
+                            }).toList(),
                           ),
+                        ),
                       ],
                     ),
                   ),
@@ -480,7 +493,10 @@ class _CalendarToggle extends StatelessWidget {
         padding: EdgeInsets.zero,
         constraints: const BoxConstraints(minWidth: 44, minHeight: 22),
         onPressed: onTap,
-        icon: Icon(expanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded, size: 20),
+        icon: Icon(
+          expanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+          size: 20,
+        ),
       ),
     );
   }
@@ -513,7 +529,10 @@ class _Agenda extends StatelessWidget {
           height: 46,
           child: Row(
             children: [
-              Text(header, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              Text(
+                header,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
               const Spacer(),
               Icon(Icons.more_horiz_rounded, color: scheme.onSurfaceVariant),
             ],
@@ -566,7 +585,7 @@ class _AgendaEventRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        constraints: const BoxConstraints(minHeight: 72),
+        constraints: const BoxConstraints(minHeight: 82),
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: .65))),
         ),
@@ -586,7 +605,7 @@ class _AgendaEventRow extends StatelessWidget {
             ),
             Container(
               width: 3,
-              height: 52,
+              height: 56,
               margin: const EdgeInsets.only(right: 12),
               decoration: BoxDecoration(color: marker, borderRadius: BorderRadius.circular(3)),
             ),
@@ -603,21 +622,56 @@ class _AgendaEventRow extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     [time, if (event.location != null) event.location!].join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
                   ),
-                  if (countdown != null) ...[
-                    const SizedBox(height: 4),
+                  if (event.note != null && event.note!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 3),
                     Text(
-                      'Còn ${countdownPolicy.format(countdown!)}',
-                      style: TextStyle(fontSize: 11, color: scheme.primary, fontWeight: FontWeight.w600),
+                      event.note!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
                     ),
                   ],
                 ],
               ),
             ),
+            if (countdown != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 10, top: 2),
+                child: SizedBox(
+                  width: 68,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'Bắt đầu sau',
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        countdownPolicy.format(countdown!),
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: scheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             if (event.priority > 0)
               Padding(
-                padding: const EdgeInsets.only(left: 8, top: 3),
+                padding: const EdgeInsets.only(left: 6, top: 3),
                 child: Icon(Icons.star_rounded, size: 16, color: scheme.tertiary),
               ),
           ],
@@ -644,7 +698,7 @@ class _AddEventPill extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(24),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
