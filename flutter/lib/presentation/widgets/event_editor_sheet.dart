@@ -39,6 +39,8 @@ Future<EventEditorResult?> showEventEditor(
       ),
     );
 
+    if (!context.mounted) return null;
+
     if (action == 'delete') {
       final confirmed = await showDialog<bool>(
         context: context,
@@ -57,6 +59,9 @@ Future<EventEditorResult?> showEventEditor(
           ],
         ),
       );
+
+      if (!context.mounted) return null;
+
       return confirmed == true
           ? const EventEditorResult(event: null, deleted: true)
           : null;
@@ -64,6 +69,8 @@ Future<EventEditorResult?> showEventEditor(
 
     if (action != 'edit') return null;
   }
+
+  if (!context.mounted) return null;
 
   return showDialog<EventEditorResult>(
     context: context,
