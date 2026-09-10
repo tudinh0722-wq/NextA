@@ -1,21 +1,22 @@
 @file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.nexta.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -27,214 +28,240 @@ import com.nexta.data.model.AlarmSettings
 import com.nexta.data.model.Event
 import com.nexta.data.model.EventType
 import java.time.LocalDate
-import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
-import java.util.*
+import java.time.format.TextStyle
+import java.util.Locale
 
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+private val monthFormatter = DateTimeFormatter.ofPattern("MMMM yyyy", Locale("vi", "VN"))
+private enum class CalendarMode { MONTH, WEEK, DAY }
 
 @Composable
 fun MainScreen(
     events: List<Event>,
     message: String? = null,
     initialDate: LocalDate = LocalDate.now(),
-    @Suppress("UNUSED_PARAMETER") onAddEvent: (LocalDate) -> Unit = {},
+    onAddEvent: (LocalDate) -> Unit = {},
     onEditEvent: (Event) -> Unit = {},
-    onDeleteEvent: (Event) -> Unit = {},
+    @Suppress("UNUSED_PARAMETER") onDeleteEvent: (Event) -> Unit = {},
     @Suppress("UNUSED_PARAMETER") onQuickAdd: (String, LocalTime, LocalDate, Int) -> Unit = { _, _, _, _ -> },
-    onSaveFullEvent: (Event, AlarmSettings) -> Unit = { _, _ -> },
-    onBulkImport: () -> Unit = {},
-    @Suppress("UNUSED_PARAMETER") onOpenSettings: () -> Unit = {}
+    @Suppress("UNUSED_PARAMETER") onSaveFullEvent: (Event, AlarmSettings) -> Unit = { _, _ -> },
+    @Suppress("UNUSED_PARAMETER") onBulkImport: () -> Unit = {},
+    onOpenSettings: () -> Unit = {}
 ) {
-    var selectedTabIndex by remember { mutableIntStateOf(1) }
     var selectedDate by remember { mutableStateOf(initialDate) }
     var currentMonth by remember { mutableStateOf(YearMonth.from(initialDate)) }
+    var mode by remember { mutableStateOf(CalendarMode.MONTH) }
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(message) {
-        message?.let { snackbarHostState.showSnackbar(it) }
+    LaunchedEffect(message) { message?.let { snackbarHostState.showSnackbar(it) } }
+
+    fun move(delta: Long) {
+        when (mode) {
+            CalendarMode.MONTH -> {
+                currentMonth = currentMonth.plusMonths(delta)
+                selectedDate = selectedDate.plusMonths(delta)
+            }
+            CalendarMode.WEEK -> selectedDate = selectedDate.plusWeeks(delta)
+            CalendarMode.DAY -> selectedDate = selectedDate.plusDays(delta)
+        }
+    }
+
+    fun today() {
+        selectedDate = LocalDate.now()
+        currentMonth = YearMonth.from(selectedDate)
     }
 
     Scaffold(
         topBar = {
-            if (selectedTabIndex == 1) {
-                SamsungTopBar(
-                    currentMonth = currentMonth,
-                    onMenuClick = { selectedTabIndex = 3 },
-                    onTodayClick = {
-                        selectedDate = LocalDate.now()
-                        currentMonth = YearMonth.from(selectedDate)
-                    }
-                )
-            } else {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Text(
-                            text = when(selectedTabIndex) {
-                                0 -> "Trang chủ"
-                                2 -> "Thêm sự kiện"
-                                3 -> "Cài đặt"
-                                else -> "NextA"
-                            },
-                            fontWeight = FontWeight.Bold
-                        )
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
-                )
-            }
+            CalendarTopBar(
+                mode = mode,
+                date = selectedDate,
+                month = currentMonth,
+                onPrevious = { move(-1) },
+                onNext = { move(1) },
+                onToday = ::today,
+                onSettings = onOpenSettings
+            )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = Color(0xFFF7F7F7)
-    ) { innerPadding ->
-        Box(Modifier.fillMaxSize().padding(innerPadding)) {
-            when (selectedTabIndex) {
-                0 -> HomeTab(events, LocalDate.now())
-                1 -> CalendarTab(
-                    currentMonth = currentMonth,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) { padding ->
+        Box(Modifier.fillMaxSize().padding(padding)) {
+            Column(Modifier.fillMaxSize()) {
+                ModeTabs(mode) { mode = it }
+
+                var dragTotal by remember { mutableFloatStateOf(0f) }
+                CalendarSurface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .pointerInput(mode, currentMonth, selectedDate) {
+                            detectHorizontalDragGestures(
+                                onDragStart = { dragTotal = 0f },
+                                onHorizontalDrag = { _, amount -> dragTotal += amount },
+                                onDragEnd = {
+                                    if (dragTotal > 80f) move(-1)
+                                    else if (dragTotal < -80f) move(1)
+                                }
+                            )
+                        },
+                    mode = mode,
+                    month = currentMonth,
                     selectedDate = selectedDate,
                     events = events,
-                    onDateSelected = { selectedDate = it },
-                    onMonthChange = { currentMonth = it },
-                    onEditEvent = onEditEvent,
-                    onDeleteEvent = onDeleteEvent,
-                    onAddClick = { selectedTabIndex = 2 }
+                    onDateSelected = {
+                        selectedDate = it
+                        currentMonth = YearMonth.from(it)
+                    }
                 )
-                2 -> AddEventScreen(onBack = { selectedTabIndex = 1 }, onSave = onSaveFullEvent, initialDate = selectedDate, onBulkImport = onBulkImport)
-                3 -> SettingsScreen(onBack = { selectedTabIndex = 1 })
-            }
-            
-            FloatingBottomNavBar(
-                selectedTabIndex = selectedTabIndex,
-                onTabSelected = { selectedTabIndex = it },
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp)
-            )
-        }
-    }
-}
 
-@Composable
-private fun CalendarTab(
-    currentMonth: YearMonth,
-    selectedDate: LocalDate,
-    events: List<Event>,
-    onDateSelected: (LocalDate) -> Unit,
-    onMonthChange: (YearMonth) -> Unit,
-    onEditEvent: (Event) -> Unit,
-    onDeleteEvent: (Event) -> Unit,
-    onAddClick: () -> Unit
-) {
-    Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize()) {
-            Surface(
-                color = Color.White,
-                shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
-                shadowElevation = 2.dp
+                Agenda(
+                    date = selectedDate,
+                    events = events.filter { it.startDateTime.toLocalDate() == selectedDate },
+                    onEventClick = onEditEvent
+                )
+            }
+
+            FloatingActionButton(
+                onClick = { onAddEvent(selectedDate) },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
             ) {
-                MonthlyCalendar(
-                    currentMonth = currentMonth,
-                    selectedDate = selectedDate,
-                    events = events,
-                    onDateSelected = onDateSelected,
-                    onMonthChange = onMonthChange
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            AgendaSection(
-                date = selectedDate,
-                events = events.filter { it.startDateTime.toLocalDate() == selectedDate },
-                onEventClick = onEditEvent,
-                onDeleteEvent = onDeleteEvent
-            )
-        }
-        
-        SamsungPillFAB(
-            date = selectedDate,
-            onClick = onAddClick,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 80.dp)
-        )
-    }
-}
-
-@Composable
-private fun HomeTab(events: List<Event>, today: LocalDate) {
-    val now = LocalDateTime.now()
-    val upcomingEvent = events.filter { it.startDateTime > now }.minByOrNull { it.startDateTime }
-    val todayEventsCount = events.count { it.startDateTime.toLocalDate() == today }
-    
-    Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        Column { 
-            Text("Chào ngày mới!", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Color.Black)
-            Text("Hôm nay bạn có $todayEventsCount sự kiện.", style = MaterialTheme.typography.bodyMedium, color = Color.Gray) 
-        }
-        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF3E5F5))) {
-            Column(Modifier.padding(20.dp)) {
-                Text("SẮP DIỄN RA", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color.Gray)
-                Spacer(Modifier.height(12.dp))
-                if (upcomingEvent != null) { 
-                    Text(upcomingEvent.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = Color.Black)
-                    Text("${upcomingEvent.startDateTime.format(timeFormatter)} - ${upcomingEvent.location}", style = MaterialTheme.typography.bodyMedium, color = Color.Black.copy(alpha = 0.7f)) 
-                } else {
-                    Text("Không có sự kiện sắp tới", style = MaterialTheme.typography.titleMedium, color = Color.Black)
-                }
+                Icon(painterResource(R.drawable.ic_add), "Thêm sự kiện")
             }
         }
     }
 }
 
 @Composable
-private fun SamsungTopBar(
-    currentMonth: YearMonth,
-    onMenuClick: () -> Unit,
-    onTodayClick: () -> Unit
+private fun CalendarTopBar(
+    mode: CalendarMode,
+    date: LocalDate,
+    month: YearMonth,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onToday: () -> Unit,
+    onSettings: () -> Unit
 ) {
     TopAppBar(
-        title = {
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text(text = "TH${currentMonth.monthValue}", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        navigationIcon = {
+            IconButton(onClick = onSettings) {
+                Icon(painterResource(R.drawable.ic_settings), "Cài đặt")
             }
         },
-        navigationIcon = {
-            IconButton(onClick = onMenuClick) {
-                Icon(painterResource(R.drawable.ic_settings), contentDescription = "Menu")
+        title = {
+            Column {
+                Text(
+                    when (mode) {
+                        CalendarMode.MONTH -> month.format(monthFormatter)
+                        CalendarMode.WEEK -> "Tuần của ${date.dayOfMonth}/${date.monthValue}"
+                        CalendarMode.DAY -> date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale("vi", "VN"))
+                    }.replaceFirstChar { it.uppercase(Locale("vi", "VN")) },
+                    fontWeight = FontWeight.Bold
+                )
+                if (mode == CalendarMode.DAY) {
+                    Text(
+                        date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         },
         actions = {
-            IconButton(onClick = {}) { Icon(painterResource(R.drawable.ic_search), contentDescription = "Search") }
-            IconButton(onClick = onTodayClick) {
-                Box(modifier = Modifier.size(26.dp).border(1.5.dp, Color.Black, RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) {
-                    Text(text = LocalDate.now().dayOfMonth.toString(), fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+            IconButton(onClick = onPrevious) { Text("‹", fontSize = 32.sp) }
+            IconButton(onClick = onNext) { Text("›", fontSize = 32.sp) }
+            IconButton(onClick = onToday) {
+                Surface(
+                    shape = RoundedCornerShape(7.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(LocalDate.now().dayOfMonth.toString(), fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         },
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
     )
 }
 
 @Composable
-private fun MonthlyCalendar(
-    currentMonth: YearMonth,
-    selectedDate: LocalDate,
-    events: List<Event>,
-    onDateSelected: (LocalDate) -> Unit,
-    onMonthChange: (YearMonth) -> Unit
-) {
-    Column(Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
-        Row(Modifier.fillMaxWidth()) {
-            listOf("T.2", "T.3", "T.4", "T.5", "T.6", "T.7", "CN").forEach { day ->
-                Text(text = day, modifier = Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelSmall, color = if (day == "CN") Color.Red else Color.Gray)
+private fun ModeTabs(mode: CalendarMode, onSelected: (CalendarMode) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        CalendarMode.values().forEach { item ->
+            val selected = item == mode
+            Surface(
+                onClick = { onSelected(item) },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(18.dp),
+                color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+                contentColor = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+            ) {
+                Text(
+                    when (item) { CalendarMode.MONTH -> "Tháng"; CalendarMode.WEEK -> "Tuần"; CalendarMode.DAY -> "Ngày" },
+                    Modifier.padding(vertical = 9.dp),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                )
             }
         }
-        Spacer(Modifier.height(8.dp))
-        val firstDayOfMonth = currentMonth.atDay(1); val firstDayOfWeek = firstDayOfMonth.dayOfWeek.value; val daysInMonth = currentMonth.lengthOfMonth(); val prevMonth = currentMonth.minusMonths(1); val daysInPrevMonth = prevMonth.lengthOfMonth()
-        val totalCells = 42; val days = buildList { for (i in (firstDayOfWeek - 1) downTo 1) { add(prevMonth.atDay(daysInPrevMonth - i + 1) to false) }; for (i in 1..daysInMonth) { add(currentMonth.atDay(i) to true) }; val remaining = totalCells - size; val nextMonth = currentMonth.plusMonths(1); for (i in 1..remaining) { add(nextMonth.atDay(i) to false) } }
+    }
+}
+
+@Composable
+private fun CalendarSurface(
+    modifier: Modifier,
+    mode: CalendarMode,
+    month: YearMonth,
+    selectedDate: LocalDate,
+    events: List<Event>,
+    onDateSelected: (LocalDate) -> Unit
+) {
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
+    ) {
+        when (mode) {
+            CalendarMode.MONTH -> MonthGrid(month, selectedDate, events, onDateSelected)
+            CalendarMode.WEEK -> WeekStrip(selectedDate, events, onDateSelected)
+            CalendarMode.DAY -> DayHeader(selectedDate, events, onDateSelected)
+        }
+    }
+}
+
+@Composable
+private fun MonthGrid(month: YearMonth, selected: LocalDate, events: List<Event>, onSelect: (LocalDate) -> Unit) {
+    Column(Modifier.padding(horizontal = 10.dp, vertical = 10.dp)) {
+        Row(Modifier.fillMaxWidth()) {
+            listOf("T2", "T3", "T4", "T5", "T6", "T7", "CN").forEachIndexed { i, label ->
+                Text(label, Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelMedium,
+                    color = if (i == 6) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        val offset = month.atDay(1).dayOfWeek.value - 1
+        val previous = month.minusMonths(1)
+        val next = month.plusMonths(1)
+        val days = buildList {
+            repeat(offset) { i -> add(previous.atDay(previous.lengthOfMonth() - offset + i + 1) to false) }
+            for (d in 1..month.lengthOfMonth()) add(month.atDay(d) to true)
+            var d = 1
+            while (size < 42) add(next.atDay(d++) to false)
+        }
         days.chunked(7).forEach { week ->
             Row(Modifier.fillMaxWidth()) {
-                week.forEach { (date, isCurrentMonth) ->
-                    CalendarDay(date = date, isCurrentMonth = isCurrentMonth, isSelected = date == selectedDate, events = events.filter { it.startDateTime.toLocalDate() == date }, onClick = { onDateSelected(date) })
+                week.forEach { (date, inMonth) ->
+                    CalendarDay(date, inMonth, date == selected, events.filter { it.startDateTime.toLocalDate() == date }, onSelect)
                 }
             }
         }
@@ -242,74 +269,124 @@ private fun MonthlyCalendar(
 }
 
 @Composable
-private fun RowScope.CalendarDay(date: LocalDate, isCurrentMonth: Boolean, isSelected: Boolean, events: List<Event>, onClick: () -> Unit) {
-    val isToday = date == LocalDate.now()
-    Column(modifier = Modifier.weight(1f).aspectRatio(0.9f).clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(modifier = Modifier.size(32.dp).background(color = if (isSelected) Color(0xFFE3F2FD) else Color.Transparent, shape = RoundedCornerShape(8.dp)).border(width = if (isToday && !isSelected) 1.dp else 0.dp, color = if (isToday) Color(0xFF2196F3) else Color.Transparent, shape = RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
-            Text(text = date.dayOfMonth.toString(), color = when { isSelected -> Color.Black; !isCurrentMonth -> Color.LightGray; date.dayOfWeek.value == 7 -> Color.Red; else -> Color.Black }, fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal, fontSize = 15.sp)
+private fun RowScope.CalendarDay(date: LocalDate, inMonth: Boolean, selected: Boolean, events: List<Event>, onSelect: (LocalDate) -> Unit) {
+    val today = date == LocalDate.now()
+    val weight = events.sumOf { it.priority + 1 }.coerceAtMost(5)
+    val load = if (weight == 0) Color.Transparent else MaterialTheme.colorScheme.primary.copy(alpha = (0.025f + weight * 0.025f).coerceAtMost(0.15f))
+    Column(
+        Modifier.weight(1f).aspectRatio(.92f).clickable { onSelect(date) }.padding(2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            Modifier.size(34.dp)
+                .background(if (selected) MaterialTheme.colorScheme.primaryContainer else load, CircleShape)
+                .then(if (today && !selected) Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape) else Modifier),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                date.dayOfMonth.toString(),
+                color = when { !inMonth -> MaterialTheme.colorScheme.onSurfaceVariant.copy(.4f); date.dayOfWeek.value == 7 -> MaterialTheme.colorScheme.error; else -> MaterialTheme.colorScheme.onSurface },
+                fontWeight = if (today || selected) FontWeight.Bold else FontWeight.Normal,
+                fontSize = 14.sp
+            )
         }
-        Spacer(Modifier.height(2.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            events.take(3).forEach { event ->
-                val color = when (event.type) { EventType.CLASS_OFFLINE -> Color(0xFF4CAF50); EventType.CLASS_ONLINE -> Color(0xFF2196F3); EventType.TASK -> Color(0xFFFF9800); else -> Color(0xFF9C27B0) }
-                Box(Modifier.size(4.dp).background(color, RoundedCornerShape(2.dp)))
+        Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            events.take(3).forEach { Box(Modifier.size(4.dp).background(eventColor(it), CircleShape)) }
+        }
+    }
+}
+
+@Composable
+private fun WeekStrip(selected: LocalDate, events: List<Event>, onSelect: (LocalDate) -> Unit) {
+    val start = selected.minusDays((selected.dayOfWeek.value - 1).toLong())
+    Column(Modifier.padding(horizontal = 10.dp, vertical = 12.dp)) {
+        Row(Modifier.fillMaxWidth()) {
+            (0..6).forEach { i ->
+                val date = start.plusDays(i.toLong())
+                WeekDay(date, date == selected, events.count { it.startDateTime.toLocalDate() == date }, onSelect)
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            (0..6).forEach { i ->
+                val count = events.count { it.startDateTime.toLocalDate() == start.plusDays(i.toLong()) }
+                Box(Modifier.weight(1f).height((8 + count.coerceAtMost(6) * 5).dp).background(MaterialTheme.colorScheme.primary.copy(if (count == 0) .06f else .16f), RoundedCornerShape(4.dp)))
             }
         }
     }
 }
 
 @Composable
-private fun AgendaSection(date: LocalDate, events: List<Event>, onEventClick: (Event) -> Unit, onDeleteEvent: (Event) -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+private fun RowScope.WeekDay(date: LocalDate, selected: Boolean, count: Int, onSelect: (LocalDate) -> Unit) {
+    Column(Modifier.weight(1f).clickable { onSelect(date) }, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale("vi", "VN")), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(4.dp))
+        Box(Modifier.size(36.dp).background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent, CircleShape), contentAlignment = Alignment.Center) {
+            Text(date.dayOfMonth.toString(), color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
+        }
+        Spacer(Modifier.height(3.dp))
+        if (count > 0) Box(Modifier.size(4.dp).background(MaterialTheme.colorScheme.primary, CircleShape)) else Spacer(Modifier.size(4.dp))
+    }
+}
+
+@Composable
+private fun DayHeader(date: LocalDate, events: List<Event>, onSelect: (LocalDate) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Text("‹", fontSize = 32.sp, modifier = Modifier.clickable { onSelect(date.minusDays(1)) })
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(date.dayOfMonth.toString(), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
+            Text("${events.size} sự kiện", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Text("›", fontSize = 32.sp, modifier = Modifier.clickable { onSelect(date.plusDays(1)) })
+    }
+}
+
+@Composable
+private fun Agenda(date: LocalDate, events: List<Event>, onEventClick: (Event) -> Unit) {
+    Column(Modifier.fillMaxWidth().weight(1f).padding(horizontal = 18.dp, vertical = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(text = date.dayOfMonth.toString(), fontSize = 32.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.width(8.dp))
-            Column { Text(text = "T.${if(date.dayOfWeek.value == 7) "CN" else date.dayOfWeek.value + 1}", style = MaterialTheme.typography.bodySmall, color = Color.Gray); Text(text = "ÂL 29 Th7", style = MaterialTheme.typography.bodySmall, color = Color.LightGray) }
-            Spacer(Modifier.weight(1f)); Icon(painter = painterResource(R.drawable.ic_settings), contentDescription = null, modifier = Modifier.size(24.dp), tint = Color.LightGray)
+            Column {
+                Text(date.dayOfMonth.toString(), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Text(date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale("vi", "VN")), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(Modifier.width(12.dp))
+            Text("${events.size} sự kiện", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Spacer(Modifier.height(16.dp))
-        if (events.isEmpty()) { Text(text = "Không có sự kiện", modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp), textAlign = TextAlign.Center, color = Color.Gray) }
-        else { LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) { items(events) { event -> AgendaItem(event, onClick = { onEventClick(event) }) } } }
-    }
-}
-
-@Composable
-private fun AgendaItem(event: Event, onClick: () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick), verticalAlignment = Alignment.CenterVertically) {
-        Text(text = event.startDateTime.format(timeFormatter), fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.width(54.dp))
-        Spacer(Modifier.width(12.dp)); val color = when (event.type) { EventType.CLASS_OFFLINE -> Color(0xFF4CAF50); EventType.CLASS_ONLINE -> Color(0xFF2196F3); EventType.TASK -> Color(0xFFFF9800); else -> Color(0xFF9C27B0) }
-        Box(Modifier.width(4.dp).height(36.dp).background(color, RoundedCornerShape(2.dp))); Spacer(Modifier.width(16.dp))
-        Column { Text(text = event.title, fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis); Text(text = "${event.startDateTime.format(timeFormatter)} - ${event.endDateTime.format(timeFormatter)}  ${event.location}", style = MaterialTheme.typography.bodySmall, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-    }
-}
-
-@Composable
-private fun SamsungPillFAB(date: LocalDate, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Surface(onClick = onClick, shape = RoundedCornerShape(28.dp), color = Color.White, shadowElevation = 4.dp, modifier = modifier.height(54.dp).width(200.dp).border(0.5.dp, Color.LightGray, RoundedCornerShape(28.dp))) {
-        Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-            Text(text = "Thêm vào ${date.dayOfMonth} Th${date.monthValue}", color = Color.Black, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-            Spacer(Modifier.width(12.dp)); Icon(painterResource(R.drawable.ic_add), contentDescription = null, tint = Color.Black, modifier = Modifier.size(20.dp))
-        }
-    }
-}
-
-@Composable
-private fun FloatingBottomNavBar(selectedTabIndex: Int, onTabSelected: (Int) -> Unit, modifier: Modifier = Modifier) {
-    Box(modifier.height(56.dp).fillMaxWidth(0.85f)) {
-        Surface(Modifier.fillMaxSize(), shape = RoundedCornerShape(28.dp), color = Color.White.copy(alpha = 0.95f), shadowElevation = 8.dp, tonalElevation = 2.dp) {
-            Row(Modifier.fillMaxSize().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                BottomNavItem(R.drawable.ic_home, selectedTabIndex == 0, { onTabSelected(0) })
-                BottomNavItem(R.drawable.ic_calendar, selectedTabIndex == 1, { onTabSelected(1) })
-                BottomNavItem(R.drawable.ic_add, selectedTabIndex == 2, { onTabSelected(2) })
-                BottomNavItem(R.drawable.ic_settings, selectedTabIndex == 3, { onTabSelected(3) })
+        Spacer(Modifier.height(10.dp))
+        if (events.isEmpty()) {
+            Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { Text("Lịch trống", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(events, key = { it.id }) { event -> EventRow(event) { onEventClick(event) } }
             }
         }
     }
 }
 
 @Composable
-private fun BottomNavItem(iconRes: Int, isSelected: Boolean, onClick: () -> Unit) {
-    Surface(shape = CircleShape, color = if (isSelected) Color(0xFFFFF9C4) else Color.Transparent, modifier = Modifier.size(40.dp).clickable { onClick() }) {
-        Box(contentAlignment = Alignment.Center) { Icon(painterResource(iconRes), null, Modifier.size(22.dp), tint = Color.Black) }
+private fun EventRow(event: Event, onClick: () -> Unit) {
+    Surface(onClick = onClick, color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(horizontal = 14.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.width(52.dp), horizontalAlignment = Alignment.End) {
+                Text(event.startDateTime.format(timeFormatter), fontWeight = FontWeight.Bold)
+                Text(event.endDateTime.format(timeFormatter), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(Modifier.width(12.dp))
+            Box(Modifier.width(4.dp).height(42.dp).background(eventColor(event), RoundedCornerShape(2.dp)))
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(event.title, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val secondary = listOf(event.location, event.note).filter { it.isNotBlank() }.joinToString(" • ")
+                if (secondary.isNotBlank()) Text(secondary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
     }
+}
+
+@Composable
+private fun eventColor(event: Event): Color = when (event.type) {
+    EventType.CLASS_OFFLINE -> MaterialTheme.colorScheme.tertiary
+    EventType.CLASS_ONLINE -> MaterialTheme.colorScheme.primary
+    EventType.TASK -> MaterialTheme.colorScheme.secondary
+    else -> MaterialTheme.colorScheme.error
 }
