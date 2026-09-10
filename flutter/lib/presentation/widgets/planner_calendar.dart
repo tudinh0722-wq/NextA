@@ -31,10 +31,16 @@ class PlannerCalendar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedSize(
+    // Keep the calendar height explicitly bounded during the transition.
+    // This avoids an unbounded GridView/AnimatedSize layout when the agenda
+    // simultaneously grows into the released space.
+    final targetHeight = expanded ? 299.0 : 83.0;
+    return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,
-      alignment: Alignment.topCenter,
+      height: targetHeight,
+      clipBehavior: Clip.hardEdge,
+      decoration: const BoxDecoration(),
       child: expanded
           ? _MonthGrid(
               days: _monthDays,
@@ -74,26 +80,29 @@ class _MonthGrid extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         const WeekdayHeader(),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-          itemCount: days.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 7,
-            mainAxisExtent: 54,
+        SizedBox(
+          height: 274,
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            itemCount: days.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              mainAxisExtent: 54,
+            ),
+            itemBuilder: (context, index) {
+              final day = days[index];
+              final inMonth = day.year == month.year && day.month == month.month;
+              return CalendarDayCell(
+                date: day,
+                inMonth: inMonth,
+                selected: _sameDay(day, selected),
+                events: eventsFor(day),
+                onTap: () => onSelect(day),
+              );
+            },
           ),
-          itemBuilder: (context, index) {
-            final day = days[index];
-            final inMonth = day.year == month.year && day.month == month.month;
-            return CalendarDayCell(
-              date: day,
-              inMonth: inMonth,
-              selected: _sameDay(day, selected),
-              events: eventsFor(day),
-              onTap: () => onSelect(day),
-            );
-          },
         ),
       ],
     );
@@ -121,12 +130,12 @@ class _WeekGrid extends StatelessWidget {
         const WeekdayHeader(),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-          child: Row(
-            children: days
-                .map(
-                  (day) => Expanded(
-                    child: SizedBox(
-                      height: 54,
+          child: SizedBox(
+            height: 54,
+            child: Row(
+              children: days
+                  .map(
+                    (day) => Expanded(
                       child: CalendarDayCell(
                         date: day,
                         inMonth: true,
@@ -135,9 +144,9 @@ class _WeekGrid extends StatelessWidget {
                         onTap: () => onSelect(day),
                       ),
                     ),
-                  ),
-                )
-                .toList(),
+                  )
+                  .toList(),
+            ),
           ),
         ),
       ],
