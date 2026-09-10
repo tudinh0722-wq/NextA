@@ -48,11 +48,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         lifecycleScope.launch { legacyAlarmMigrator.migrate() }
+        if (BuildConfig.DEBUG) viewModel.seedDemoEventsIfEmpty()
         setContent {
             NextaTheme {
                 val uiState by viewModel.uiState.collectAsState()
                 val saveMessage by viewModel.saveMessage.collectAsState()
-                
+
                 when {
                     showSettings -> SettingsScreen(onBack = { showSettings = false })
                     showBulkImport -> BulkImportScreen(
@@ -66,7 +67,7 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                     showAddEvent || editingEvent != null -> AddEventScreen(
-                        onBack = { 
+                        onBack = {
                             showAddEvent = false
                             editingEvent = null
                             editingAlarmSettings = null
@@ -75,10 +76,10 @@ class MainActivity : ComponentActivity() {
                         initialEvent = editingEvent,
                         initialDate = addEventDate,
                         initialAlarmSettings = editingAlarmSettings,
-                        onBulkImport = { 
+                        onBulkImport = {
                             showAddEvent = false
                             editingEvent = null
-                            showBulkImport = true 
+                            showBulkImport = true
                         },
                         onSave = { event, alarm ->
                             viewModel.saveEvent(event, alarm) {
@@ -96,9 +97,9 @@ class MainActivity : ComponentActivity() {
                         MainScreen(
                             events = events,
                             message = saveMessage,
-                            onAddEvent = { date -> 
+                            onAddEvent = { date ->
                                 addEventDate = date
-                                showAddEvent = true 
+                                showAddEvent = true
                             },
                             onEditEvent = { event -> openEditEvent(event) },
                             onDeleteEvent = { event ->
