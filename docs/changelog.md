@@ -1,5 +1,19 @@
 # NextA Changelog
 
+## 2026-09-10 — Samsung Calendar-inspired planner UI
+
+Decisions:
+- Refactored the main planner screen around the interaction hierarchy of Samsung Calendar while keeping NextA's own product semantics and implementation boundaries.
+- Added Month / Week / Day presentation modes in the app planner.
+- Month view keeps the selected day and event dots; day load is represented using `Event.priority` as a subtle semantic-color background weight.
+- Week view provides a compact seven-day strip and visual event-load indicators.
+- Day view provides a focused date header and shares the selected-day agenda below.
+- Horizontal swipes navigate month/week/day depending on the active mode.
+- The primary add-event action remains connected to the existing `MainActivity` event flow.
+- Event rows retain start/end time, title, location, and note where available, with event-type colors mapped to Material 3 semantic colors.
+- Removed device-specific hard-coded calendar colors from the planner surface.
+- Home Widget and Focus/Lock Screen remain separate presentation surfaces.
+
 ## 2026-09-09 — Event + Alarm persistence standardized on Room
 
 Decisions:
@@ -24,28 +38,8 @@ Decisions:
 - Existing title/location/note limits remain 47/30/30 characters.
 - `Event` remains a concrete dated occurrence; recurrence is deferred until an explicit data-model redesign.
 
-## 2026-09-09 — Home Widget timeline hierarchy
-
-Decisions:
-- Removed colored status-card backgrounds from the two event slots.
-- Start/end times are the dominant timeline information and remain red.
-- Progress line and endpoint dot exist only for the currently active event.
-- Endpoint dot is intentionally small so the time labels get more horizontal room.
-- Countdown uses two lines (`Bắt đầu sau` / `Kết thúc sau` then the value) and refreshes on minute boundaries and meaningful event transitions.
-- Non-red widget text uses system semantic theme colors; the translucent/mica treatment is limited to the overall widget background.
-
-## 2026-09-09 — Cross-Device Surface Strategy and Context Consolidation
-
-The former `NEXTA_PROJECT_CONTEXT.md` is retired as a separate context dump. Important architectural, technology, product, and development constraints live in repository documentation.
-
-- Core event/countdown logic is independent from presentation surfaces, Android versions, launchers, and OEMs.
-- App Screen, Home Widget, Focus/Lock Screen, and notification fallback are separate presentation surfaces.
-- Platform differences are modeled as capabilities/adapters rather than brand checks.
-- Android Lock Screen support must not be assumed from the existence of a Home Screen AppWidget.
-- Material/system semantic colors are preferred over hard-coded device-specific colors.
-
 ## Product Boundaries
-1. App Screen — Weekly Planner.
+1. App Screen — Weekly Planner / calendar navigation.
 2. Home Widget — Today Schedule.
 3. Focus/Lock Screen — Now & Next with large countdown.
 4. Notification — cross-device fallback when appropriate.
