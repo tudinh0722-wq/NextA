@@ -1,69 +1,377 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+
 import '../application/countdown_policy.dart';
 import '../domain/event.dart';
+import 'widgets/event_editor_sheet.dart';
+import 'widgets/planner_agenda.dart';
+import 'widgets/planner_calendar.dart';
 
 class PlannerScreen extends StatefulWidget {
-  const PlannerScreen({super.key, required this.events, this.themeMode = ThemeMode.system, this.seedColor = const Color(0xFF1A73E8), this.onThemeChanged, this.onSeedColorChanged});
+  const PlannerScreen({
+    super.key,
+    required this.events,
+    this.themeMode = ThemeMode.system,
+    this.seedColor = const Color(0xFF1A73E8),
+    this.onThemeChanged,
+    this.onSeedColorChanged,
+  });
+
   final List<NextAEvent> events;
   final ThemeMode themeMode;
   final Color seedColor;
   final ValueChanged<ThemeMode>? onThemeChanged;
   final ValueChanged<Color>? onSeedColorChanged;
-  @override State<PlannerScreen> createState() => _PlannerScreenState();
+
+  @override
+  State<PlannerScreen> createState() => _PlannerScreenState();
 }
 
 class _PlannerScreenState extends State<PlannerScreen> {
-  late DateTime selected;
-  late DateTime month;
-  late List<NextAEvent> events;
-  bool expanded = true;
-  final policy = const CountdownPolicy();
+  late DateTime _selected;
+  late DateTime _month;
+  late List<NextAEvent> _events;
+  bool _expanded = true;
+  final _countdownPolicy = const CountdownPolicy();
 
   @override
-  void initState() { super.initState(); final n=DateTime.now(); selected=DateTime(n.year,n.month,n.day); month=DateTime(n.year,n.month); events=List.of(widget.events); }
-  List<NextAEvent> dayEvents(DateTime d) => events.where((e)=>e.start.year==d.year&&e.start.month==d.month&&e.start.day==d.day).toList()..sort((a,b)=>a.start.compareTo(b.start));
-  bool same(DateTime a,DateTime b)=>a.year==b.year&&a.month==b.month&&a.day==b.day;
-  List<DateTime> monthDays(){final first=DateTime(month.year,month.month,1);final start=first.subtract(Duration(days:first.weekday-1));return List.generate(35,(i)=>start.add(Duration(days:i)));}
-  List<DateTime> weekDays(){final start=selected.subtract(Duration(days:selected.weekday-1));return List.generate(7,(i)=>start.add(Duration(days:i)));}
-  void select(DateTime d)=>setState((){selected=DateTime(d.year,d.month,d.day);month=DateTime(d.year,d.month);});
-  void shiftMonth(int delta){final d=DateTime(month.year,month.month+delta);final max=DateTime(d.year,d.month+1,0).day;setState((){month=d;selected=DateTime(d.year,d.month,selected.day.clamp(1,max));});}
-  void shiftDay(int delta){final d=selected.add(Duration(days:delta));select(d);}
-  String header(){const w=['T.2','T.3','T.4','T.5','T.6','T.7','CN'];return '${selected.day}   ${w[selected.weekday-1]}';}
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _selected = DateTime(now.year, now.month, now.day);
+    _month = DateTime(now.year, now.month);
+    _events = List.of(widget.events);
+  }
+
+  List<NextAEvent> _eventsFor(DateTime day) {
+    final result = _events
+        .where((event) =>
+            event.start.year == day.year &&
+            event.start.month == day.month &&
+            event.start.day == day.day)
+        .toList();
+    result.sort((a, b) => a.start.compareTo(b.start));
+    return result;
+  }
+
+  void _selectDay(DateTime day) {
+    setState(() {
+      _selected = DateTime(day.year, day.month, day.day);
+      _month = DateTime(day.year, day.month);
+    });
+  }
+
+  void _shiftDay(int delta) => _selectDay(_selected.add(Duration(days: delta)));
+
+  void _shiftMonth(int delta) {
+    final target = DateTime(_month.year, _month.month + delta);
+    final maxDay = DateTime(target.year, target.month + 1, 0).day;
+    setState(() {
+      _month = target;
+      _selected = DateTime(
+        target.year,
+        target.month,
+        _selected.day.clamp(1, maxDay),
+      );
+    });
+  }
+
+  void _handleCalendarVerticalSwipe(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    if (velocity.abs() < 220) return;
+    if (velocity < 0 && _expanded) {
+      setState(() => _expanded = false);
+    } else if (velocity > 0 && !_expanded) {
+      setState(() => _expanded = true);
+    }
+  }
+
+  Future<void> _editEvent(NextAEvent? event) async {
+    final result = await showEventEditor(
+      context,
+      event: event,
+      selectedDay: _selected,
+    );
+    if (!mounted || result == null) return;
+
+    setState(() {
+      if (result.deleted && event != null) {
+        _events.removeWhere((item) => item.id == event.id);
+        return;
+      }
+      final updated = result.event;
+      if (updated == null) return;
+      if (event == null) {
+        _events.add(updated);
+      } else {
+        final index = _events.indexWhere((item) => item.id == event.id);
+        if (index >= 0) _events[index] = updated;
+      }
+    });
+  }
+
+  String _selectedHeader() {
+    const weekdays = ['T.2', 'T.3', 'T.4', 'T.5', 'T.6', 'T.7', 'CN'];
+    return '${_selected.day}   ${weekdays[_selected.weekday - 1]}';
+  }
 
   @override
-  Widget build(BuildContext context)=>Scaffold(body:SafeArea(child:Column(children:[
-    _TopBar(label:'TH${month.month}',today:DateTime.now().day,onToday:()=>select(DateTime.now()),onSearch:()=>showDialog(context:context,builder:(c)=>AlertDialog(title:const Text('Tìm kiếm'),content:TextField(autofocus:true,onSubmitted:(_)=>Navigator.pop(c)))),onMenu:()=>themeMenu(context)),
-    GestureDetector(behavior:HitTestBehavior.opaque,onHorizontalDragEnd:(d){final v=d.primaryVelocity??0;if(v.abs()>200)shiftMonth(v<0?1:-1);},onVerticalDragEnd:(d){final v=d.primaryVelocity??0;if(v.abs()>220){if(v<0&&expanded)setState(()=>expanded=false);if(v>0&&!expanded)setState(()=>expanded=true);}},child:AnimatedSize(duration:const Duration(milliseconds:180),child:expanded?_Month(days:monthDays(),month:month,selected:selected,eventsFor:dayEvents,onSelect:select):_Week(days:weekDays(),selected:selected,eventsFor:dayEvents,onSelect:select))),
-    Expanded(child:GestureDetector(behavior:HitTestBehavior.opaque,onHorizontalDragEnd:(d){final v=d.primaryVelocity??0;if(v.abs()>200)shiftDay(v<0?1:-1);},child:Stack(children:[
-      _Agenda(header:header(),events:dayEvents(selected),policy:policy,onTap:(e)=>editEvent(e),onEmpty:()=>editEvent(null)),
-      Positioned(left:28,right:28,bottom:14,child:_Fab(label:'Thêm vào ${selected.day} Th${selected.month}',onTap:()=>editEvent(null))),
-    ]))),
-  ])));
-
-  Future<void> editEvent(NextAEvent? event) async {
-    if(event!=null){final action=await showModalBottomSheet<String>(context:context,showDragHandle:true,builder:(c)=>SafeArea(child:Column(mainAxisSize:MainAxisSize.min,children:[ListTile(leading:const Icon(Icons.edit_outlined),title:const Text('Chỉnh sửa sự kiện'),onTap:()=>Navigator.pop(c,'edit')),ListTile(leading:const Icon(Icons.delete_outline),title:const Text('Xóa sự kiện'),onTap:()=>Navigator.pop(c,'delete')),const SizedBox(height:8)])));if(action=='delete'){final ok=await showDialog<bool>(context:context,builder:(c)=>AlertDialog(title:const Text('Xóa sự kiện?'),content:Text('Xóa “${event.title}” khỏi lịch?'),actions:[TextButton(onPressed:()=>Navigator.pop(c,false),child:const Text('Hủy')),FilledButton(onPressed:()=>Navigator.pop(c,true),child:const Text('Xóa'))]));if(ok==true)setState(()=>events.removeWhere((e)=>e.id==event.id));return;}if(action!='edit')return;}
-    final result=await form(event);if(result==null)return;setState(()=>event==null?events.add(result):events[events.indexWhere((e)=>e.id==event.id)]=result);
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            PlannerTopBar(
+              monthLabel: 'TH${_month.month}',
+              today: DateTime.now().day,
+              onMenu: () => _showThemeMenu(context),
+              onSearch: () => _showSearch(context),
+              onToday: () => _selectDay(DateTime.now()),
+            ),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onHorizontalDragEnd: (details) {
+                final velocity = details.primaryVelocity ?? 0;
+                if (velocity.abs() > 200) {
+                  _shiftMonth(velocity < 0 ? 1 : -1);
+                }
+              },
+              onVerticalDragEnd: _handleCalendarVerticalSwipe,
+              child: PlannerCalendar(
+                month: _month,
+                selected: _selected,
+                expanded: _expanded,
+                eventsFor: _eventsFor,
+                onSelect: _selectDay,
+              ),
+            ),
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onHorizontalDragEnd: (details) {
+                  final velocity = details.primaryVelocity ?? 0;
+                  if (velocity.abs() > 200) {
+                    _shiftDay(velocity < 0 ? 1 : -1);
+                  }
+                },
+                child: Stack(
+                  children: [
+                    PlannerAgenda(
+                      header: _selectedHeader(),
+                      events: _eventsFor(_selected),
+                      policy: _countdownPolicy,
+                      onEventTap: _editEvent,
+                      onEmptyTap: () => _editEvent(null),
+                    ),
+                    Positioned(
+                      left: 28,
+                      right: 28,
+                      bottom: 14,
+                      child: PlannerFab(
+                        label: 'Thêm vào ${_selected.day} Th${_selected.month}',
+                        onTap: () => _editEvent(null),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
-  Future<NextAEvent?> form(NextAEvent? event) async {
-    final title=TextEditingController(text:event?.title??'');final location=TextEditingController(text:event?.location??'');final note=TextEditingController(text:event?.note??'');var type=event?.type??EventType.classEvent;var priority=event?.priority??0;var start=event?.start??DateTime(selected.year,selected.month,selected.day,8);var end=event?.end??start.add(const Duration(hours:1));
-    final result=await showDialog<NextAEvent>(context:context,builder:(dc)=>StatefulBuilder(builder:(c,set)=>AlertDialog(title:Text(event==null?'Thêm sự kiện':'Chỉnh sửa sự kiện'),content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[TextField(controller:title,autofocus:true,decoration:const InputDecoration(labelText:'Tên sự kiện')),TextField(controller:location,decoration:const InputDecoration(labelText:'Địa điểm')),TextField(controller:note,decoration:const InputDecoration(labelText:'Ghi chú'),maxLines:2),const SizedBox(height:8),DropdownButtonFormField<EventType>(initialValue:type,decoration:const InputDecoration(labelText:'Loại'),items:EventType.values.map((x)=>DropdownMenuItem(value:x,child:Text(typeName(x)))).toList(),onChanged:(x)=>set(()=>type=x??type)),SwitchListTile.adaptive(title:const Text('Ưu tiên'),value:priority>0,onChanged:(x)=>set(()=>priority=x?1:0)),ListTile(contentPadding:EdgeInsets.zero,title:Text('Bắt đầu  ${DateFormat('HH:mm').format(start)}'),onTap:()async{final p=await showTimePicker(context:c,initialTime:TimeOfDay.fromDateTime(start));if(p!=null)set(()=>start=DateTime(start.year,start.month,start.day,p.hour,p.minute));}),ListTile(contentPadding:EdgeInsets.zero,title:Text('Kết thúc  ${DateFormat('HH:mm').format(end)}'),onTap:()async{final p=await showTimePicker(context:c,initialTime:TimeOfDay.fromDateTime(end));if(p!=null)set(()=>end=DateTime(end.year,end.month,end.day,p.hour,p.minute));})])),actions:[TextButton(onPressed:()=>Navigator.pop(dc),child:const Text('Hủy')),FilledButton(onPressed:(){if(title.text.trim().isEmpty)return;if(!end.isAfter(start))end=start.add(const Duration(hours:1));Navigator.pop(dc,NextAEvent(id:event?.id??DateTime.now().microsecondsSinceEpoch.toString(),title:title.text.trim(),type:type,start:start,end:end,location:location.text.trim().isEmpty?null:location.text.trim(),note:note.text.trim().isEmpty?null:note.text.trim(),priority:priority,recurrenceId:event?.recurrenceId));},child:Text(event==null?'Thêm':'Lưu'))]))));
-    title.dispose();location.dispose();note.dispose();return result;
+  Future<void> _showSearch(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Tìm kiếm'),
+        content: TextField(
+          autofocus: true,
+          onSubmitted: (_) => Navigator.pop(dialogContext),
+          decoration: const InputDecoration(hintText: 'Tên sự kiện'),
+        ),
+      ),
+    );
   }
 
-  void themeMenu(BuildContext context)=>showModalBottomSheet<void>(context:context,showDragHandle:true,builder:(c)=>SafeArea(child:Padding(padding:const EdgeInsets.fromLTRB(16,4,16,20),child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Giao diện',style:TextStyle(fontSize:18,fontWeight:FontWeight.w700)),const SizedBox(height:8),SegmentedButton<ThemeMode>(segments:const [ButtonSegment(value:ThemeMode.system,label:Text('Hệ thống')),ButtonSegment(value:ThemeMode.light,label:Text('Sáng')),ButtonSegment(value:ThemeMode.dark,label:Text('Tối'))],selected:{widget.themeMode},onSelectionChanged:(x)=>widget.onThemeChanged?.call(x.first)),const SizedBox(height:18),const Text('Màu chủ đề',style:TextStyle(fontWeight:FontWeight.w600)),const SizedBox(height:10),Wrap(spacing:10,children:[const Color(0xFF1A73E8),const Color(0xFF6750A4),const Color(0xFF006A6A),const Color(0xFF8E4A2F),const Color(0xFF7A4E00)].map((color)=>GestureDetector(onTap:(){widget.onSeedColorChanged?.call(color);Navigator.pop(c);},child:CircleAvatar(radius:17,backgroundColor:color,child:widget.seedColor.value==color.value?const Icon(Icons.check,color:Colors.white,size:18):null))).toList()),const SizedBox(height:10),const Text('Android hỗ trợ màu động: NextA ưu tiên màu hệ thống theo Material 3.')] )));
+  Future<void> _showThemeMenu(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Giao diện',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              SegmentedButton<ThemeMode>(
+                segments: const [
+                  ButtonSegment(value: ThemeMode.system, label: Text('Hệ thống')),
+                  ButtonSegment(value: ThemeMode.light, label: Text('Sáng')),
+                  ButtonSegment(value: ThemeMode.dark, label: Text('Tối')),
+                ],
+                selected: {widget.themeMode},
+                onSelectionChanged: (selection) {
+                  widget.onThemeChanged?.call(selection.first);
+                },
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'Màu chủ đề',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10,
+                children: const [
+                  Color(0xFF1A73E8),
+                  Color(0xFF6750A4),
+                  Color(0xFF006A6A),
+                  Color(0xFF8E4A2F),
+                  Color(0xFF7A4E00),
+                ].map((color) => _SeedColorButton(color: color)).toList(),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Trên Android có màu động, NextA ưu tiên màu hệ thống theo Material 3.',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-class _TopBar extends StatelessWidget {const _TopBar({required this.label,required this.today,required this.onToday,required this.onSearch,required this.onMenu});final String label;final int today;final VoidCallback onToday,onSearch,onMenu;@override Widget build(BuildContext c)=>SizedBox(height:64,child:Row(children:[IconButton(onPressed:onMenu,icon:const Icon(Icons.menu_rounded)),const Spacer(),Text(label,style:const TextStyle(fontSize:21,fontWeight:FontWeight.w700)),const Spacer(),IconButton(onPressed:onSearch,icon:const Icon(Icons.search_rounded)),Padding(padding:const EdgeInsets.only(right:8),child:InkWell(onTap:onToday,child:SizedBox(width:38,height:38,child:Stack(alignment:Alignment.center,children:[const Icon(Icons.calendar_today_outlined,size:27),Text('',style:TextStyle(fontSize:1)),Text('',style:TextStyle(fontSize:1)),Text('',style:TextStyle(fontSize:1)),Text('$today',style:const TextStyle(fontSize:11,fontWeight:FontWeight.w700))]))))]));}
-class _Month extends StatelessWidget {const _Month({required this.days,required this.month,required this.selected,required this.eventsFor,required this.onSelect});final List<DateTime> days;final DateTime month,selected;final List<NextAEvent> Function(DateTime) eventsFor;final ValueChanged<DateTime> onSelect;@override Widget build(BuildContext c)=>Column(children:[const _Weekday(),GridView.builder(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),padding:const EdgeInsets.symmetric(horizontal:7,vertical:2),itemCount:days.length,gridDelegate:const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount:7,mainAxisExtent:54),itemBuilder:(c,i){final d=days[i];return GestureDetector(onTap:()=>onSelect(d),child:_Day(d,inMonth:d.year==month.year&&d.month==month.month,selected:_same(d,selected),events:eventsFor(d)));})]);}}
-class _Week extends StatelessWidget {const _Week({required this.days,required this.selected,required this.eventsFor,required this.onSelect});final List<DateTime> days;final DateTime selected;final List<NextAEvent> Function(DateTime) eventsFor;final ValueChanged<DateTime> onSelect;@override Widget build(BuildContext c)=>Column(children:[const _Weekday(),Padding(padding:const EdgeInsets.symmetric(horizontal:7,vertical:2),child:Row(children:days.map((d)=>Expanded(child:GestureDetector(onTap:()=>onSelect(d),child:_Day(d,inMonth:true,selected:_same(d,selected),events:eventsFor(d))))).toList()))]);}}
-class _Day extends StatelessWidget {const _Day(this.date,{required this.inMonth,required this.selected,required this.events});final DateTime date;final bool inMonth,selected;final List<NextAEvent> events;@override Widget build(BuildContext c){final s=Theme.of(c).colorScheme;return Container(margin:const EdgeInsets.all(1.5),padding:const EdgeInsets.fromLTRB(3,4,3,3),decoration:BoxDecoration(color:_tileColor(c,events,inMonth),borderRadius:BorderRadius.circular(8)),child:Column(children:[SizedBox(height:23,child:Align(alignment:Alignment.topCenter,child:selected?Container(width:25,height:25,alignment:Alignment.center,decoration:BoxDecoration(shape:BoxShape.circle,border:Border.all(color:s.onSurface,width:1.2)),child:Text('${date.day}',style:_text(s))):Text('${date.day}',style:_text(s)))),const Spacer(),...events.take(3).map((e)=>Padding(padding:const EdgeInsets.symmetric(vertical:1),child:Container(height:4,decoration:BoxDecoration(color:_eventColor(c,e),borderRadius:BorderRadius.circular(3))))) ]));}TextStyle _text(ColorScheme s)=>TextStyle(fontSize:selected?12:13,fontWeight:FontWeight.w600,color:!inMonth?s.onSurface.withValues(alpha:.42):date.weekday==DateTime.sunday?s.error:s.onSurface);}
-class _Weekday extends StatelessWidget {const _Weekday();@override Widget build(BuildContext c){final s=Theme.of(c).colorScheme;const l=['T.2','T.3','T.4','T.5','T.6','T.7','CN'];return Padding(padding:const EdgeInsets.symmetric(horizontal:7),child:Row(children:List.generate(7,(i)=>Expanded(child:SizedBox(height:25,child:Center(child:Text(l[i],style:TextStyle(fontSize:11,fontWeight:FontWeight.w600,color:i==6?s.error:s.onSurface))))))));}}
-class _Agenda extends StatelessWidget {const _Agenda({required this.header,required this.events,required this.policy,required this.onTap,required this.onEmpty});final String header;final List<NextAEvent> events;final CountdownPolicy policy;final ValueChanged<NextAEvent> onTap;final VoidCallback onEmpty;@override Widget build(BuildContext c)=>ListView(padding:const EdgeInsets.fromLTRB(16,0,16,86),children:[SizedBox(height:42,child:Row(children:[Text(header,style:const TextStyle(fontSize:14,fontWeight:FontWeight.w700)),const Spacer(),const Icon(Icons.more_horiz_rounded,size:22)])),if(events.isEmpty)InkWell(onTap:onEmpty,child:const Padding(padding:EdgeInsets.only(top:28),child:Column(children:[Icon(Icons.event_available_outlined,size:34),SizedBox(height:10),Text('Không có sự kiện')])))else...events.map((e)=>_EventRow(event:e,policy:policy,onTap:()=>onTap(e))) ]);}
-class _EventRow extends StatelessWidget {const _EventRow({required this.event,required this.policy,required this.onTap});final NextAEvent event;final CountdownPolicy policy;final VoidCallback onTap;@override Widget build(BuildContext c){final s=Theme.of(c).colorScheme;final n=DateTime.now();final ongoing=!n.isBefore(event.start)&&n.isBefore(event.end);final remaining=ongoing?event.end.difference(n):policy.remaining(event,n);return InkWell(onTap:onTap,child:Padding(padding:const EdgeInsets.symmetric(vertical:9),child:Row(crossAxisAlignment:CrossAxisAlignment.start,children:[Container(width:3,height:48,margin:const EdgeInsets.only(right:12,top:3),decoration:BoxDecoration(color:_eventColor(c,event),borderRadius:BorderRadius.circular(3))),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(event.title,maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:16,fontWeight:FontWeight.w700)),if(event.location!=null)Padding(padding:const EdgeInsets.only(top:3),child:Text(event.location!,style:TextStyle(fontSize:12,color:s.onSurface))),if(event.note!=null&&event.note!.trim().isNotEmpty)Padding(padding:const EdgeInsets.only(top:3),child:Text(event.note!,maxLines:2,overflow:TextOverflow.ellipsis,style:TextStyle(fontSize:12,color:s.onSurface)))])),const SizedBox(width:10),SizedBox(width:102,child:Column(crossAxisAlignment:CrossAxisAlignment.end,children:[Text('${DateFormat.Hm().format(event.start)} – ${DateFormat.Hm().format(event.end)}',style:const TextStyle(fontSize:12,fontWeight:FontWeight.w700)),if(remaining!=null)...[const SizedBox(height:5),Text(ongoing?'Kết thúc sau':'Bắt đầu sau',style:TextStyle(fontSize:10,fontWeight:FontWeight.w600,color:s.primary)),Text(policy.format(remaining),style:TextStyle(fontSize:13,fontWeight:FontWeight.w800,color:s.primary))]])),if(event.priority>0)Padding(padding:const EdgeInsets.only(left:5,top:3),child:Icon(Icons.star_rounded,size:15,color:s.tertiary))])));}}
-class _Fab extends StatelessWidget {const _Fab({required this.label,required this.onTap});final String label;final VoidCallback onTap;@override Widget build(BuildContext c){final s=Theme.of(c).colorScheme;return Material(elevation:3,color:s.surface,borderRadius:BorderRadius.circular(24),child:InkWell(onTap:onTap,borderRadius:BorderRadius.circular(24),child:Padding(padding:const EdgeInsets.symmetric(horizontal:14,vertical:10),child:Row(children:[Expanded(child:Text(label,textAlign:TextAlign.center,style:const TextStyle(fontSize:13,fontWeight:FontWeight.w600))),const Icon(Icons.add_rounded,size:22)]))));}}
-String typeName(EventType t)=>switch(t){EventType.classEvent=>'Lớp học',EventType.exam=>'Thi / kiểm tra',EventType.assignment=>'Bài tập',EventType.meeting=>'Cuộc họp',EventType.personal=>'Cá nhân',EventType.other=>'Khác'};
-bool _same(DateTime a,DateTime b)=>a.year==b.year&&a.month==b.month&&a.day==b.day;
-Color _tileColor(BuildContext c,List<NextAEvent> e,bool inMonth){final s=Theme.of(c).colorScheme;if(!inMonth||e.isEmpty)return s.surfaceContainerLow.withValues(alpha:inMonth?.55:.2);var t=s.surface;for(final x in e.take(3)){t=Color.lerp(t,_eventColor(c,x),.075)??t;}return t;}
-Color _eventColor(BuildContext c,NextAEvent e){final s=Theme.of(c).colorScheme;return switch(e.type){EventType.exam=>s.error,EventType.assignment=>s.tertiary,EventType.meeting=>s.secondary,EventType.personal=>s.primary,EventType.classEvent=>s.primary,EventType.other=>s.outline};}
+class _SeedColorButton extends StatelessWidget {
+  const _SeedColorButton({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        final screen = context.findAncestorStateOfType<_PlannerScreenState>();
+        screen?.widget.onSeedColorChanged?.call(color);
+        Navigator.pop(context);
+      },
+      child: CircleAvatar(
+        radius: 17,
+        backgroundColor: color,
+      ),
+    );
+  }
+}
+
+class PlannerTopBar extends StatelessWidget {
+  const PlannerTopBar({
+    super.key,
+    required this.monthLabel,
+    required this.today,
+    required this.onMenu,
+    required this.onSearch,
+    required this.onToday,
+  });
+
+  final String monthLabel;
+  final int today;
+  final VoidCallback onMenu;
+  final VoidCallback onSearch;
+  final VoidCallback onToday;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 64,
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: onMenu,
+            icon: const Icon(Icons.menu_rounded),
+          ),
+          const Spacer(),
+          Text(
+            monthLabel,
+            style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700),
+          ),
+          const Spacer(),
+          IconButton(
+            onPressed: onSearch,
+            icon: const Icon(Icons.search_rounded),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: InkWell(
+              onTap: onToday,
+              borderRadius: BorderRadius.circular(20),
+              child: SizedBox(
+                width: 38,
+                height: 38,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    const Icon(Icons.calendar_today_outlined, size: 27),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 5),
+                      child: Text(
+                        '$today',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PlannerFab extends StatelessWidget {
+  const PlannerFab({super.key, required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      elevation: 2,
+      shadowColor: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.18),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      shape: const StadiumBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const StadiumBorder(),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.add_rounded, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
