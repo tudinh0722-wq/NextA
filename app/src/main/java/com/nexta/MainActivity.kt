@@ -24,6 +24,7 @@ import com.nexta.ui.BulkImportScreen
 import com.nexta.ui.MainScreen
 import com.nexta.ui.MainUiState
 import com.nexta.ui.MainViewModel
+import com.nexta.ui.SettingsScreen
 import com.nexta.ui.theme.NextaTheme
 import com.nexta.widget.NextAFocusWidgetProvider
 import com.nexta.widget.NextAWidgetProvider
@@ -40,19 +41,20 @@ class MainActivity : ComponentActivity() {
     private var editingEvent by mutableStateOf<Event?>(null)
     private var editingAlarmSettings by mutableStateOf<AlarmSettings?>(null)
     private var showBulkImport by mutableStateOf(false)
+    private var showSettings by mutableStateOf(false)
     private var addEventDate by mutableStateOf<java.time.LocalDate?>(null)
     private val alarmScheduler by lazy { AlarmScheduler(this, alarmRepository) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        lifecycleScope.launch {
-            legacyAlarmMigrator.migrate()
-        }
+        lifecycleScope.launch { legacyAlarmMigrator.migrate() }
         setContent {
             NextaTheme {
                 val uiState by viewModel.uiState.collectAsState()
                 val saveMessage by viewModel.saveMessage.collectAsState()
+                
                 when {
+                    showSettings -> SettingsScreen(onBack = { showSettings = false })
                     showBulkImport -> BulkImportScreen(
                         onBack = { showBulkImport = false },
                         onImport = { events, alarm ->
@@ -64,7 +66,7 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                     showAddEvent || editingEvent != null -> AddEventScreen(
-                        onBack = {
+                        onBack = { 
                             showAddEvent = false
                             editingEvent = null
                             editingAlarmSettings = null
@@ -73,7 +75,11 @@ class MainActivity : ComponentActivity() {
                         initialEvent = editingEvent,
                         initialDate = addEventDate,
                         initialAlarmSettings = editingAlarmSettings,
-                        onBulkImport = { showAddEvent = false; showBulkImport = true },
+                        onBulkImport = { 
+                            showAddEvent = false
+                            editingEvent = null
+                            showBulkImport = true 
+                        },
                         onSave = { event, alarm ->
                             viewModel.saveEvent(event, alarm) {
                                 scheduleAlarm(event, alarm)
@@ -85,19 +91,23 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     )
-                    else -> when (val state = uiState) {
-                        MainUiState.Loading -> MainScreen(emptyList(), "Đang tải lịch...", onAddEvent = { date -> showAddEvent = true; addEventDate = date })
-                        is MainUiState.Success -> MainScreen(
-                            state.events,
-                            saveMessage,
-                            onAddEvent = { date -> showAddEvent = true; addEventDate = date },
+                    else -> {
+                        val events = (uiState as? MainUiState.Success)?.events ?: emptyList()
+                        MainScreen(
+                            events = events,
+                            message = saveMessage,
+                            onAddEvent = { date -> 
+                                addEventDate = date
+                                showAddEvent = true 
+                            },
                             onEditEvent = { event -> openEditEvent(event) },
                             onDeleteEvent = { event ->
                                 alarmScheduler.cancel(event.id)
                                 viewModel.deleteEvent(event) { refreshWidgets() }
-                            }
+                            },
+                            onOpenSettings = { showSettings = true },
+                            onBulkImport = { showBulkImport = true }
                         )
-                        is MainUiState.Error -> MainScreen(emptyList(), state.message, onAddEvent = { date -> showAddEvent = true; addEventDate = date })
                     }
                 }
             }
@@ -117,7 +127,7 @@ class MainActivity : ComponentActivity() {
             return
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_NOTIFICATIONS)
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 7001)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val alarmManager = getSystemService(AlarmManager::class.java)
@@ -128,20 +138,10 @@ class MainActivity : ComponentActivity() {
         alarmScheduler.schedule(event, settings)
     }
 
-    private fun defaultAlarm(@Suppress("UNUSED_PARAMETER") event: Event) = AlarmSettings(
-        enabled = true,
-        leadTimeMinutes = 15,
-        repeatEnabled = true,
-        repeatIntervalMinutes = 5,
-        maxRepeats = 3
-    )
+    private fun defaultAlarm(@Suppress("UNUSED_PARAMETER") event: Event) = AlarmSettings(enabled = true, leadTimeMinutes = 15, repeatEnabled = true, repeatIntervalMinutes = 5, maxRepeats = 3)
 
     private fun refreshWidgets() {
         NextAWidgetProvider.requestUpdate(this)
         NextAFocusWidgetProvider.requestUpdate(this)
-    }
-
-    companion object {
-        private const val REQUEST_NOTIFICATIONS = 7001
     }
 }

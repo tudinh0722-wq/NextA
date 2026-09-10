@@ -1,13 +1,14 @@
 @file:OptIn(ExperimentalMaterial3Api::class)
 package com.nexta.ui
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.PagerState
-import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -15,142 +16,300 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.nexta.R
+import com.nexta.data.model.AlarmSettings
 import com.nexta.data.model.Event
-import com.nexta.domain.ScheduleState
-import java.time.*
+import com.nexta.data.model.EventType
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import java.util.*
 
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-private val dateFormatter = DateTimeFormatter.ofPattern("dd/MM")
-private val countdownRed = Color(0xFFD32F2F)
-private val importantOrange = Color(0xFFFF9800)
-private val veryImportantRed = Color(0xFFF44336)
-private val selectedDayBlue = Color(0xFF81D4FA)
-private const val DAYS_BEFORE_TODAY = 1825
-private const val DAYS_AFTER_TODAY = 1825
-private const val TOTAL_DAY_PAGES = DAYS_BEFORE_TODAY + DAYS_AFTER_TODAY + 1
-private const val WEEKS_BEFORE_TODAY = 260
-private const val WEEKS_AFTER_TODAY = 260
-private const val TOTAL_WEEK_PAGES = WEEKS_BEFORE_TODAY + WEEKS_AFTER_TODAY + 1
-private const val COUNTDOWN_DAYS_LIMIT = 14L
 
 @Composable
-fun MainScreen(events: List<Event>, message: String? = null, onAddEvent: (LocalDate) -> Unit = {}, onEditEvent: (Event) -> Unit = {}, onDeleteEvent: (Event) -> Unit = {}) {
-    var selectedEvent by remember { mutableStateOf<Event?>(null) }
-    var now by remember { mutableStateOf(LocalDateTime.now()) }
-    var showDatePicker by remember { mutableStateOf(false) }
-    val today = now.toLocalDate(); val initialDayPage = DAYS_BEFORE_TODAY; val initialWeekPage = WEEKS_BEFORE_TODAY
-    val dayPagerState = rememberPagerState(initialPage = initialDayPage, pageCount = { TOTAL_DAY_PAGES }); val weekPagerState = rememberPagerState(initialPage = initialWeekPage, pageCount = { TOTAL_WEEK_PAGES })
-    val currentDate = today.plusDays((dayPagerState.currentPage - initialDayPage).toLong()); val currentWeekStart = currentDate.with(DayOfWeek.MONDAY); val todayWeekStart = today.with(DayOfWeek.MONDAY)
-    val currentWeekOffset = ChronoUnit.WEEKS.between(todayWeekStart, currentWeekStart).toInt(); val scope = rememberCoroutineScope()
-    val minSelectableDate = today.minusDays(DAYS_BEFORE_TODAY.toLong()); val maxSelectableDate = today.plusDays(DAYS_AFTER_TODAY.toLong())
+fun MainScreen(
+    events: List<Event>,
+    message: String? = null,
+    initialDate: LocalDate = LocalDate.now(),
+    @Suppress("UNUSED_PARAMETER") onAddEvent: (LocalDate) -> Unit = {},
+    onEditEvent: (Event) -> Unit = {},
+    onDeleteEvent: (Event) -> Unit = {},
+    @Suppress("UNUSED_PARAMETER") onQuickAdd: (String, LocalTime, LocalDate, Int) -> Unit = { _, _, _, _ -> },
+    onSaveFullEvent: (Event, AlarmSettings) -> Unit = { _, _ -> },
+    onBulkImport: () -> Unit = {},
+    @Suppress("UNUSED_PARAMETER") onOpenSettings: () -> Unit = {}
+) {
+    var selectedTabIndex by remember { mutableIntStateOf(1) }
+    var selectedDate by remember { mutableStateOf(initialDate) }
+    var currentMonth by remember { mutableStateOf(YearMonth.from(initialDate)) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    // Refresh exactly on minute boundaries instead of polling every 30 seconds.
-    LaunchedEffect(Unit) {
-        while (true) {
-            val current = LocalDateTime.now()
-            now = current
-            val nextMinute = current.truncatedTo(ChronoUnit.MINUTES).plusMinutes(1)
-            delay(Duration.between(current, nextMinute).toMillis().coerceAtLeast(100L))
-        }
+    LaunchedEffect(message) {
+        message?.let { snackbarHostState.showSnackbar(it) }
     }
 
-    LaunchedEffect(currentWeekOffset) { val target = (initialWeekPage + currentWeekOffset).coerceIn(0, TOTAL_WEEK_PAGES - 1); if (weekPagerState.currentPage != target) weekPagerState.animateScrollToPage(target) }
-    LaunchedEffect(weekPagerState.currentPage) { val weekOffset = weekPagerState.currentPage - initialWeekPage; if (weekOffset != currentWeekOffset) { val weekdayOffset = currentDate.dayOfWeek.value - DayOfWeek.MONDAY.value; val targetDate = todayWeekStart.plusWeeks(weekOffset.toLong()).plusDays(weekdayOffset.toLong()); dayPagerState.animateScrollToPage((initialDayPage + ChronoUnit.DAYS.between(today, targetDate).toInt()).coerceIn(0, TOTAL_DAY_PAGES - 1)) } }
     Scaffold(
-        topBar = { TopAppBar(title = { Column { Text("NextA", style = MaterialTheme.typography.titleLarge); Text("Lịch tuần", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) } }) },
-        bottomBar = { Surface(color = MaterialTheme.colorScheme.surface) { AddEventCard(date = currentDate, onClick = { onAddEvent(currentDate) }, modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 20.dp)) } }
-    ) { innerPadding ->
-        Column(Modifier.fillMaxSize().padding(innerPadding).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            TextButton(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(0.dp)) { Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) { Text("${currentWeekStart.format(dateFormatter)} — ${currentWeekStart.plusDays(6).format(dateFormatter)}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text("${currentDate.format(dateFormatter)} • Chọn ngày", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) } }
-            WeekDayIndicator(weekPagerState, initialWeekPage, currentDate, today, events)
-            HorizontalPager(state = dayPagerState, modifier = Modifier.fillMaxWidth().weight(1f)) { page ->
-                val date = today.plusDays((page - initialDayPage).toLong())
-                val dayEvents = events.filter { date in it.startDateTime.toLocalDate()..it.endDateTime.toLocalDate() }.sortedBy { it.startDateTime }
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) { DayHeader(date, date == today); dayEvents.forEach { event -> EventCard(event, event.scheduleState(now), now) { selectedEvent = event } }; message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }; Spacer(Modifier.height(16.dp)) }
+        topBar = {
+            if (selectedTabIndex == 1) {
+                SamsungTopBar(
+                    currentMonth = currentMonth,
+                    onMenuClick = { selectedTabIndex = 3 },
+                    onTodayClick = {
+                        selectedDate = LocalDate.now()
+                        currentMonth = YearMonth.from(selectedDate)
+                    }
+                )
+            } else {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            text = when(selectedTabIndex) {
+                                0 -> "Trang chủ"
+                                2 -> "Thêm sự kiện"
+                                3 -> "Cài đặt"
+                                else -> "NextA"
+                            },
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                )
             }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = Color(0xFFF7F7F7)
+    ) { innerPadding ->
+        Box(Modifier.fillMaxSize().padding(innerPadding)) {
+            when (selectedTabIndex) {
+                0 -> HomeTab(events, LocalDate.now())
+                1 -> CalendarTab(
+                    currentMonth = currentMonth,
+                    selectedDate = selectedDate,
+                    events = events,
+                    onDateSelected = { selectedDate = it },
+                    onMonthChange = { currentMonth = it },
+                    onEditEvent = onEditEvent,
+                    onDeleteEvent = onDeleteEvent,
+                    onAddClick = { selectedTabIndex = 2 }
+                )
+                2 -> AddEventScreen(onBack = { selectedTabIndex = 1 }, onSave = onSaveFullEvent, initialDate = selectedDate, onBulkImport = onBulkImport)
+                3 -> SettingsScreen(onBack = { selectedTabIndex = 1 })
+            }
+            
+            FloatingBottomNavBar(
+                selectedTabIndex = selectedTabIndex,
+                onTabSelected = { selectedTabIndex = it },
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp)
+            )
         }
     }
-    if (showDatePicker) { val datePickerState = rememberDatePickerState(initialSelectedDateMillis = currentDate.toEpochMillis(), selectableDates = object : SelectableDates { override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis.toLocalDate() in minSelectableDate..maxSelectableDate }); DatePickerDialog(onDismissRequest = { showDatePicker = false }, confirmButton = { TextButton(onClick = { datePickerState.selectedDateMillis?.let { millis -> val selectedDate = millis.toLocalDate(); scope.launch { dayPagerState.animateScrollToPage((initialDayPage + today.until(selectedDate, ChronoUnit.DAYS).toInt()).coerceIn(0, TOTAL_DAY_PAGES - 1)) } }; showDatePicker = false }) { Text("Chọn") } }, dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Hủy") } }) { DatePicker(state = datePickerState) } }
-    selectedEvent?.let { event -> AlertDialog(onDismissRequest = { selectedEvent = null }, title = { Text(event.title) }, text = { Text("Bạn muốn làm gì với sự kiện này?") }, confirmButton = { TextButton(onClick = { selectedEvent = null; onEditEvent(event) }) { Text("Sửa") } }, dismissButton = { Row { TextButton(onClick = { selectedEvent = null }) { Text("Hủy") }; TextButton(onClick = { selectedEvent = null; onDeleteEvent(event) }, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Xóa") } } }) }
 }
 
 @Composable
-private fun WeekDayIndicator(weekPagerState: PagerState, initialWeekPage: Int, currentDate: LocalDate, today: LocalDate, events: List<Event>) {
-    HorizontalPager(state = weekPagerState, modifier = Modifier.fillMaxWidth()) { page ->
-        val weekStart = today.with(DayOfWeek.MONDAY).plusWeeks((page - initialWeekPage).toLong())
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-            (0..6).forEach { offset ->
-                val date = weekStart.plusDays(offset.toLong())
-                val isCurrent = date == currentDate
-                val isToday = date == today
-                val dayEvents = events.filter { date in it.startDateTime.toLocalDate()..it.endDateTime.toLocalDate() }
-                val priority = dayEvents.maxPriority()
-                val priorityColor = when (priority) { 2 -> veryImportantRed; 1 -> importantOrange; else -> null }
-                val cushionColor = when {
-                    priorityColor != null -> priorityColor
-                    isCurrent -> selectedDayBlue
-                    else -> Color.Transparent
-                }
-                Column(Modifier.width(44.dp).padding(horizontal = 2.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        color = Color.Transparent,
-                        border = if (cushionColor != Color.Transparent) BorderStroke(3.dp, cushionColor) else null
-                    ) {
-                        Column(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(dayLabel(date.dayOfWeek), style = MaterialTheme.typography.labelMedium, fontWeight = if (isCurrent || isToday) FontWeight.Bold else FontWeight.Normal, color = when { isCurrent -> MaterialTheme.colorScheme.onSurface; isToday -> MaterialTheme.colorScheme.primary; else -> MaterialTheme.colorScheme.onSurfaceVariant })
-                            Text(date.dayOfMonth.toString(), style = MaterialTheme.typography.bodyMedium, fontWeight = if (isCurrent || isToday) FontWeight.Bold else FontWeight.Normal, color = if (priorityColor != null) priorityColor else if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
-                        }
-                    }
+private fun CalendarTab(
+    currentMonth: YearMonth,
+    selectedDate: LocalDate,
+    events: List<Event>,
+    onDateSelected: (LocalDate) -> Unit,
+    onMonthChange: (YearMonth) -> Unit,
+    onEditEvent: (Event) -> Unit,
+    onDeleteEvent: (Event) -> Unit,
+    onAddClick: () -> Unit
+) {
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()) {
+            Surface(
+                color = Color.White,
+                shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
+                shadowElevation = 2.dp
+            ) {
+                MonthlyCalendar(
+                    currentMonth = currentMonth,
+                    selectedDate = selectedDate,
+                    events = events,
+                    onDateSelected = onDateSelected,
+                    onMonthChange = onMonthChange
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            AgendaSection(
+                date = selectedDate,
+                events = events.filter { it.startDateTime.toLocalDate() == selectedDate },
+                onEventClick = onEditEvent,
+                onDeleteEvent = onDeleteEvent
+            )
+        }
+        
+        SamsungPillFAB(
+            date = selectedDate,
+            onClick = onAddClick,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 80.dp)
+        )
+    }
+}
+
+@Composable
+private fun HomeTab(events: List<Event>, today: LocalDate) {
+    val now = LocalDateTime.now()
+    val upcomingEvent = events.filter { it.startDateTime > now }.minByOrNull { it.startDateTime }
+    val todayEventsCount = events.count { it.startDateTime.toLocalDate() == today }
+    
+    Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        Column { 
+            Text("Chào ngày mới!", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Color.Black)
+            Text("Hôm nay bạn có $todayEventsCount sự kiện.", style = MaterialTheme.typography.bodyMedium, color = Color.Gray) 
+        }
+        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF3E5F5))) {
+            Column(Modifier.padding(20.dp)) {
+                Text("SẮP DIỄN RA", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color.Gray)
+                Spacer(Modifier.height(12.dp))
+                if (upcomingEvent != null) { 
+                    Text(upcomingEvent.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = Color.Black)
+                    Text("${upcomingEvent.startDateTime.format(timeFormatter)} - ${upcomingEvent.location}", style = MaterialTheme.typography.bodyMedium, color = Color.Black.copy(alpha = 0.7f)) 
+                } else {
+                    Text("Không có sự kiện sắp tới", style = MaterialTheme.typography.titleMedium, color = Color.Black)
                 }
             }
         }
     }
 }
 
-private fun List<Event>.maxPriority(): Int = maxOfOrNull { it.priority.coerceIn(0, 2) } ?: 0
+@Composable
+private fun SamsungTopBar(
+    currentMonth: YearMonth,
+    onMenuClick: () -> Unit,
+    onTodayClick: () -> Unit
+) {
+    TopAppBar(
+        title = {
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Text(text = "TH${currentMonth.monthValue}", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            }
+        },
+        navigationIcon = {
+            IconButton(onClick = onMenuClick) {
+                Icon(painterResource(R.drawable.ic_settings), contentDescription = "Menu")
+            }
+        },
+        actions = {
+            IconButton(onClick = {}) { Icon(painterResource(R.drawable.ic_search), contentDescription = "Search") }
+            IconButton(onClick = onTodayClick) {
+                Box(modifier = Modifier.size(26.dp).border(1.5.dp, Color.Black, RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) {
+                    Text(text = LocalDate.now().dayOfMonth.toString(), fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                }
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+    )
+}
 
-@Composable private fun DayHeader(date: LocalDate, isToday: Boolean) { Column { Text(if (isToday) "HÔM NAY" else "", style = MaterialTheme.typography.labelLarge, color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold); Text("${vietnameseWeekday(date.dayOfWeek)}, ${date.format(dateFormatter)}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) } }
-@Composable private fun AddEventCard(date: LocalDate, onClick: () -> Unit, modifier: Modifier = Modifier) { Card(onClick = onClick, modifier = modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) { Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) { Text("+", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Light); Column(Modifier.weight(1f)) { Text("Thêm sự kiện", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer); Text("Cho ${vietnameseWeekday(date.dayOfWeek).lowercase()}, ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .78f)) } } } }
-@Composable private fun EventCard(event: Event, state: ScheduleState, now: LocalDateTime, onLongClick: () -> Unit) {
-    val active = state == ScheduleState.IN_PROGRESS
-    val containerColor = when { active -> MaterialTheme.colorScheme.primaryContainer; state == ScheduleState.PAST -> MaterialTheme.colorScheme.surfaceContainerLow; else -> MaterialTheme.colorScheme.surfaceContainer }
-    val priorityBorder = when (event.priority) { 2 -> veryImportantRed; 1 -> importantOrange; else -> null }
-    Card(Modifier.fillMaxWidth().combinedClickable(onClick = {}, onLongClick = onLongClick), colors = CardDefaults.cardColors(containerColor = containerColor), border = priorityBorder?.let { BorderStroke(1.dp, it) }) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 13.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            Column(Modifier.width(58.dp)) { Text(event.startDateTime.format(timeFormatter), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, fontSize = 15.sp); Text(event.endDateTime.format(timeFormatter), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            Column(Modifier.weight(1f)) { Text(event.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, fontSize = 17.sp, lineHeight = 21.sp, maxLines = 2); Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Text(countdownText(event, state, now), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = countdownRed, fontSize = 13.sp); Spacer(Modifier.weight(1f)); StatusDot(state, active) }; if (event.location.isNotBlank()) Text(event.location, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, maxLines = 1); if (event.note.isNotBlank()) Text(event.note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .72f), fontSize = 11.sp, maxLines = 2) }
+@Composable
+private fun MonthlyCalendar(
+    currentMonth: YearMonth,
+    selectedDate: LocalDate,
+    events: List<Event>,
+    onDateSelected: (LocalDate) -> Unit,
+    onMonthChange: (YearMonth) -> Unit
+) {
+    Column(Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
+        Row(Modifier.fillMaxWidth()) {
+            listOf("T.2", "T.3", "T.4", "T.5", "T.6", "T.7", "CN").forEach { day ->
+                Text(text = day, modifier = Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelSmall, color = if (day == "CN") Color.Red else Color.Gray)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        val firstDayOfMonth = currentMonth.atDay(1); val firstDayOfWeek = firstDayOfMonth.dayOfWeek.value; val daysInMonth = currentMonth.lengthOfMonth(); val prevMonth = currentMonth.minusMonths(1); val daysInPrevMonth = prevMonth.lengthOfMonth()
+        val totalCells = 42; val days = buildList { for (i in (firstDayOfWeek - 1) downTo 1) { add(prevMonth.atDay(daysInPrevMonth - i + 1) to false) }; for (i in 1..daysInMonth) { add(currentMonth.atDay(i) to true) }; val remaining = totalCells - size; val nextMonth = currentMonth.plusMonths(1); for (i in 1..remaining) { add(nextMonth.atDay(i) to false) } }
+        days.chunked(7).forEach { week ->
+            Row(Modifier.fillMaxWidth()) {
+                week.forEach { (date, isCurrentMonth) ->
+                    CalendarDay(date = date, isCurrentMonth = isCurrentMonth, isSelected = date == selectedDate, events = events.filter { it.startDateTime.toLocalDate() == date }, onClick = { onDateSelected(date) })
+                }
+            }
         }
     }
 }
-@Composable private fun StatusDot(state: ScheduleState, active: Boolean) { val label = when (state) { ScheduleState.PAST -> "ĐÃ XONG"; ScheduleState.IN_PROGRESS -> "ĐANG HỌC"; ScheduleState.UPCOMING -> "SẮP TỚI" }; Surface(shape = MaterialTheme.shapes.small, color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest) { Text(label, Modifier.padding(horizontal = 7.dp, vertical = 4.dp), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp) } }
-private fun countdownText(event: Event, state: ScheduleState, now: LocalDateTime) = when (state) { ScheduleState.IN_PROGRESS -> "Kết thúc sau ${formatDuration(Duration.between(now, event.endDateTime))}"; ScheduleState.UPCOMING -> { val duration = Duration.between(now, event.startDateTime); if (duration.toDays() > COUNTDOWN_DAYS_LIMIT) "" else "Bắt đầu sau ${formatDuration(duration)}" }; ScheduleState.PAST -> "Đã kết thúc" }
 
-private fun formatDuration(duration: Duration): String {
-    val totalSeconds = duration.seconds.coerceAtLeast(0L)
-    val totalMinutes = ((totalSeconds + 59L) / 60L).coerceAtLeast(0L)
-    val days = totalMinutes / 1440L
-    val hours = totalMinutes / 60L
-    val minutes = totalMinutes % 60L
-    return when {
-        days >= 1 -> "$days ngày"
-        hours > 0 && minutes > 0 -> "${hours}h ${minutes}p"
-        hours > 0 -> "${hours}h"
-        minutes > 0 -> "${minutes}p"
-        else -> "<1p"
+@Composable
+private fun RowScope.CalendarDay(date: LocalDate, isCurrentMonth: Boolean, isSelected: Boolean, events: List<Event>, onClick: () -> Unit) {
+    val isToday = date == LocalDate.now()
+    Column(modifier = Modifier.weight(1f).aspectRatio(0.9f).clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(modifier = Modifier.size(32.dp).background(color = if (isSelected) Color(0xFFE3F2FD) else Color.Transparent, shape = RoundedCornerShape(8.dp)).border(width = if (isToday && !isSelected) 1.dp else 0.dp, color = if (isToday) Color(0xFF2196F3) else Color.Transparent, shape = RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
+            Text(text = date.dayOfMonth.toString(), color = when { isSelected -> Color.Black; !isCurrentMonth -> Color.LightGray; date.dayOfWeek.value == 7 -> Color.Red; else -> Color.Black }, fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal, fontSize = 15.sp)
+        }
+        Spacer(Modifier.height(2.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            events.take(3).forEach { event ->
+                val color = when (event.type) { EventType.CLASS_OFFLINE -> Color(0xFF4CAF50); EventType.CLASS_ONLINE -> Color(0xFF2196F3); EventType.TASK -> Color(0xFFFF9800); else -> Color(0xFF9C27B0) }
+                Box(Modifier.size(4.dp).background(color, RoundedCornerShape(2.dp)))
+            }
+        }
     }
 }
 
-private fun dayLabel(dayOfWeek: DayOfWeek) = when (dayOfWeek) { DayOfWeek.MONDAY -> "T2"; DayOfWeek.TUESDAY -> "T3"; DayOfWeek.WEDNESDAY -> "T4"; DayOfWeek.THURSDAY -> "T5"; DayOfWeek.FRIDAY -> "T6"; DayOfWeek.SATURDAY -> "T7"; DayOfWeek.SUNDAY -> "CN" }
-private fun vietnameseWeekday(dayOfWeek: DayOfWeek) = when (dayOfWeek) { DayOfWeek.MONDAY -> "Thứ Hai"; DayOfWeek.TUESDAY -> "Thứ Ba"; DayOfWeek.WEDNESDAY -> "Thứ Tư"; DayOfWeek.THURSDAY -> "Thứ Năm"; DayOfWeek.FRIDAY -> "Thứ Sáu"; DayOfWeek.SATURDAY -> "Thứ Bảy"; DayOfWeek.SUNDAY -> "Chủ Nhật" }
-private fun LocalDate.toEpochMillis() = atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-private fun Long.toLocalDate() = Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).toLocalDate()
-private fun Event.scheduleState(now: LocalDateTime) = when { now < startDateTime -> ScheduleState.UPCOMING; now >= endDateTime -> ScheduleState.PAST; else -> ScheduleState.IN_PROGRESS }
+@Composable
+private fun AgendaSection(date: LocalDate, events: List<Event>, onEventClick: (Event) -> Unit, onDeleteEvent: (Event) -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(text = date.dayOfMonth.toString(), fontSize = 32.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.width(8.dp))
+            Column { Text(text = "T.${if(date.dayOfWeek.value == 7) "CN" else date.dayOfWeek.value + 1}", style = MaterialTheme.typography.bodySmall, color = Color.Gray); Text(text = "ÂL 29 Th7", style = MaterialTheme.typography.bodySmall, color = Color.LightGray) }
+            Spacer(Modifier.weight(1f)); Icon(painter = painterResource(R.drawable.ic_settings), contentDescription = null, modifier = Modifier.size(24.dp), tint = Color.LightGray)
+        }
+        Spacer(Modifier.height(16.dp))
+        if (events.isEmpty()) { Text(text = "Không có sự kiện", modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp), textAlign = TextAlign.Center, color = Color.Gray) }
+        else { LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) { items(events) { event -> AgendaItem(event, onClick = { onEventClick(event) }) } } }
+    }
+}
+
+@Composable
+private fun AgendaItem(event: Event, onClick: () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick), verticalAlignment = Alignment.CenterVertically) {
+        Text(text = event.startDateTime.format(timeFormatter), fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.width(54.dp))
+        Spacer(Modifier.width(12.dp)); val color = when (event.type) { EventType.CLASS_OFFLINE -> Color(0xFF4CAF50); EventType.CLASS_ONLINE -> Color(0xFF2196F3); EventType.TASK -> Color(0xFFFF9800); else -> Color(0xFF9C27B0) }
+        Box(Modifier.width(4.dp).height(36.dp).background(color, RoundedCornerShape(2.dp))); Spacer(Modifier.width(16.dp))
+        Column { Text(text = event.title, fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis); Text(text = "${event.startDateTime.format(timeFormatter)} - ${event.endDateTime.format(timeFormatter)}  ${event.location}", style = MaterialTheme.typography.bodySmall, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+    }
+}
+
+@Composable
+private fun SamsungPillFAB(date: LocalDate, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(onClick = onClick, shape = RoundedCornerShape(28.dp), color = Color.White, shadowElevation = 4.dp, modifier = modifier.height(54.dp).width(200.dp).border(0.5.dp, Color.LightGray, RoundedCornerShape(28.dp))) {
+        Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            Text(text = "Thêm vào ${date.dayOfMonth} Th${date.monthValue}", color = Color.Black, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            Spacer(Modifier.width(12.dp)); Icon(painterResource(R.drawable.ic_add), contentDescription = null, tint = Color.Black, modifier = Modifier.size(20.dp))
+        }
+    }
+}
+
+@Composable
+private fun FloatingBottomNavBar(selectedTabIndex: Int, onTabSelected: (Int) -> Unit, modifier: Modifier = Modifier) {
+    Box(modifier.height(56.dp).fillMaxWidth(0.85f)) {
+        Surface(Modifier.fillMaxSize(), shape = RoundedCornerShape(28.dp), color = Color.White.copy(alpha = 0.95f), shadowElevation = 8.dp, tonalElevation = 2.dp) {
+            Row(Modifier.fillMaxSize().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                BottomNavItem(R.drawable.ic_home, selectedTabIndex == 0, { onTabSelected(0) })
+                BottomNavItem(R.drawable.ic_calendar, selectedTabIndex == 1, { onTabSelected(1) })
+                BottomNavItem(R.drawable.ic_add, selectedTabIndex == 2, { onTabSelected(2) })
+                BottomNavItem(R.drawable.ic_settings, selectedTabIndex == 3, { onTabSelected(3) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun BottomNavItem(iconRes: Int, isSelected: Boolean, onClick: () -> Unit) {
+    Surface(shape = CircleShape, color = if (isSelected) Color(0xFFFFF9C4) else Color.Transparent, modifier = Modifier.size(40.dp).clickable { onClick() }) {
+        Box(contentAlignment = Alignment.Center) { Icon(painterResource(iconRes), null, Modifier.size(22.dp), tint = Color.Black) }
+    }
+}
