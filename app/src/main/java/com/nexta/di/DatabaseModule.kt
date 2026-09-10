@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.room.Room
 import com.nexta.data.local.AlarmDao
 import com.nexta.data.local.AppDatabase
-import com.nexta.data.local.DatabaseMigrations
 import com.nexta.data.local.EventDao
 import com.nexta.data.local.EventScheduleDao
 import dagger.Module
@@ -28,12 +27,9 @@ object DatabaseModule {
             AppDatabase::class.java,
             "nexta_db"
         )
-            .addMigrations(DatabaseMigrations.MIGRATION_2_3)
-            // Mọi path không có migration (vd: version 1 cũ còn sót)
-            // → xóa DB và tạo lại thay vì crash.
-            // Sau khi release chính thức: xóa dòng này và viết đủ migration.
-            .fallbackToDestructiveMigration()
-            .fallbackToDestructiveMigrationOnDowngrade()
+            // Không có migration nào — mọi version cũ đều reset sạch lên v3.
+            // TODO: xóa 2 dòng này và viết migration đầy đủ trước khi lên store.
+            .fallbackToDestructiveMigration(true)
             .build()
     }
 
