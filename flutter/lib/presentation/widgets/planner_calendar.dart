@@ -34,18 +34,21 @@ class PlannerCalendar extends StatelessWidget {
     return AnimatedSize(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,
-      child: expanded ? _MonthGrid(
-        days: _monthDays,
-        month: month,
-        selected: selected,
-        eventsFor: eventsFor,
-        onSelect: onSelect,
-      ) : _WeekGrid(
-        days: _weekDays,
-        selected: selected,
-        eventsFor: eventsFor,
-        onSelect: onSelect,
-      ),
+      alignment: Alignment.topCenter,
+      child: expanded
+          ? _MonthGrid(
+              days: _monthDays,
+              month: month,
+              selected: selected,
+              eventsFor: eventsFor,
+              onSelect: onSelect,
+            )
+          : _WeekGrid(
+              days: _weekDays,
+              selected: selected,
+              eventsFor: eventsFor,
+              onSelect: onSelect,
+            ),
     );
   }
 }
@@ -68,6 +71,7 @@ class _MonthGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         const WeekdayHeader(),
         GridView.builder(
@@ -112,20 +116,28 @@ class _WeekGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         const WeekdayHeader(),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
           child: Row(
-            children: days.map((day) => Expanded(
-              child: CalendarDayCell(
-                date: day,
-                inMonth: true,
-                selected: _sameDay(day, selected),
-                events: eventsFor(day),
-                onTap: () => onSelect(day),
-              ),
-            )).toList(),
+            children: days
+                .map(
+                  (day) => Expanded(
+                    child: SizedBox(
+                      height: 54,
+                      child: CalendarDayCell(
+                        date: day,
+                        inMonth: true,
+                        selected: _sameDay(day, selected),
+                        events: eventsFor(day),
+                        onTap: () => onSelect(day),
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
           ),
         ),
       ],
@@ -144,21 +156,24 @@ class WeekdayHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 7),
       child: Row(
-        children: List.generate(7, (index) => Expanded(
-          child: SizedBox(
-            height: 25,
-            child: Center(
-              child: Text(
-                labels[index],
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: index == 6 ? scheme.error : scheme.onSurface,
+        children: List.generate(
+          7,
+          (index) => Expanded(
+            child: SizedBox(
+              height: 25,
+              child: Center(
+                child: Text(
+                  labels[index],
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: index == 6 ? scheme.error : scheme.onSurface,
+                  ),
                 ),
               ),
             ),
           ),
-        )),
+        ),
       ),
     );
   }
@@ -191,6 +206,9 @@ class CalendarDayCell extends StatelessWidget {
         decoration: BoxDecoration(
           color: calendarTileColor(context, events, inMonth),
           borderRadius: BorderRadius.circular(8),
+          border: selected
+              ? Border.all(color: scheme.primary, width: 2)
+              : null,
         ),
         child: Column(
           children: [
@@ -198,31 +216,22 @@ class CalendarDayCell extends StatelessWidget {
               height: 23,
               child: Align(
                 alignment: Alignment.topCenter,
-                child: selected
-                    ? Container(
-                        width: 25,
-                        height: 25,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: scheme.onSurface, width: 1.2),
-                        ),
-                        child: Text('${date.day}', style: _dateStyle(scheme)),
-                      )
-                    : Text('${date.day}', style: _dateStyle(scheme)),
+                child: Text('${date.day}', style: _dateStyle(scheme)),
               ),
             ),
             const Spacer(),
-            ...events.take(3).map((event) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 1),
-              child: Container(
-                height: 4,
-                decoration: BoxDecoration(
-                  color: eventColor(context, event),
-                  borderRadius: BorderRadius.circular(3),
+            ...events.take(3).map(
+                  (event) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 1),
+                    child: Container(
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: eventColor(context, event),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            )),
           ],
         ),
       ),
@@ -231,7 +240,7 @@ class CalendarDayCell extends StatelessWidget {
 
   TextStyle _dateStyle(ColorScheme scheme) => TextStyle(
         fontSize: selected ? 12 : 13,
-        fontWeight: FontWeight.w600,
+        fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
         color: !inMonth
             ? scheme.onSurface.withValues(alpha: 0.42)
             : date.weekday == DateTime.sunday
