@@ -33,33 +33,40 @@ class PlannerCalendar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final targetHeight = expanded ? 299.0 : 83.0;
-    return AnimatedContainer(
-      duration: animationDuration,
-      curve: Curves.easeOutCubic,
-      height: targetHeight,
-      clipBehavior: Clip.hardEdge,
-      decoration: const BoxDecoration(),
-      child: expanded
-          ? _MonthGrid(
-              days: _monthDays,
-              month: month,
-              selected: selected,
-              eventsFor: eventsFor,
-              onSelect: onSelect,
-            )
-          : _WeekGrid(
-              days: _weekDays,
-              selected: selected,
-              eventsFor: eventsFor,
-              onSelect: onSelect,
-            ),
+    final calendar = expanded
+        ? _MonthGrid(
+            key: const ValueKey('month-grid'),
+            days: _monthDays,
+            month: month,
+            selected: selected,
+            eventsFor: eventsFor,
+            onSelect: onSelect,
+          )
+        : _WeekGrid(
+            key: const ValueKey('week-grid'),
+            days: _weekDays,
+            selected: selected,
+            eventsFor: eventsFor,
+            onSelect: onSelect,
+          );
+
+    // Animate the viewport size, not the child's layout constraints. This
+    // keeps the 5-row month grid at its natural height while the parent clips
+    // it during collapse, avoiding RenderFlex overflow at intermediate sizes.
+    return ClipRect(
+      child: AnimatedSize(
+        duration: animationDuration,
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topCenter,
+        child: calendar,
+      ),
     );
   }
 }
 
 class _MonthGrid extends StatelessWidget {
   const _MonthGrid({
+    super.key,
     required this.days,
     required this.month,
     required this.selected,
@@ -110,6 +117,7 @@ class _MonthGrid extends StatelessWidget {
 
 class _WeekGrid extends StatelessWidget {
   const _WeekGrid({
+    super.key,
     required this.days,
     required this.selected,
     required this.eventsFor,
