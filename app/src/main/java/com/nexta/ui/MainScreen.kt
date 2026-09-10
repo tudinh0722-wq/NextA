@@ -4,8 +4,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -38,7 +38,12 @@ fun MainScreen(
     onOpenSettings: () -> Unit = {}
 ) {
     var state by remember(initialDate) { mutableStateOf(CalendarState.initial(initialDate)) }
+    val todayDate = rememberCalendarToday()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(todayDate) {
+        state = state.copy(todayDate = todayDate)
+    }
 
     LaunchedEffect(message) {
         message?.let { snackbarHostState.showSnackbar(it) }
@@ -48,54 +53,39 @@ fun MainScreen(
         topBar = {
             CalendarTopBar(
                 month = state.currentMonth,
-                todayDate = state.todayDate,
+                todayDate = todayDate,
                 onMenu = onOpenSettings,
                 onSearch = { state = state.copy(showSearch = true) },
-                onToday = { state = state.goToToday() }
+                onToday = { state = state.copy(todayDate = todayDate).goToToday() }
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface
+        containerColor = MaterialTheme.colorScheme.surface
     ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
+        Box(Modifier.fillMaxSize().padding(padding)) {
             Column(Modifier.fillMaxSize()) {
                 CalendarSurface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding(),
+                    modifier = Modifier.fillMaxWidth(),
                     expanded = state.monthExpanded,
                     month = state.currentMonth,
                     selectedDate = state.selectedDate,
                     events = events,
-                    onDateSelected = { date ->
-                        state = state.selectDate(date)
-                    },
-                    onHorizontalSwipe = { direction ->
-                        state = state.moveHorizontal(direction)
-                    },
-                    onVerticalSwipe = { expanded ->
-                        state = state.copy(monthExpanded = expanded)
-                    },
+                    onDateSelected = { state = state.selectDate(it) },
+                    onHorizontalSwipe = { state = state.moveHorizontal(it) },
+                    onVerticalSwipe = { state = state.copy(monthExpanded = it) },
                     onLongPress = onAddEvent
                 )
-
                 Agenda(
                     date = state.selectedDate,
                     events = events.filter { it.startDateTime.toLocalDate() == state.selectedDate },
                     onEventClick = onEditEvent
                 )
             }
-
             AddEventBar(
                 selectedDate = state.selectedDate,
                 onClick = { onAddEvent(state.selectedDate) },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
                     .padding(bottom = 16.dp, start = 20.dp, end = 20.dp)
             )
         }
@@ -106,10 +96,11 @@ fun MainScreen(
             events = events,
             onDismiss = { state = state.copy(showSearch = false) },
             onEventClick = { event ->
+                val date = event.startDateTime.toLocalDate()
                 state = state.copy(
                     showSearch = false,
-                    selectedDate = event.startDateTime.toLocalDate(),
-                    currentMonth = YearMonth.from(event.startDateTime.toLocalDate())
+                    selectedDate = date,
+                    currentMonth = YearMonth.from(date)
                 )
                 onEditEvent(event)
             }
