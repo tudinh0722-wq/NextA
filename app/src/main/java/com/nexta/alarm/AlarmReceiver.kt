@@ -33,11 +33,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-/**
- * Scope helper: tạo Job riêng cho mỗi goAsync() call.
- * Job bị cancel khi pending.finish() được gọi trong finally,
- * tránh coroutine sống lâu hơn BroadcastReceiver window (10s).
- */
 private fun BroadcastReceiver.PendingResult.launchAsync(block: suspend CoroutineScope.() -> Unit): Job {
     val job = Job()
     CoroutineScope(Dispatchers.IO + job).launch {
@@ -156,14 +151,16 @@ class AlarmReceiver : BroadcastReceiver() {
         if (manager.getNotificationChannel(CHANNEL_ID) == null) {
             manager.createNotificationChannel(
                 NotificationChannel(CHANNEL_ID, "Nhắc sự kiện", NotificationManager.IMPORTANCE_HIGH).apply {
-                    description = "Thông báo cho báo thức và TTS NextA"
+                    description = "Thông báo báo thức và TTS NextA"
                     setSound(null, null)
                 }
             )
         }
     }
 
-    companion object { const val CHANNEL_ID = "nexta_event_alarm_v5" }
+    companion object {
+        const val CHANNEL_ID = "nexta_alarm"
+    }
 }
 
 private object AlarmPlaybackController {
@@ -272,10 +269,7 @@ private object AlarmPlaybackController {
                     try { current.shutdown() } catch (_: Exception) {}
                     return@TextToSpeech
                 }
-                if (status != TextToSpeech.SUCCESS) {
-                    onDone()
-                    return@TextToSpeech
-                }
+                if (status != TextToSpeech.SUCCESS) { onDone(); return@TextToSpeech }
                 tts = current
                 val languageStatus = current.setLanguage(Locale("vi", "VN"))
                 if (languageStatus == TextToSpeech.LANG_MISSING_DATA || languageStatus == TextToSpeech.LANG_NOT_SUPPORTED) {
@@ -301,7 +295,7 @@ private object AlarmPlaybackController {
                     putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_ALARM)
                     putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f)
                 }
-                val result = current.speak(text, TextToSpeech.QUEUE_FLUSH, params, "nexta-alarm-$eventId-${System.nanoTime()}")
+                val result = current.speak(text, TextToSpeech.QUEUE_FLUSH, params, "nexta-$eventId-${System.nanoTime()}")
                 if (result == TextToSpeech.ERROR) {
                     if (tts === current) tts = null
                     current.shutdown()
@@ -313,11 +307,7 @@ private object AlarmPlaybackController {
 
         private fun playDefaultAlarm(onComplete: () -> Unit) {
             if (stopped.get()) return
-            val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-            if (alarmUri == null) {
-                onComplete()
-                return
-            }
+            val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM) ?: run { onComplete(); return }
             try {
                 val mediaPlayer = MediaPlayer()
                 player = mediaPlayer
@@ -340,10 +330,8 @@ private object AlarmPlaybackController {
                     true
                 }
                 mediaPlayer.prepare()
-                if (!stopped.get()) mediaPlayer.start() else {
-                    try { mediaPlayer.release() } catch (_: Exception) {}
-                    player = null
-                }
+                if (!stopped.get()) mediaPlayer.start()
+                else { try { mediaPlayer.release() } catch (_: Exception) {}; player = null }
             } catch (_: Exception) {
                 player = null
                 if (!stopped.get()) onComplete()
@@ -366,5 +354,7 @@ class AlarmActionReceiver : BroadcastReceiver() {
         }
     }
 
-    companion object { const val ACTION_ACKNOWLEDGE = "com.nexta.action.ALARM_ACKNOWLEDGE" }
+    companion object {
+        const val ACTION_ACKNOWLEDGE = "com.nexta.action.ALARM_ACKNOWLEDGE"
+    }
 }
