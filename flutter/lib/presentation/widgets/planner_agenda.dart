@@ -84,6 +84,7 @@ class PlannerEventRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final countdownColor = _priorityColor(scheme, event.priority);
     final now = DateTime.now();
     final ongoing = !now.isBefore(event.start) && now.isBefore(event.end);
     final remaining = ongoing ? event.end.difference(now) : policy.remaining(event, now);
@@ -101,7 +102,7 @@ class PlannerEventRow extends StatelessWidget {
               height: 48,
               margin: const EdgeInsets.only(right: 12, top: 3),
               decoration: BoxDecoration(
-                color: eventColor(context, event),
+                color: countdownColor,
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
@@ -145,20 +146,35 @@ class PlannerEventRow extends StatelessWidget {
                   ),
                   if (remaining != null) ...[
                     const SizedBox(height: 5),
-                    Text(
-                      ongoing ? 'Kết thúc sau' : 'Bắt đầu sau',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: scheme.primary,
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: countdownColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: countdownColor.withValues(alpha: 0.28)),
                       ),
-                    ),
-                    Text(
-                      policy.format(remaining),
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: scheme.primary,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            ongoing ? 'Kết thúc sau' : 'Bắt đầu sau',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: countdownColor,
+                            ),
+                          ),
+                          Text(
+                            policy.format(remaining),
+                            textAlign: TextAlign.end,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: countdownColor,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -171,7 +187,7 @@ class PlannerEventRow extends StatelessWidget {
                 child: Icon(
                   Icons.priority_high_rounded,
                   size: 16,
-                  color: scheme.error,
+                  color: countdownColor,
                 ),
               ),
           ],
@@ -179,4 +195,10 @@ class PlannerEventRow extends StatelessWidget {
       ),
     );
   }
+
+  Color _priorityColor(ColorScheme scheme, int priority) => switch (priority) {
+        2 => scheme.error,
+        1 => scheme.tertiary,
+        _ => scheme.primary,
+      };
 }
