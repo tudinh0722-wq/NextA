@@ -89,6 +89,8 @@ class _EventEditorSheetState extends State<_EventEditorSheet> {
   late int _priority;
   late RecurrenceRule _recurrenceRule;
   int _reminderMinutes = 10;
+  int _reminderRepeatCount = 2;
+  int _reminderRepeatIntervalMinutes = 5;
   bool _bulkImportTab = false;
 
   @override
@@ -102,6 +104,9 @@ class _EventEditorSheetState extends State<_EventEditorSheet> {
     _end = event?.end ?? _start.add(const Duration(hours: 1));
     _priority = event?.priority ?? 0;
     _recurrenceRule = event?.recurrenceRule ?? const RecurrenceRule(frequency: RecurrenceFrequency.none);
+    _reminderMinutes = event?.reminderMinutes ?? 10;
+    _reminderRepeatCount = event?.reminderRepeatCount ?? 2;
+    _reminderRepeatIntervalMinutes = event?.reminderRepeatIntervalMinutes ?? 5;
   }
 
   @override
@@ -148,26 +153,20 @@ class _EventEditorSheetState extends State<_EventEditorSheet> {
   }
 
   Future<void> _pickReminder() async {
-    final value = await showModalBottomSheet<int>(
+    final result = await showDialog<_ReminderSettings>(
       context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final minutes in [0, 5, 10, 15, 30, 60])
-              ListTile(
-                leading: Icon(minutes == 0 ? Icons.notifications_off_outlined : Icons.notifications_none_outlined),
-                title: Text(minutes == 0 ? 'Không báo trước' : 'Trước $minutes phút'),
-                trailing: minutes == _reminderMinutes ? const Icon(Icons.check_rounded) : null,
-                onTap: () => Navigator.pop(sheetContext, minutes),
-              ),
-            const SizedBox(height: 8),
-          ],
-        ),
+      builder: (dialogContext) => _ReminderDialog(
+        minutes: _reminderMinutes,
+        repeatCount: _reminderRepeatCount,
+        repeatIntervalMinutes: _reminderRepeatIntervalMinutes,
       ),
     );
-    if (value != null) setState(() => _reminderMinutes = value);
+    if (result == null) return;
+    setState(() {
+      _reminderMinutes = result.minutes;
+      _reminderRepeatCount = result.repeatCount;
+      _reminderRepeatIntervalMinutes = result.repeatIntervalMinutes;
+    });
   }
 
   Future<void> _pickRecurrence() async {
@@ -235,6 +234,9 @@ class _EventEditorSheetState extends State<_EventEditorSheet> {
       priority: _priority,
       recurrenceId: recurring ? (old?.recurrenceId ?? id) : old?.recurrenceId,
       recurrenceRule: recurring ? _recurrenceRule : null,
+      reminderMinutes: _reminderMinutes,
+      reminderRepeatCount: _reminderRepeatCount,
+      reminderRepeatIntervalMinutes: _reminderRepeatIntervalMinutes,
     );
     final events = old == null && recurring ? generateOccurrences(event, rule: _recurrenceRule) : [event];
     Navigator.pop(context, EventEditorResult(events: events, deleted: false));
@@ -255,31 +257,129 @@ class _EventEditorSheetState extends State<_EventEditorSheet> {
               child: _EditorTabs(selectedBulk: _bulkImportTab, onChanged: (value) => setState(() => _bulkImportTab = value)),
             ),
             Expanded(
-              child: _bulkImportTab ? const _BulkImportSlot() : _EventContent(
-                title: _title,
-                location: _location,
-                note: _note,
-                start: _start,
-                end: _end,
-                priority: _priority,
-                reminderMinutes: _reminderMinutes,
-                recurrence: _recurrenceRule.frequency,
-                onPriority: _pickPriority,
-                onStartDate: () => _pickDate(true),
-                onStartTime: () => _pickTime(true),
-                onEndDate: () => _pickDate(false),
-                onEndTime: () => _pickTime(false),
-                onReminder: _pickReminder,
-                onRecurrence: _pickRecurrence,
-                onCancel: () => Navigator.pop(context),
-                onSave: _save,
-              ),
+              child: _bulkImportTab
+                  ? const _BulkImportSlot()
+                  : _EventContent(
+                      title: _title,
+                      location: _location,
+                      note: _note,
+                      start: _start,
+                      end: _end,
+                      priority: _priority,
+                      reminderMinutes: _reminderMinutes,
+                      reminderRepeatCount: _reminderRepeatCount,
+                      reminderRepeatIntervalMinutes: _reminderRepeatIntervalMinutes,
+                      recurrence: _recurrenceRule.frequency,
+                      onPriority: _pickPriority,
+                      onStartDate: () => _pickDate(true),
+                      onStartTime: () => _pickTime(true),
+                      onEndDate: () => _pickDate(false),
+                      onEndTime: () => _pickTime(false),
+                      onReminder: _pickReminder,
+                      onRecurrence: _pickRecurrence,
+                      onCancel: () => Navigator.pop(context),
+                      onSave: _save,
+                    ),
             ),
           ],
         ),
       ),
     );
   }
+}
+
+class _ReminderSettings {
+  const _ReminderSettings({required this.minutes, required this.repeatCount, required this.repeatIntervalMinutes});
+  final int minutes;
+  final int repeatCount;
+  final int repeatIntervalMinutes;
+}
+
+class _ReminderDialog extends StatefulWidget {
+  const _ReminderDialog({required this.minutes, required this.repeatCount, required this.repeatIntervalMinutes});
+  final int minutes;
+  final int repeatCount;
+  final int repeatIntervalMinutes;
+
+  @override
+  State<_ReminderDialog> createState() => _ReminderDialogState();
+}
+
+class _ReminderDialogState extends State<_ReminderDialog> {
+  late final TextEditingController _minutes;
+  late final TextEditingController _repeatCount;
+  late final TextEditingController _interval;
+
+  @override
+  void initState() {
+    super.initState();
+    _minutes = TextEditingController(text: widget.minutes.toString());
+    _repeatCount = TextEditingController(text: widget.repeatCount.toString());
+    _interval = TextEditingController(text: widget.repeatIntervalMinutes.toString());
+  }
+
+  @override
+  void dispose() {
+    _minutes.dispose();
+    _repeatCount.dispose();
+    _interval.dispose();
+    super.dispose();
+  }
+
+  int _value(TextEditingController controller, {int fallback = 0, int min = 0, int max = 9999}) {
+    final parsed = int.tryParse(controller.text.trim()) ?? fallback;
+    return parsed.clamp(min, max);
+  }
+
+  void _save() {
+    final minutes = _value(_minutes, min: 0, max: 10080);
+    final repeatCount = _value(_repeatCount, fallback: 2, min: 0, max: 20);
+    final interval = _value(_interval, fallback: 5, min: 1, max: 1440);
+    Navigator.pop(context, _ReminderSettings(minutes: minutes, repeatCount: repeatCount, repeatIntervalMinutes: interval));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return AlertDialog(
+      title: const Text('Báo trước'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _NumberField(controller: _minutes, label: 'Báo trước (phút)', autofocus: true),
+          const SizedBox(height: 14),
+          _NumberField(controller: _repeatCount, label: 'Lặp lại nếu chưa xác nhận (lần)'),
+          const SizedBox(height: 14),
+          _NumberField(controller: _interval, label: 'Khoảng cách giữa 2 lần (phút)'),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text('Mặc định: báo trước 10 phút, lặp thêm 2 lần, mỗi lần cách 5 phút.', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
+        FilledButton(onPressed: _save, child: const Text('Lưu')),
+      ],
+    );
+  }
+}
+
+class _NumberField extends StatelessWidget {
+  const _NumberField({required this.controller, required this.label, this.autofocus = false});
+  final TextEditingController controller;
+  final String label;
+  final bool autofocus;
+
+  @override
+  Widget build(BuildContext context) => TextField(
+        controller: controller,
+        autofocus: autofocus,
+        keyboardType: const TextInputType.numberWithOptions(decimal: false),
+        textInputAction: TextInputAction.next,
+        decoration: InputDecoration(labelText: label, suffixText: 'phút' == label.substring(label.length - 4) ? null : null),
+      );
 }
 
 class _EventContent extends StatelessWidget {
@@ -291,6 +391,8 @@ class _EventContent extends StatelessWidget {
     required this.end,
     required this.priority,
     required this.reminderMinutes,
+    required this.reminderRepeatCount,
+    required this.reminderRepeatIntervalMinutes,
     required this.recurrence,
     required this.onPriority,
     required this.onStartDate,
@@ -310,6 +412,8 @@ class _EventContent extends StatelessWidget {
   final DateTime end;
   final int priority;
   final int reminderMinutes;
+  final int reminderRepeatCount;
+  final int reminderRepeatIntervalMinutes;
   final RecurrenceFrequency recurrence;
   final VoidCallback onPriority;
   final VoidCallback onStartDate;
@@ -326,10 +430,7 @@ class _EventContent extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(42)),
-      ),
+      decoration: BoxDecoration(color: scheme.surface, borderRadius: const BorderRadius.vertical(top: Radius.circular(42))),
       child: Column(
         children: [
           Expanded(
@@ -345,6 +446,8 @@ class _EventContent extends StatelessWidget {
                   _InputRow(icon: Icons.location_on_outlined, controller: location, hint: 'Vị trí'),
                   const _Divider(),
                   _ActionRow(icon: Icons.notifications_none_outlined, title: reminderMinutes == 0 ? 'Không báo trước' : 'Trước $reminderMinutes phút', onTap: onReminder),
+                  const _Divider(),
+                  _ActionRow(icon: Icons.notification_important_outlined, title: reminderMinutes == 0 ? 'Không lặp thông báo' : 'Lặp $reminderRepeatCount lần · mỗi $reminderRepeatIntervalMinutes phút', onTap: onReminder, muted: reminderMinutes == 0),
                   const _Divider(),
                   _ActionRow(icon: Icons.repeat_rounded, title: _recurrenceName(recurrence), onTap: onRecurrence, muted: recurrence == RecurrenceFrequency.none),
                   const _Divider(),
@@ -397,7 +500,6 @@ class _EditorTabs extends StatelessWidget {
 
 class _BulkImportSlot extends StatelessWidget {
   const _BulkImportSlot();
-
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -424,7 +526,6 @@ class _TitleRow extends StatelessWidget {
   final TextEditingController controller;
   final int priority;
   final VoidCallback onPriority;
-
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -434,11 +535,7 @@ class _TitleRow extends StatelessWidget {
         const SizedBox(width: 16),
         Expanded(child: TextField(controller: controller, autofocus: true, style: const TextStyle(fontSize: 30), decoration: const InputDecoration(hintText: 'Tựa đề', hintStyle: TextStyle(fontSize: 30), border: InputBorder.none, isCollapsed: true))),
         const SizedBox(width: 12),
-        InkWell(
-          onTap: onPriority,
-          borderRadius: BorderRadius.circular(22),
-          child: Padding(padding: const EdgeInsets.all(8), child: _PriorityDot(priority: priority, size: 30)),
-        ),
+        InkWell(onTap: onPriority, borderRadius: BorderRadius.circular(22), child: Padding(padding: const EdgeInsets.all(8), child: _PriorityDot(priority: priority, size: 30))),
       ],
     );
   }
@@ -448,7 +545,6 @@ class _PriorityDot extends StatelessWidget {
   const _PriorityDot({required this.priority, this.size = 22});
   final int priority;
   final double size;
-
   @override
   Widget build(BuildContext context) => Container(width: size, height: size, decoration: BoxDecoration(shape: BoxShape.circle, color: _priorityColor(context, priority)));
 }
@@ -461,17 +557,14 @@ class _DateTimeRange extends StatelessWidget {
   final VoidCallback onStartTime;
   final VoidCallback onEndDate;
   final VoidCallback onEndTime;
-
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(child: _DateTimeColumn(date: _dateLabel(start), time: _timeLabel(start), onDate: onStartDate, onTime: onStartTime)),
-        Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Icon(Icons.arrow_forward_rounded, size: 34, color: Theme.of(context).colorScheme.onSurfaceVariant)),
-        Expanded(child: _DateTimeColumn(date: _dateLabel(end), time: _timeLabel(end), onDate: onEndDate, onTime: onEndTime)),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => Row(
+        children: [
+          Expanded(child: _DateTimeColumn(date: _dateLabel(start), time: _timeLabel(start), onDate: onStartDate, onTime: onStartTime)),
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Icon(Icons.arrow_forward_rounded, size: 34, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          Expanded(child: _DateTimeColumn(date: _dateLabel(end), time: _timeLabel(end), onDate: onEndDate, onTime: onEndTime)),
+        ],
+      );
 }
 
 class _DateTimeColumn extends StatelessWidget {
@@ -480,7 +573,6 @@ class _DateTimeColumn extends StatelessWidget {
   final String time;
   final VoidCallback onDate;
   final VoidCallback onTime;
-
   @override
   Widget build(BuildContext context) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -497,7 +589,6 @@ class _InputRow extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
   final int maxLines;
-
   @override
   Widget build(BuildContext context) => Row(
         crossAxisAlignment: maxLines > 1 ? CrossAxisAlignment.start : CrossAxisAlignment.center,
@@ -515,7 +606,6 @@ class _ActionRow extends StatelessWidget {
   final String title;
   final VoidCallback onTap;
   final bool muted;
-
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -523,7 +613,7 @@ class _ActionRow extends StatelessWidget {
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Row(children: [Icon(icon, size: 30, color: muted ? scheme.onSurfaceVariant : scheme.onSurface), const SizedBox(width: 20), Expanded(child: Text(title, style: TextStyle(fontSize: 20, color: muted ? scheme.onSurfaceVariant : scheme.onSurface)))]),
+        child: Row(children: [Icon(icon, size: 30, color: muted ? scheme.onSurfaceVariant : scheme.onSurface), const SizedBox(width: 20), Expanded(child: Text(title, style: TextStyle(fontSize: 20, color: muted ? scheme.onSurfaceVariant : scheme.onSurface))) ]),
       ),
     );
   }
@@ -539,7 +629,6 @@ class _SaveBar extends StatelessWidget {
   const _SaveBar({required this.onCancel, required this.onSave});
   final VoidCallback onCancel;
   final VoidCallback onSave;
-
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
