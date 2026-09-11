@@ -1,5 +1,16 @@
 # NextA Changelog
 
+## 2026-09-11 — Reminder and event-input refinement
+
+Decisions:
+- `Ghi chú` is placed immediately below `Địa điểm` in the event editor.
+- Location is labeled `Địa điểm`.
+- Start/end time selection uses a draggable Cupertino wheel picker for the requested 3D cylinder-style interaction.
+- Reminder fields are compact single-line label/value/unit controls instead of full-width fields stacked vertically.
+- Removed the reminder popup's explanatory default sentence.
+- Added an explicit `Báo trước` switch so events can have no reminder; disabled reminders persist as `reminderMinutes = 0` and display `Không báo trước`.
+- Recurrence remains a centered dialog rather than a bottom sheet.
+
 ## 2026-09-11 — Dialog and editor keyboard-safety refinement
 
 Decisions:
