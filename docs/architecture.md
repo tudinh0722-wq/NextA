@@ -3,9 +3,9 @@
 ## Current product architecture — Flutter v2
 - `flutter/` on branch `flutter-v2` is the current product implementation.
 - `app/` is legacy Android/Kotlin reference and is not modified for Flutter feature work.
-- Flutter keeps shared event semantics in `domain/`, pure schedule/countdown policies in `application/`, and presentation in `presentation/`.
+- Flutter keeps shared event semantics in `domain/`, pure schedule/countdown policies in `application/`, persistence in `data/`, and presentation in `presentation/`.
 - The Add Event surface is a presentation concern. It does not introduce Android/OEM-specific business logic.
-- The editor returns concrete `NextAEvent` occurrences to the planner. A new recurring event is expanded through `application/recurrence_policy.dart` before it is added to the current event collection.
+- The editor returns concrete `NextAEvent` occurrences to the planner. A new recurring event is expanded through `application/recurrence_policy.dart` before persistence.
 
 ### Flutter event data boundary
 
@@ -18,15 +18,21 @@ recurrence_policy.dart
     ↓
 concrete dated occurrences
     ↓
-Planner event collection / future persistence adapter
+EventDatabase (SQLite)
+    ↓
+Planner / Search
 ```
 
 - `NextAEvent` remains a concrete dated occurrence.
 - Recurring occurrences share `recurrenceId`.
 - `RecurrenceRule` metadata is carried on concrete occurrences; no separate recurrence-rule table was introduced.
+- `EventDatabase` owns the Flutter SQLite connection and maps the domain event to the local `events` table.
+- SQLite is the Flutter planner's local source of truth; the initial demo data is inserted only when the database is empty.
+- Create/edit/delete are persisted through the database before the in-memory planner list is updated.
+- Search is database-backed and matches title, location, or note, then returns a concrete event for date navigation.
 - The editor uses explicit start/end date-time values and deliberately has no All-day mode.
 - Priority is represented by the existing `Event.priority` value and exposed in the editor and agenda through Material 3 semantic color roles: primary for normal, tertiary for important, and error for highest priority.
-- Reminder selection is a presentation value for now; persistent alarm configuration remains a separate persistence/runtime concern.
+- Reminder configuration is stored on the concrete event model; actual acknowledgement/alarm scheduling remains a separate runtime concern.
 - The editor header is `Sự kiện | AI Import`; the second segment is reserved for the AI-assisted bulk-import surface.
 
 ## Legacy Android application reference
@@ -151,7 +157,7 @@ over device-brand checks. OEM-specific integrations must stay isolated adapters.
 - Durations below 24 hours use `xh ym`; durations of 24 hours or more use `xd yh` so the hour remainder is not lost.
 
 ## Important Constraints
-- Room is the persistent source of Event and alarm state in the legacy Android implementation.
+- SQLite is the current Flutter planner persistence layer; Room remains the legacy Android reference persistence layer.
 - Do not reintroduce a second alarm store in SharedPreferences/DataStore.
 - Do not duplicate Event title/note/start time inside alarm persistence.
 - Do not merge App Screen, Home Widget, and Focus/Lock Screen into one UI.
