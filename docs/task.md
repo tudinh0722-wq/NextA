@@ -3,72 +3,56 @@
 ## Status
 IN PROGRESS
 
+## Product Source of Truth
+- **Active implementation:** `flutter/` on branch `flutter-v2`.
+- **Legacy reference only:** `app/` Android/Kotlin. Do not modify it for Flutter feature work.
+- `docs/CLAUDE_FLUTTER_V2.md` is the implementation contract for external AI agents.
+
 ## Current Objective
-Refine the main planner into a polished Samsung Calendar-inspired mobile experience, then complete local event persistence/search and continue recurrence + AI-assisted bulk-import work.
+Stabilize and normalize the Flutter planner UI, then finish the remaining product work: series-aware recurrence operations, AI-assisted bulk import, platform-surface verification, and broader responsive verification.
 
-## Current State
-- Flutter on `flutter-v2` is the active product implementation; Android/Kotlin remains legacy reference only.
-- Runtime on Samsung S23 is stable; month↔week collapse/expand and directional month/week navigation have been verified by the user.
-- Main planner uses month-first hierarchy, Material 3 semantic colors, selected-day agenda, countdown column, search, event editing, month/week gestures, and contextual add-event action.
-- Horizontal month navigation uses a real directional page transition with old/new month surfaces coexisting during the animation.
-- Week-view horizontal navigation advances by whole weeks rather than whole months.
-- Countdown refresh is aligned to minute boundaries and continues refreshing once per minute while the planner is active.
-- Countdown formatting keeps hour precision for multi-day durations (`xd yh`) instead of dropping the hour remainder.
-- Agenda countdowns are enclosed in a priority-colored surface.
-- The agenda no longer shows the redundant `!` priority icon beside the time.
-- Agenda start/end time is visually stronger than secondary metadata.
-- The Today control is an outline-only day number beside search, without a filled background.
-- The Add Event flow opens a full-height Samsung Calendar-inspired editor from the selected-day FAB, with today as the initial selected day.
-- The editor now follows the supplied reference hierarchy: title with a compact priority dot, start→end date/time columns, address, note, reminder, reminder-repeat, and recurrence.
-- Title input is limited to 47 characters; address and note inputs are limited to 30 characters.
-- Priority is selected inline from the small title dot only. The selector expands horizontally to three pastel choices: blue, orange, red. No priority names are shown in the editor.
-- The selected priority is persisted in SQLite and reused consistently by the editor, agenda countdown outline, and calendar event markers/background.
-- All-day has no control in the event editor; events use explicit start/end date-time fields.
-- Start/end time selection uses a draggable Cupertino wheel picker for a 3D cylinder-style interaction.
-- Start/end date-time columns no longer show calendar/clock icons; the date and time text themselves are tappable.
-- `Ghi chú` is immediately below `Địa chỉ`, with no horizontal divider crossing the note field.
-- Address and note now show compact leading icons.
-- Reminder is split visually into `Báo trước`, `Báo lại`, and `Lặp lại` rows.
-- Bottom `Thoát | Lưu` is a compact floating pill with subtle surface contrast and shadow.
-- The main planner Add Event FAB is reduced to the same compact height class and narrower horizontal footprint for visual balance with the editor action pill.
-- The top editor switch is a rounded pill with `Thêm sự kiện` and `AI Import` content.
-- Reminder configuration uses a centered popup with label/value/unit rows and an explicit on/off switch.
-- Reminder defaults are 10 minutes before, then 2 additional reminders at 5-minute intervals if unacknowledged.
-- Reminder and repeat rows expose their tap affordance with trailing chevrons.
-- Recurrence selection is a centered radio dialog with `Không lặp lại`, `Hàng ngày`, `Hàng tuần`, and `Hàng tháng`.
-- Selecting a recurring frequency expands a compact indented end section directly beneath it with two radio branches: `Kết thúc sau X lần lặp` and `Đến ngày X`.
-- The default recurrence count is 10. The end-date preview is derived from the date of the 10th occurrence, so the two end choices stay consistent with the selected frequency.
-- Both recurrence end branches are finite: count mode stores `count`, while date mode stores `until`. The recurrence engine remains bounded without introducing a new recurrence table.
-- Recurrence generation stops at the selected end boundary, with an additional hard safety cap.
-- Recurrence persistence stores end mode, count, and until date in SQLite.
-- New recurring events are expanded into concrete occurrences sharing a `recurrenceId`, including their reminder configuration.
-- Deleting a recurring occurrence supports `Chỉ sự kiện này`, `Sự kiện này và các sự kiện sau`, or `Tất cả sự kiện trong chuỗi`.
-- Flutter now persists concrete events in a local SQLite database (`nexta.db`) and seeds the database with demo events only when it is empty.
-- Event create/edit/delete writes are connected to SQLite persistence.
-- Search queries SQLite across title, location, and note and lets the user jump directly to a matching event's date.
-- Calendar event markers show at most two priority-colored bars beneath the day number; important/very-important events drive the day's tinted background.
-- A quick tap on a calendar day selects/navigates to that day; a long press opens the Add Event shortcut preselected to that exact day.
-- The empty agenda state `Không có sự kiện` is informational only and no longer opens the Add Event editor.
-- `AI Import` is reserved for the AI-assisted bulk-import workflow; integration is still pending.
-- Platform-specific widget/lock-screen work remains isolated from shared planner semantics.
+## Completed Foundation
+- Flutter month-first planner with month/week collapse and expansion.
+- Directional month navigation and whole-week navigation.
+- Selected-day agenda, event create/edit/delete, and SQLite persistence.
+- SQLite-backed search across title, location, and note.
+- Minute-aligned countdown refresh with `xd yh` multi-day formatting.
+- Samsung Calendar-inspired Add Event editor.
+- Explicit start/end date-time; no All-day mode.
+- Shared persisted event priority with pastel blue/orange/red palette.
+- Reminder configuration: default 10 minutes before, plus 2 additional reminders at 5-minute intervals.
+- Finite recurrence: daily/weekly/monthly UI, count or until end, default 10 occurrences, hard safety cap.
+- Recurrence occurrences share `recurrenceId`; no separate recurrence-rule table.
+- Calendar quick tap selects a day; long press opens Add Event for that exact day.
+- Empty agenda is informational only.
+- Home Widget / Focus-Lock architecture remains isolated from planner semantics.
 
-## Important Boundaries
-- Events remain concrete dated occurrences.
-- Recurrence series share `recurrenceId`; recurrence metadata is carried on concrete occurrences rather than introducing a separate rule table.
-- Every recurring series is finite: count or until is required; the recurrence engine also enforces a hard safety cap.
-- Reminder repeat count means additional reminders after the initial reminder; actual acknowledgement/alarm delivery remains a separate runtime concern.
-- A reminder-disabled event is represented by `reminderMinutes = 0`; repeat settings are inactive while disabled.
-- Home Widget and Focus/Lock Screen stay on `RemoteViews`; no Glance.
-- Core schedule semantics stay independent from UI surfaces.
-- No per-event/per-second countdown timers.
-- Lock-screen availability is host/OEM dependent.
-- Samsung-inspired UI means interaction hierarchy and visual language, not a Samsung-only implementation.
+## Current UI Normalization
+- Calendar markers must be **vertical**: maximum two bars, equal width, stacked on the Y axis. Priority changes color only.
+- Agenda start/end time must be prominent, centered, and use the same standardized right-side width as the countdown surface.
+- Countdown label/value must be centered.
+- Editor `Địa chỉ` and `Ghi chú` leading icons must align with the other editor icons; avoid the default 48px `prefixIcon` inset when it causes drift.
+- Consolidate repeated UI dimensions, typography, icon slots, gutters, radii, and event-time sizing into reusable constants/components.
+- Remove dead widgets, unused callbacks/imports, duplicated calculations, and obsolete UI code while preserving behavior.
 
-## Next Action
-1. Verify the latest Add Event visual layout and recurrence interaction on Samsung S23.
-2. Verify calendar tap vs long-press behavior and the non-interactive empty agenda state on Samsung S23.
-3. Verify persisted priority colors across editor → restart → agenda/calendar on Samsung S23.
-4. Verify bounded recurrence generation and series deletion on Samsung S23.
-5. Replace the `AI Import` placeholder with the AI-assisted bulk-import workflow and preview/validation.
-6. Re-run Home Widget / Focus-Lock verification after recurrence/data-model integration.
-7. Perform broader cross-device responsive verification after the planner behavior stabilizes.
+## Verified / User-Reported
+- Samsung S23 runtime verification has passed for month/week collapse/expand and directional navigation.
+- Recurrence finite generation and deletion flows have previously been runtime-tested by the user.
+
+## Remaining Work
+1. Finish UI normalization/refactor for Calendar, Agenda, and Event Editor.
+2. Verify the normalized UI on Samsung S23.
+3. Finish/verify series-aware recurrence edit/delete behavior.
+4. Replace `AI Import` placeholder with AI-assisted bulk import, preview, validation, and persistence.
+5. Add bulk-import integration tests.
+6. Re-verify Home Widget / Focus-Lock after data integration.
+7. Broader cross-device responsive verification.
+8. Final cleanup and release-readiness pass.
+
+## Working Boundaries
+- Do all Flutter product work on `flutter-v2`.
+- Treat `app/` as historical/technical reference only.
+- Core schedule semantics remain independent from UI surfaces.
+- SQLite is Flutter's current local source of truth; Room is legacy Android reference only.
+- Home Widget uses `RemoteViews`; do not introduce Glance unless explicitly requested.
+- Do not claim tests/device behavior unless actually run.
