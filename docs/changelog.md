@@ -1,5 +1,14 @@
 # NextA Changelog
 
+## 2026-09-11 — Countdown and priority visual refinement
+
+Decisions:
+- Countdown refreshes on minute boundaries instead of relying only on unrelated planner rebuilds.
+- Countdown values at or above one day now retain hour precision, for example `2d 5h`, instead of collapsing to whole days.
+- Agenda countdowns are enclosed in a compact priority-colored surface so the severity signal is visible beyond the editor title dot.
+- Priority colors continue to use Material 3 semantic roles: primary for normal, tertiary for important, and error for highest priority, giving the intended blue/orange/red visual hierarchy on the default palette.
+- Event editor now uses the modal route's safe-area handling plus additional top spacing so `Sự kiện | AI Import` cannot sit under the status bar/camera cutout.
+
 ## 2026-09-11 — Event editor UX refinement
 
 Decisions:
