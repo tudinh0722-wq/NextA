@@ -13,7 +13,10 @@ Refine the main planner into a polished Samsung Calendar-inspired mobile experie
 - Horizontal month navigation uses a real directional page transition with old/new month surfaces coexisting during the animation.
 - Week-view horizontal navigation advances by whole weeks rather than whole months.
 - Event creation/edit/delete, search, month/week gestures and countdown policy are implemented.
-- Recurrence domain metadata and a pure concrete-occurrence expansion policy are now implemented.
+- The Add Event flow now opens a full-height Samsung Calendar-inspired editor from the selected-day FAB, with today as the initial selected day.
+- The editor uses explicit start/end date-time fields, title priority color, location, reminder, recurrence, note, and a floating `Thoát | Lưu` pill.
+- New recurring events are expanded into concrete occurrences sharing a `recurrenceId`.
+- The top `Nhắc nhở` segment is reserved as the bulk-import surface; bulk-import integration is still pending.
 - Platform-specific widget/lock-screen work remains isolated from shared planner semantics.
 
 ## Important Boundaries
@@ -26,8 +29,8 @@ Refine the main planner into a polished Samsung Calendar-inspired mobile experie
 - Samsung-inspired UI means interaction hierarchy and visual language, not a Samsung-only implementation.
 
 ## Next Action
-1. Add recurrence controls to the event editor using the new domain/application recurrence model.
+1. Verify the new event editor visually and interactively on Samsung S23, especially date/time pickers, reminder, recurrence and `Thoát | Lưu`.
 2. Implement series-aware edit/delete with explicit one-event vs entire-series behavior.
-3. Integrate bulk import into the planned Add Event flow and add recurrence/import tests.
+3. Replace the `Nhắc nhở` placeholder with the bulk-import workflow and preview/validation.
 4. Re-run Home Widget / Focus-Lock verification after recurrence/data-model integration.
 5. Perform broader cross-device responsive verification after the planner behavior stabilizes.
