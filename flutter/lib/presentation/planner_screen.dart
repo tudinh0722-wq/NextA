@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../application/countdown_policy.dart';
@@ -32,6 +34,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
   late List<NextAEvent> _events;
   bool _expanded = true;
   final _countdownPolicy = const CountdownPolicy();
+  Timer? _countdownTimer;
 
   static const _pageAnimationDuration = Duration(milliseconds: 420);
 
@@ -42,6 +45,26 @@ class _PlannerScreenState extends State<PlannerScreen> {
     _selected = DateTime(now.year, now.month, now.day);
     _month = DateTime(now.year, now.month);
     _events = List.of(widget.events);
+    _startCountdownTicker();
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startCountdownTicker() {
+    _countdownTimer?.cancel();
+    final now = DateTime.now();
+    final secondsToNextMinute = 60 - now.second;
+    _countdownTimer = Timer(Duration(seconds: secondsToNextMinute), () {
+      if (!mounted) return;
+      setState(() {});
+      _countdownTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+        if (mounted) setState(() {});
+      });
+    });
   }
 
   List<NextAEvent> _eventsFor(DateTime day) {
