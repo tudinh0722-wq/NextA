@@ -14,8 +14,10 @@
 - [x] Database-backed search across title/location/note
 - [x] Samsung-inspired Add Event reference layout
 - [x] Add Event priority, input limits, and recurrence interaction refinement
+- [x] Shared priority color persistence across editor, agenda, and calendar
 - [x] Calendar quick-tap day selection and long-press Add Event shortcut
 - [x] Non-interactive empty agenda state
+- [x] Compact and balanced Add Event FABs
 - [ ] Motion polish and cross-device responsive verification
 
 ## Event/data roadmap
