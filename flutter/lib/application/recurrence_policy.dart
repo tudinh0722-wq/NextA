@@ -1,9 +1,8 @@
 import '../domain/event.dart';
 
-/// Expands one concrete event into concrete dated occurrences.
-///
-/// The first occurrence is the supplied event. Every generated occurrence
-/// keeps the same series id, recurrence metadata, and reminder configuration.
+/// Expands one event into a finite set of concrete occurrences.
+/// The recurrence rule is always bounded by count or until, with a hard
+/// safety cap as a final guard against malformed data.
 List<NextAEvent> generateOccurrences(
   NextAEvent seed, {
   required RecurrenceRule rule,
@@ -17,12 +16,14 @@ List<NextAEvent> generateOccurrences(
   final occurrences = <NextAEvent>[seed];
   var nextStart = seed.start;
   var index = 1;
+  final targetCount = rule.endMode == RecurrenceEndMode.count ? (rule.count ?? 20) : null;
+  final duration = seed.end.difference(seed.start);
 
   while (occurrences.length < maxOccurrences) {
+    if (targetCount != null && occurrences.length >= targetCount) break;
     nextStart = _nextStart(seed.start, nextStart, index, rule);
     if (rule.until != null && nextStart.isAfter(rule.until!)) break;
 
-    final duration = seed.end.difference(seed.start);
     occurrences.add(
       NextAEvent(
         id: '${seed.id}-$index',
@@ -66,11 +67,7 @@ DateTime _nextStart(
       }
       return candidate;
     case RecurrenceFrequency.monthly:
-      final targetMonth = DateTime(
-        seedStart.year,
-        seedStart.month + (rule.interval * index),
-        1,
-      );
+      final targetMonth = DateTime(seedStart.year, seedStart.month + (rule.interval * index), 1);
       final lastDay = DateTime(targetMonth.year, targetMonth.month + 1, 0).day;
       return DateTime(
         targetMonth.year,
