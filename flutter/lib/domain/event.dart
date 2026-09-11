@@ -18,6 +18,7 @@ class NextAEvent {
     this.note,
     this.priority = 0,
     this.recurrenceId,
+    this.recurrenceRule,
   });
 
   final String id;
@@ -28,5 +29,31 @@ class NextAEvent {
   final String? location;
   final String? note;
   final int priority;
+
+  /// All concrete occurrences belonging to one series share this id.
   final String? recurrenceId;
+
+  /// Optional rule metadata carried by concrete occurrences so a series can
+  /// be regenerated or edited without introducing a separate rule table.
+  final RecurrenceRule? recurrenceRule;
+}
+
+class RecurrenceRule {
+  const RecurrenceRule({
+    required this.frequency,
+    this.interval = 1,
+    this.until,
+  }) : assert(interval > 0);
+
+  final RecurrenceFrequency frequency;
+  final int interval;
+  final DateTime? until;
+}
+
+enum RecurrenceFrequency {
+  none,
+  daily,
+  weekly,
+  weekdays,
+  monthly,
 }
