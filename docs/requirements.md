@@ -16,10 +16,12 @@ NextA is a student-focused personal schedule management Android app.
 
 ## Event Management
 - The primary Add Event action opens a full-height Samsung Calendar-inspired event editor for the currently selected day; the default selected day is today when the planner opens.
-- The editor has a two-segment header: `Sự kiện` and `Nhắc nhở`. The `Nhắc nhở` surface is reserved for NextA's bulk-import workflow.
+- The editor has a two-segment header: `Sự kiện` and `AI Import`. The `AI Import` surface is reserved for NextA's AI-assisted bulk-import workflow.
 - User can create an event with title, type, date, start/end time, location, note, and priority.
 - The editor does not expose an `All day` option; every event uses an explicit start date/time and end date/time.
 - A compact color dot beside the title represents event priority and opens the priority selector.
+- Priority uses a three-level semantic color hierarchy: primary for normal, tertiary for important, and error for very important.
+- The agenda mirrors the same priority color around the event countdown so severity is visible without opening the event editor.
 - Reminder configuration is edited in a centered popup with numeric fields rather than fixed preset choices.
 - Reminder default is 10 minutes before the event.
 - If the reminder is not acknowledged, it repeats 2 additional times by default, with 5 minutes between repeats.
@@ -38,8 +40,9 @@ NextA is a student-focused personal schedule management Android app.
 - For an upcoming event, countdown is to its start time.
 - Show countdown only within the next 14 days.
 - Below 24 hours, show hours/minutes.
-- From 24 hours through 14 days, show days rather than hours/minutes.
-- Do not create one timer per event. Prefer shared time evaluation and boundary-based refreshes.
+- From 24 hours through 14 days, show days plus the remaining hours, for example `2d 5h`.
+- Refresh the app countdown on minute boundaries; do not create one timer per event.
+- Prefer shared time evaluation and boundary-based refreshes rather than per-event/per-second timers.
 
 ## Home Widget — Today Schedule
 - Separate UI from the app screen.
