@@ -10,6 +10,8 @@
 - [x] Material 3 semantic theming
 - [x] Samsung S23 runtime verification of collapse/expand
 - [x] Directional horizontal month/week navigation
+- [x] SQLite event persistence
+- [x] Database-backed search across title/location/note
 - [ ] Motion polish and cross-device responsive verification
 
 ## Event/data roadmap
