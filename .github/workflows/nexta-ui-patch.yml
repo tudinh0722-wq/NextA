@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   patch:
-    if: ${{ !startsWith(github.event.head_commit.message, 'chore(ui): refine FAB and calendar markers') }}
+    if: github.event.head_commit.message != 'chore(ui): refine FAB and calendar markers'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
