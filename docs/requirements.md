@@ -20,7 +20,12 @@ NextA is a student-focused personal schedule management Android app.
 - User can create an event with title, type, date, start/end time, location, note, and priority.
 - The editor does not expose an `All day` option; every event uses an explicit start date/time and end date/time.
 - A compact color dot beside the title represents event priority and opens the priority selector.
-- The editor provides reminder choices such as no reminder and common minute offsets; reminder persistence remains a separate alarm concern.
+- Reminder configuration is edited in a centered popup with numeric fields rather than fixed preset choices.
+- Reminder default is 10 minutes before the event.
+- If the reminder is not acknowledged, it repeats 2 additional times by default, with 5 minutes between repeats.
+- The user can enter the reminder offset, repeat count, and repeat interval directly. Repeat count means additional reminders after the first reminder.
+- The reminder repeat row is shown directly below the main reminder row and summarizes the current repeat configuration.
+- Reminder persistence/runtime alarm delivery remains a separate alarm concern; the event model carries the configuration so it can be persisted and scheduled later.
 - The editor provides recurrence choices: none, daily, weekly, weekdays, and monthly.
 - New recurring events are expanded into concrete dated occurrences sharing a `recurrenceId`.
 - End time must be after start time.
