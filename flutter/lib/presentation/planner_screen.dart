@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../application/countdown_policy.dart';
+import '../data/event_database.dart';
 import '../domain/event.dart';
 import 'widgets/event_editor_sheet.dart';
 import 'widgets/planner_agenda.dart';
@@ -12,6 +13,7 @@ class PlannerScreen extends StatefulWidget {
   const PlannerScreen({
     super.key,
     required this.events,
+    required this.database,
     this.themeMode = ThemeMode.system,
     this.seedColor = const Color(0xFF1A73E8),
     this.onThemeChanged,
@@ -19,6 +21,7 @@ class PlannerScreen extends StatefulWidget {
   });
 
   final List<NextAEvent> events;
+  final EventDatabase database;
   final ThemeMode themeMode;
   final Color seedColor;
   final ValueChanged<ThemeMode>? onThemeChanged;
@@ -106,21 +109,24 @@ class _PlannerScreenState extends State<PlannerScreen> {
   Future<void> _editEvent(NextAEvent? event) async {
     final result = await showEventEditor(context, event: event, selectedDay: _selected);
     if (!mounted || result == null) return;
+
+    if (result.deleted && event != null) {
+      await widget.database.delete(event.id);
+      if (!mounted) return;
+      setState(() => _events.removeWhere((item) => item.id == event.id));
+      return;
+    }
+
+    if (result.events.isEmpty) return;
+
+    await widget.database.upsertAll(result.events);
+    if (!mounted) return;
     setState(() {
-      if (result.deleted && event != null) {
+      if (event != null) {
         _events.removeWhere((item) => item.id == event.id);
-        return;
       }
-
-      if (result.events.isEmpty) return;
-
-      if (event == null) {
-        _events.addAll(result.events);
-        return;
-      }
-
-      _events.removeWhere((item) => item.id == event.id);
       _events.addAll(result.events);
+      _events.sort((a, b) => a.start.compareTo(b.start));
     });
   }
 
@@ -211,17 +217,12 @@ class _PlannerScreenState extends State<PlannerScreen> {
   }
 
   Future<void> _showSearch(BuildContext context) async {
-    await showDialog<void>(
+    final event = await showDialog<NextAEvent>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Tìm kiếm'),
-        content: TextField(
-          autofocus: true,
-          onSubmitted: (_) => Navigator.pop(dialogContext),
-          decoration: const InputDecoration(hintText: 'Tên sự kiện'),
-        ),
-      ),
+      builder: (_) => _SearchDialog(database: widget.database),
     );
+    if (!mounted || event == null) return;
+    _selectDay(event.start);
   }
 
   Future<void> _showThemeMenu(BuildContext context) async {
@@ -265,6 +266,88 @@ class _PlannerScreenState extends State<PlannerScreen> {
   }
 }
 
+class _SearchDialog extends StatefulWidget {
+  const _SearchDialog({required this.database});
+  final EventDatabase database;
+
+  @override
+  State<_SearchDialog> createState() => _SearchDialogState();
+}
+
+class _SearchDialogState extends State<_SearchDialog> {
+  final _controller = TextEditingController();
+  List<NextAEvent> _results = const [];
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _search();
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _search() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 180), () async {
+      final results = await widget.database.search(_controller.text);
+      if (mounted) setState(() => _results = results);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Tìm kiếm'),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              onChanged: (_) => _search(),
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search_rounded),
+                hintText: 'Tên, vị trí hoặc ghi chú',
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (_results.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(20),
+                child: Text('Không tìm thấy sự kiện'),
+              )
+            else
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 360),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _results.length,
+                  itemBuilder: (_, index) {
+                    final event = _results[index];
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(event.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      subtitle: Text('${event.start.day}/${event.start.month}/${event.start.year} · ${event.location ?? 'Không có vị trí'}'),
+                      onTap: () => Navigator.pop(context, event),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _SeedColorButton extends StatelessWidget {
   const _SeedColorButton({required this.color, required this.onSelected});
   final Color color;
@@ -290,6 +373,7 @@ class PlannerTopBar extends StatelessWidget {
   final VoidCallback onToday;
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return SizedBox(
       height: 64,
       child: Row(
@@ -303,20 +387,16 @@ class PlannerTopBar extends StatelessWidget {
             padding: const EdgeInsets.only(right: 8),
             child: InkWell(
               onTap: onToday,
-              borderRadius: BorderRadius.circular(20),
-              child: SizedBox(
-                width: 38,
-                height: 38,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    const Icon(Icons.calendar_today_outlined, size: 27),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 5),
-                      child: Text('$today', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800)),
-                    ),
-                  ],
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 38, minHeight: 34),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                child: Text('$today', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
               ),
             ),
           ),
