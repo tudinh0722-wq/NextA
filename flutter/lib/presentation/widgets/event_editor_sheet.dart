@@ -253,7 +253,7 @@ class _EventEditorSheetState extends State<_EventEditorSheet> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 34),
+              padding: const EdgeInsets.fromLTRB(20, 2, 20, 10),
               child: _EditorTabs(selectedBulk: _bulkImportTab, onChanged: (value) => setState(() => _bulkImportTab = value)),
             ),
             Expanded(
@@ -342,6 +342,7 @@ class _ReminderDialogState extends State<_ReminderDialog> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return AlertDialog(
+      scrollable: true,
       title: const Text('Báo trước'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -378,7 +379,7 @@ class _NumberField extends StatelessWidget {
         autofocus: autofocus,
         keyboardType: const TextInputType.numberWithOptions(decimal: false),
         textInputAction: TextInputAction.next,
-        decoration: InputDecoration(labelText: label, suffixText: 'phút' == label.substring(label.length - 4) ? null : null),
+        decoration: InputDecoration(labelText: label),
       );
 }
 
@@ -472,13 +473,13 @@ class _EditorTabs extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      height: 64,
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(color: scheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(34)),
+      height: 48,
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(color: scheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(26)),
       child: Row(
         children: [
           Expanded(child: _tab(context, 'Sự kiện', !selectedBulk, () => onChanged(false))),
-          Expanded(child: _tab(context, 'Nhắc nhở', selectedBulk, () => onChanged(true))),
+          Expanded(child: _tab(context, 'AI Import', selectedBulk, () => onChanged(true))),
         ],
       ),
     );
@@ -492,7 +493,7 @@ class _EditorTabs extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         customBorder: const StadiumBorder(),
-        child: Center(child: Text(text, style: TextStyle(fontSize: 18, fontWeight: selected ? FontWeight.w700 : FontWeight.w400, color: selected ? scheme.surface : scheme.onSurfaceVariant))),
+        child: Center(child: Text(text, style: TextStyle(fontSize: 16, fontWeight: selected ? FontWeight.w700 : FontWeight.w400, color: selected ? scheme.surface : scheme.onSurfaceVariant))),
       ),
     );
   }
@@ -512,9 +513,9 @@ class _BulkImportSlot extends StatelessWidget {
         children: [
           Icon(Icons.auto_awesome_motion_outlined, size: 42, color: scheme.primary),
           const SizedBox(height: 14),
-          Text('Nhắc nhở', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+          Text('AI Import', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
-          Text('Khu vực này dành cho tính năng bulk import lịch.', textAlign: TextAlign.center, style: TextStyle(color: scheme.onSurfaceVariant)),
+          Text('Nhập lịch hàng loạt với sự hỗ trợ của AI.', textAlign: TextAlign.center, style: TextStyle(color: scheme.onSurfaceVariant)),
         ],
       ),
     );
@@ -598,7 +599,6 @@ class _InputRow extends StatelessWidget {
           Expanded(child: TextField(controller: controller, maxLines: maxLines, style: const TextStyle(fontSize: 20), decoration: InputDecoration(hintText: hint, hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 20), border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(vertical: 16)))),
         ],
       );
-}
 
 class _ActionRow extends StatelessWidget {
   const _ActionRow({required this.icon, required this.title, required this.onTap, this.muted = false});
@@ -613,7 +613,15 @@ class _ActionRow extends StatelessWidget {
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Row(children: [Icon(icon, size: 30, color: muted ? scheme.onSurfaceVariant : scheme.onSurface), const SizedBox(width: 20), Expanded(child: Text(title, style: TextStyle(fontSize: 20, color: muted ? scheme.onSurfaceVariant : scheme.onSurface))) ]),
+        child: Row(
+          children: [
+            Icon(icon, size: 30, color: muted ? scheme.onSurfaceVariant : scheme.onSurface),
+            const SizedBox(width: 20),
+            Expanded(child: Text(title, style: TextStyle(fontSize: 20, color: muted ? scheme.onSurfaceVariant : scheme.onSurface))),
+            const SizedBox(width: 12),
+            Icon(Icons.chevron_right_rounded, size: 24, color: scheme.onSurfaceVariant),
+          ],
+        ),
       ),
     );
   }
