@@ -14,7 +14,7 @@ Refine the main planner into a polished Samsung Calendar-inspired mobile experie
 - Week-view horizontal navigation advances by whole weeks rather than whole months.
 - Countdown refresh is aligned to minute boundaries and continues refreshing once per minute while the planner is active.
 - Countdown formatting keeps hour precision for multi-day durations (`xd yh`) instead of dropping the hour remainder.
-- Agenda countdowns are enclosed in a priority-colored surface, reusing the same Material 3 semantic severity hierarchy as the editor: primary / tertiary / error.
+- Agenda countdowns are enclosed in a priority-colored surface.
 - The agenda no longer shows the redundant `!` priority icon beside the time.
 - Agenda start/end time is visually stronger than secondary metadata.
 - The Today control is an outline-only day number beside search, without a filled background.
@@ -22,12 +22,15 @@ Refine the main planner into a polished Samsung Calendar-inspired mobile experie
 - The editor now follows the supplied reference hierarchy: title with a compact priority dot, start→end date/time columns, address, note, reminder, reminder-repeat, and recurrence.
 - Title input is limited to 47 characters; address and note inputs are limited to 30 characters.
 - Priority is selected inline from the small title dot only. The selector expands horizontally to three pastel choices: blue, orange, red. No priority names are shown in the editor.
+- The selected priority is persisted in SQLite and reused consistently by the editor, agenda countdown outline, and calendar event markers/background.
 - All-day has no control in the event editor; events use explicit start/end date-time fields.
 - Start/end time selection uses a draggable Cupertino wheel picker for a 3D cylinder-style interaction.
 - Start/end date-time columns no longer show calendar/clock icons; the date and time text themselves are tappable.
 - `Ghi chú` is immediately below `Địa chỉ`, with no horizontal divider crossing the note field.
+- Address and note now show compact leading icons.
 - Reminder is split visually into `Báo trước`, `Báo lại`, and `Lặp lại` rows.
-- Bottom `Thoát | Lưu` is a single floating pill with subtle surface contrast and shadow rather than two visually separated buttons.
+- Bottom `Thoát | Lưu` is a compact floating pill with subtle surface contrast and shadow.
+- The main planner Add Event FAB is reduced to the same compact height class and narrower horizontal footprint for visual balance with the editor action pill.
 - The top editor switch is a rounded pill with `Thêm sự kiện` and `AI Import` content.
 - Reminder configuration uses a centered popup with label/value/unit rows and an explicit on/off switch.
 - Reminder defaults are 10 minutes before, then 2 additional reminders at 5-minute intervals if unacknowledged.
@@ -43,6 +46,7 @@ Refine the main planner into a polished Samsung Calendar-inspired mobile experie
 - Flutter now persists concrete events in a local SQLite database (`nexta.db`) and seeds the database with demo events only when it is empty.
 - Event create/edit/delete writes are connected to SQLite persistence.
 - Search queries SQLite across title, location, and note and lets the user jump directly to a matching event's date.
+- Calendar event markers show at most two priority-colored bars beneath the day number; important/very-important events drive the day's tinted background.
 - A quick tap on a calendar day selects/navigates to that day; a long press opens the Add Event shortcut preselected to that exact day.
 - The empty agenda state `Không có sự kiện` is informational only and no longer opens the Add Event editor.
 - `AI Import` is reserved for the AI-assisted bulk-import workflow; integration is still pending.
@@ -63,7 +67,8 @@ Refine the main planner into a polished Samsung Calendar-inspired mobile experie
 ## Next Action
 1. Verify the latest Add Event visual layout and recurrence interaction on Samsung S23.
 2. Verify calendar tap vs long-press behavior and the non-interactive empty agenda state on Samsung S23.
-3. Verify bounded recurrence generation and series deletion on Samsung S23.
-4. Replace the `AI Import` placeholder with the AI-assisted bulk-import workflow and preview/validation.
-5. Re-run Home Widget / Focus-Lock verification after recurrence/data-model integration.
-6. Perform broader cross-device responsive verification after the planner behavior stabilizes.
+3. Verify persisted priority colors across editor → restart → agenda/calendar on Samsung S23.
+4. Verify bounded recurrence generation and series deletion on Samsung S23.
+5. Replace the `AI Import` placeholder with the AI-assisted bulk-import workflow and preview/validation.
+6. Re-run Home Widget / Focus-Lock verification after recurrence/data-model integration.
+7. Perform broader cross-device responsive verification after the planner behavior stabilizes.
