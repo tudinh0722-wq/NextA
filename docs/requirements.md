@@ -15,7 +15,14 @@ NextA is a student-focused personal schedule management Android app.
 - Show event start/end time, title, location, note, and current status where useful.
 
 ## Event Management
+- The primary Add Event action opens a full-height Samsung Calendar-inspired event editor for the currently selected day; the default selected day is today when the planner opens.
+- The editor has a two-segment header: `Sự kiện` and `Nhắc nhở`. The `Nhắc nhở` surface is reserved for NextA's bulk-import workflow.
 - User can create an event with title, type, date, start/end time, location, note, and priority.
+- The editor does not expose an `All day` option; every event uses an explicit start date/time and end date/time.
+- A compact color dot beside the title represents event priority and opens the priority selector.
+- The editor provides reminder choices such as no reminder and common minute offsets; reminder persistence remains a separate alarm concern.
+- The editor provides recurrence choices: none, daily, weekly, weekdays, and monthly.
+- New recurring events are expanded into concrete dated occurrences sharing a `recurrenceId`.
 - End time must be after start time.
 - Persist events locally through the existing Room repository layer.
 - Keep the existing concrete Event model based on `startDateTime` and `endDateTime` unless an explicit architecture change is approved.
