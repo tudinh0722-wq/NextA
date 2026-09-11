@@ -4,7 +4,7 @@
 IN PROGRESS
 
 ## Current Objective
-Refine the main planner into a polished Samsung Calendar-inspired mobile experience, then implement recurrence and bulk-import work without breaking the existing event flow.
+Refine the main planner into a polished Samsung Calendar-inspired mobile experience, then implement recurrence and AI-assisted bulk-import work without breaking the existing event flow.
 
 ## Current State
 - Flutter on `flutter-v2` is the active product implementation; Android/Kotlin remains legacy reference.
@@ -16,8 +16,10 @@ Refine the main planner into a polished Samsung Calendar-inspired mobile experie
 - The Add Event flow opens a full-height Samsung Calendar-inspired editor from the selected-day FAB, with today as the initial selected day.
 - The editor uses explicit start/end date-time fields, title priority color, location, reminder, reminder-repeat settings, recurrence, note, and a floating `Thoát | Lưu` pill.
 - Reminder configuration uses a centered popup with direct numeric entry. Defaults are 10 minutes before, then 2 additional reminders at 5-minute intervals if unacknowledged.
+- Reminder and repeat rows visibly expose their tap affordance with trailing chevrons.
+- The editor header uses a compact safe-area-friendly `Sự kiện | AI Import` segment so it remains usable on devices with camera cutouts or Dynamic Island-style insets.
 - New recurring events are expanded into concrete occurrences sharing a `recurrenceId`, including their reminder configuration.
-- The top `Nhắc nhở` segment is reserved as the bulk-import surface; bulk-import integration is still pending.
+- `AI Import` is reserved for the AI-assisted bulk-import workflow; integration is still pending.
 - Platform-specific widget/lock-screen work remains isolated from shared planner semantics.
 
 ## Important Boundaries
@@ -31,8 +33,8 @@ Refine the main planner into a polished Samsung Calendar-inspired mobile experie
 - Samsung-inspired UI means interaction hierarchy and visual language, not a Samsung-only implementation.
 
 ## Next Action
-1. Verify the refined event editor visually and interactively on Samsung S23, especially centered reminder popup, numeric inputs, recurrence and `Thoát | Lưu`.
+1. Verify the refined event editor visually and interactively on Samsung S23, especially compact top segment, centered reminder popup, numeric inputs, recurrence and `Thoát | Lưu`.
 2. Implement series-aware edit/delete with explicit one-event vs entire-series behavior.
-3. Replace the `Nhắc nhở` placeholder with the bulk-import workflow and preview/validation.
+3. Replace the `AI Import` placeholder with the AI-assisted bulk-import workflow and preview/validation.
 4. Re-run Home Widget / Focus-Lock verification after recurrence/data-model integration.
 5. Perform broader cross-device responsive verification after the planner behavior stabilizes.
