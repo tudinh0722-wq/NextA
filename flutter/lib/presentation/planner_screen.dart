@@ -94,13 +94,48 @@ class _PlannerScreenState extends State<PlannerScreen> {
     }
   }
 
+  Future<String?> _pickDeleteScope(NextAEvent event) async {
+    if (event.recurrenceId == null) return 'single';
+    return showDialog<String>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Xóa sự kiện lặp'),
+        content: RadioGroup<String>(
+          groupValue: 'single',
+          onChanged: (_) {},
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RadioListTile<String>(value: 'single', title: const Text('Chỉ sự kiện này'), groupValue: 'single', onChanged: (_) => Navigator.pop(c, 'single')),
+              RadioListTile<String>(value: 'future', title: const Text('Sự kiện này và các sự kiện sau'), groupValue: 'single', onChanged: (_) => Navigator.pop(c, 'future')),
+              RadioListTile<String>(value: 'series', title: const Text('Tất cả sự kiện trong chuỗi'), groupValue: 'single', onChanged: (_) => Navigator.pop(c, 'series')),
+            ],
+          ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('Hủy'))],
+      ),
+    );
+  }
+
   Future<void> _editEvent(NextAEvent? event) async {
     final result = await showEventEditor(context, event: event, selectedDay: _selected);
     if (!mounted || result == null) return;
     if (result.deleted && event != null) {
-      await widget.database.delete(event.id);
-      if (!mounted) return;
-      setState(() => _events.removeWhere((e) => e.id == event.id));
+      final scope = await _pickDeleteScope(event);
+      if (!mounted || scope == null) return;
+      if (scope == 'series' && event.recurrenceId != null) {
+        await widget.database.deleteSeries(event.recurrenceId!);
+        if (!mounted) return;
+        setState(() => _events.removeWhere((e) => e.recurrenceId == event.recurrenceId));
+      } else if (scope == 'future' && event.recurrenceId != null) {
+        await widget.database.deleteSeriesFrom(event.recurrenceId!, event.start);
+        if (!mounted) return;
+        setState(() => _events.removeWhere((e) => e.recurrenceId == event.recurrenceId && !e.start.isBefore(event.start)));
+      } else {
+        await widget.database.delete(event.id);
+        if (!mounted) return;
+        setState(() => _events.removeWhere((e) => e.id == event.id));
+      }
       return;
     }
     if (result.events.isEmpty) return;
