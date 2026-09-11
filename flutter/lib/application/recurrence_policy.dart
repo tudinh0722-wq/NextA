@@ -20,7 +20,7 @@ List<NextAEvent> generateOccurrences(
   var index = 1;
 
   while (occurrences.length < maxOccurrences) {
-    nextStart = _nextStart(nextStart, rule);
+    nextStart = _nextStart(seed.start, nextStart, index, rule);
     if (rule.until != null && nextStart.isAfter(rule.until!)) break;
 
     final duration = seed.end.difference(seed.start);
@@ -44,7 +44,12 @@ List<NextAEvent> generateOccurrences(
   return occurrences;
 }
 
-DateTime _nextStart(DateTime current, RecurrenceRule rule) {
+DateTime _nextStart(
+  DateTime seedStart,
+  DateTime current,
+  int index,
+  RecurrenceRule rule,
+) {
   switch (rule.frequency) {
     case RecurrenceFrequency.daily:
       return current.add(Duration(days: rule.interval));
@@ -59,18 +64,24 @@ DateTime _nextStart(DateTime current, RecurrenceRule rule) {
       }
       return candidate;
     case RecurrenceFrequency.monthly:
-      final targetMonth = DateTime(current.year, current.month + rule.interval, 1);
-      final day = current.day;
+      // Anchor monthly recurrences to the original day. A Jan 31 series is
+      // therefore Jan 31, Feb 28, Mar 31, Apr 30 rather than drifting to the
+      // 28th after the first short month.
+      final targetMonth = DateTime(
+        seedStart.year,
+        seedStart.month + (rule.interval * index),
+        1,
+      );
       final lastDay = DateTime(targetMonth.year, targetMonth.month + 1, 0).day;
       return DateTime(
         targetMonth.year,
         targetMonth.month,
-        day.clamp(1, lastDay),
-        current.hour,
-        current.minute,
-        current.second,
-        current.millisecond,
-        current.microsecond,
+        seedStart.day.clamp(1, lastDay),
+        seedStart.hour,
+        seedStart.minute,
+        seedStart.second,
+        seedStart.millisecond,
+        seedStart.microsecond,
       );
     case RecurrenceFrequency.none:
       return current;
