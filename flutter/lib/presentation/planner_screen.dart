@@ -149,10 +149,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
   }
 
   Future<void> _addEventForDay(DateTime day) async {
-    final result = await showEventEditor(
-      context,
-      selectedDay: DateTime(day.year, day.month, day.day),
-    );
+    final result = await showEventEditor(context, selectedDay: DateTime(day.year, day.month, day.day));
     if (!mounted || result == null || result.events.isEmpty) return;
     await widget.database.upsertAll(result.events);
     if (!mounted) return;
@@ -205,8 +202,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
                         },
                         child: Stack(
                           children: [
-                            PlannerAgenda(header: _selectedHeader(), events: _eventsFor(_selected), policy: _countdownPolicy, onEventTap: _editEvent),
-                            Positioned(left: 28, right: 28, bottom: 14, child: PlannerFab(label: 'Thêm vào ${_selected.day} Th${_selected.month}', onTap: () => _editEvent(null))),
+                            PlannerAgenda(header: _selectedHeader(), events: _eventsFor(_selected), policy: _countdownPolicy, onEventTap: _editEvent, onEmptyTap: () {}),
+                            Positioned(left: 72, right: 72, bottom: 14, child: PlannerFab(label: 'Thêm vào ${_selected.day} Th${_selected.month}', onTap: () => _editEvent(null))),
                           ],
                         ),
                       ),
@@ -371,6 +368,30 @@ class PlannerFab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Material(elevation: 2, shadowColor: scheme.shadow.withValues(alpha: .18), color: scheme.surfaceContainerHighest, shape: const StadiumBorder(), child: InkWell(onTap: onTap, customBorder: const StadiumBorder(), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), child: Row(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.add_rounded, size: 20), const SizedBox(width: 8), Text(label, style: const TextStyle(fontWeight: FontWeight.w700))]))));
+    return Material(
+      elevation: 3,
+      shadowColor: scheme.shadow.withValues(alpha: .18),
+      color: scheme.surfaceContainerHighest,
+      shape: const StadiumBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const StadiumBorder(),
+        child: SizedBox(
+          height: 31,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.add_rounded, size: 18),
+                const SizedBox(width: 6),
+                Flexible(child: Text(label, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
