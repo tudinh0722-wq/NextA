@@ -1,5 +1,16 @@
 # NextA Changelog
 
+## 2026-09-11 — Shared event priority visual system
+
+Decisions:
+- Added one shared priority color source for normal / important / very important events so the selected editor color survives persistence and is reused by all planner surfaces.
+- Agenda countdown outlines now use the persisted event priority color instead of a separate semantic severity mapping.
+- Calendar event markers use the persisted priority color, with a maximum of two bars beneath the day number.
+- Calendar cells with events are lightly tinted by event color; when important or very important events exist, the highest-priority event determines the tint.
+- Added a safe SQLite v3 migration that creates the priority column when upgrading an older database that does not have it.
+- Added compact leading icons for `Địa chỉ` and `Ghi chú` in Add Event.
+- Reduced and narrowed the Add Event action pill and balanced the main planner Add Event FAB to the same compact height class.
+
 ## 2026-09-11 — Calendar interaction and recurrence layout fix
 
 Decisions:
