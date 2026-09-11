@@ -50,7 +50,7 @@ Future<EventEditorResult?> showEventEditor(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    useSafeArea: false,
+    useSafeArea: true,
     builder: (_) => _EventEditorSheet(event: event, selectedDay: selectedDay),
   );
 }
@@ -219,7 +219,7 @@ class _EventEditorSheetState extends State<_EventEditorSheet> {
         bottom: false,
         child: Column(children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 2, 20, 10),
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
             child: _EditorTabs(selectedBulk: _bulkImportTab, onChanged: (value) => setState(() => _bulkImportTab = value)),
           ),
           Expanded(
