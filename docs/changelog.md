@@ -1,11 +1,22 @@
 # NextA Changelog
 
+## 2026-09-11 — Recurrence foundation
+
+Decisions:
+- Added recurrence metadata to the concrete `NextAEvent` model.
+- A recurrence series is identified by a shared `recurrenceId`; no separate recurrence-rule table was introduced.
+- Added a pure application policy that expands one concrete seed event into concrete dated occurrences.
+- Supported recurrence frequencies are none, daily, weekly, weekdays, and monthly with an optional interval and end date.
+- Monthly recurrence stays anchored to the original day, clamping only when the target month is shorter (for example Jan 31 → Feb 28 → Mar 31).
+- Added unit coverage for daily, weekly, and month-end recurrence expansion.
+
 ## 2026-09-11 — Flutter planner runtime verification + directional month transition
 
 Decisions:
 - Samsung S23 runtime verification confirms the latest month/week collapse and expand behavior is stable.
 - Horizontal month navigation now keeps old and new month surfaces alive during a real directional page transition.
 - Swipe direction controls page direction; motion combines slide with restrained scale/fade.
+- Week-view horizontal navigation advances by whole weeks rather than whole months.
 - Transition uses Flutter animation primitives and does not use delayed rebuilds or timing hacks.
 
 ## 2026-09-10 — Flutter planner UI implementation
