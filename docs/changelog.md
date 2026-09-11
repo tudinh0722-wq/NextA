@@ -1,5 +1,15 @@
 # NextA Changelog
 
+## 2026-09-11 — Calendar and Agenda UI baseline locked
+
+Decisions:
+- Marked the current **Calendar** and **Agenda** screens as complete from a product/UI perspective.
+- Calendar marker presentation is now the accepted baseline: maximum two vertically stacked, equal-width bars per day; priority changes color only.
+- Agenda time/countdown presentation is now the accepted baseline: prominent centered start/end time and a centered countdown surface using the standardized right-side width.
+- Calendar quick-tap/long-press behavior and the informational empty agenda state are part of the accepted interaction baseline.
+- **No visual redesign, resizing, restyling, or presentation refactor is allowed on Calendar or Agenda unless the user explicitly requests it.**
+- Future responsive, cleanup, and design-system work must preserve these two screens' established appearance unless the user explicitly reopens their UI.
+
 ## 2026-09-11 — Shared event priority visual system
 
 Decisions:
