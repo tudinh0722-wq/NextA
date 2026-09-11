@@ -329,21 +329,28 @@ class CalendarDayCell extends StatelessWidget {
               ),
             ),
             const Spacer(),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: markerEvents
-                  .map(
-                    (event) => Container(
-                      width: 20,
-                      height: 4,
-                      margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                      decoration: BoxDecoration(
-                        color: nextAPriorityColor(event.priority),
-                        borderRadius: BorderRadius.circular(3),
+            SizedBox(
+              width: 32,
+              height: 9,
+              child: Stack(
+                alignment: Alignment.bottomCenter,
+                clipBehavior: Clip.none,
+                children: [
+                  for (var i = 0; i < markerEvents.length; i++)
+                    Positioned(
+                      left: 2 + (i * 2),
+                      right: 2 + (i * 2),
+                      bottom: i * 3.0,
+                      child: Container(
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: nextAPriorityColor(markerEvents[i].priority),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
                       ),
                     ),
-                  )
-                  .toList(),
+                ],
+              ),
             ),
           ],
         ),
