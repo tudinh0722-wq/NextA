@@ -19,7 +19,11 @@ class CountdownPolicy {
   }
 
   String format(Duration remaining) {
-    if (remaining.inDays >= 1) return '${remaining.inDays}d';
+    if (remaining.inDays >= 1) {
+      final days = remaining.inDays;
+      final hours = remaining.inHours.remainder(24);
+      return '${days}d ${hours}h';
+    }
     final hours = remaining.inHours;
     final minutes = remaining.inMinutes.remainder(60);
     return '${hours}h ${minutes}m';
