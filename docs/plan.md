@@ -9,14 +9,16 @@
 - [x] Event selection/edit/delete/search
 - [x] Material 3 semantic theming
 - [x] Samsung S23 runtime verification of collapse/expand
-- [ ] Directional horizontal month page transition
+- [x] Directional horizontal month/week navigation
 - [ ] Motion polish and cross-device responsive verification
 
 ## Event/data roadmap
-- [ ] Recurrence using concrete occurrences with shared `recurrenceId`
+- [x] Recurrence domain metadata and concrete-occurrence expansion policy
+- [ ] Recurrence controls in event editor
 - [ ] Series-aware edit/delete
 - [ ] Integrate bulk import into Add Event flow
-- [ ] Recurrence/import tests
+- [x] Recurrence policy unit tests
+- [ ] Bulk-import integration tests
 
 ## Platform surfaces
 - [ ] Final Android widget/launcher verification
