@@ -93,11 +93,15 @@ class PlannerEventRow extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             SizedBox(
-              width: 106,
+              width: 116,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('${DateFormat.Hm().format(event.start)} – ${DateFormat.Hm().format(event.end)}', textAlign: TextAlign.end, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                  Text(
+                    '${DateFormat.Hm().format(event.start)} – ${DateFormat.Hm().format(event.end)}',
+                    textAlign: TextAlign.end,
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: scheme.onSurface),
+                  ),
                   if (remaining != null) ...[
                     const SizedBox(height: 5),
                     Container(
