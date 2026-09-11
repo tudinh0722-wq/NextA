@@ -9,15 +9,17 @@ Refine the main planner into a polished Samsung Calendar-inspired mobile experie
 ## Current State
 - Flutter on `flutter-v2` is the active product implementation; Android/Kotlin remains legacy reference.
 - Runtime on Samsung S23 is stable; month↔week collapse/expand and directional month/week navigation have been verified by the user.
-- Main planner uses month-first hierarchy, Material 3 semantic colors, selected-day agenda, countdown column, search, event editing, and contextual add-event action.
+- Main planner uses month-first hierarchy, Material 3 semantic colors, selected-day agenda, countdown column, search, event editing, month/week gestures, and contextual add-event action.
 - Horizontal month navigation uses a real directional page transition with old/new month surfaces coexisting during the animation.
 - Week-view horizontal navigation advances by whole weeks rather than whole months.
-- Event creation/edit/delete, search, month/week gestures and countdown policy are implemented.
+- Countdown refresh is aligned to minute boundaries and continues refreshing once per minute while the planner is active.
+- Countdown formatting keeps hour precision for multi-day durations (`xd yh`) instead of dropping the hour remainder.
+- Agenda countdowns are now enclosed in a priority-colored surface, reusing the same Material 3 semantic severity hierarchy as the editor: primary / tertiary / error.
 - The Add Event flow opens a full-height Samsung Calendar-inspired editor from the selected-day FAB, with today as the initial selected day.
 - The editor uses explicit start/end date-time fields, title priority color, location, reminder, reminder-repeat settings, recurrence, note, and a floating `Thoát | Lưu` pill.
 - Reminder configuration uses a centered popup with direct numeric entry. Defaults are 10 minutes before, then 2 additional reminders at 5-minute intervals if unacknowledged.
 - Reminder and repeat rows visibly expose their tap affordance with trailing chevrons.
-- The editor header uses a compact safe-area-friendly `Sự kiện | AI Import` segment so it remains usable on devices with camera cutouts or Dynamic Island-style insets.
+- The editor header is `Sự kiện | AI Import`, with safe-area handling and extra top spacing so the segment does not sit under the phone status bar/camera cutout.
 - New recurring events are expanded into concrete occurrences sharing a `recurrenceId`, including their reminder configuration.
 - `AI Import` is reserved for the AI-assisted bulk-import workflow; integration is still pending.
 - Platform-specific widget/lock-screen work remains isolated from shared planner semantics.
@@ -33,7 +35,7 @@ Refine the main planner into a polished Samsung Calendar-inspired mobile experie
 - Samsung-inspired UI means interaction hierarchy and visual language, not a Samsung-only implementation.
 
 ## Next Action
-1. Verify the refined event editor visually and interactively on Samsung S23, especially compact top segment, centered reminder popup, numeric inputs, recurrence and `Thoát | Lưu`.
+1. Verify the latest agenda countdown surfaces, multi-day countdown format, and event-editor top inset visually on Samsung S23.
 2. Implement series-aware edit/delete with explicit one-event vs entire-series behavior.
 3. Replace the `AI Import` placeholder with the AI-assisted bulk-import workflow and preview/validation.
 4. Re-run Home Widget / Focus-Lock verification after recurrence/data-model integration.
