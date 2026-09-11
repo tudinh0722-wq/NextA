@@ -31,6 +31,7 @@ The Flutter implementation is the product being developed. The legacy Android/Ko
 - Do **not** use device-brand checks where capability-oriented checks are possible.
 - Do **not** add per-second/per-event countdown timers.
 - Do **not** claim a build, test, or device verification that was not actually performed.
+- **Do not modify the Calendar or Agenda visual presentation unless the user explicitly requests a change to those screens.**
 
 ## 3. Current implementation
 
@@ -78,6 +79,29 @@ The same persisted priority must drive:
 
 ## 4. Current UI contract
 
+### Locked screens — Calendar and Agenda
+
+**These two screens are complete and form a frozen UI baseline.** Their visual presentation must not be changed, redesigned, resized, restyled, or structurally refactored unless the user explicitly requests a change.
+
+Functional bug fixes are allowed when necessary, but must preserve the established appearance and interaction contract unless the user explicitly asks otherwise.
+
+#### Calendar
+- Calendar event markers are limited to two bars per day.
+- Bars are stacked **vertically** on the Y axis.
+- Every marker bar has the same width.
+- Priority changes marker color only; it does not change marker geometry or inset.
+- Quick tap selects/navigates to the day.
+- Long press opens Add Event with that exact day preselected.
+
+#### Agenda
+- Start/end time is visually prominent and centered.
+- Start/end time and countdown occupy the standardized right-side time block.
+- Countdown surface uses the same width as the start/end time block.
+- Countdown label and value are centered.
+- Empty `Không có sự kiện` state is informational and non-interactive.
+
+**Locked-screen rule:** Do not use future cleanup, responsive work, design-system consolidation, or refactoring as a reason to alter these screens. Preserve the current baseline exactly unless the user explicitly reopens the design.
+
 ### Add Event
 Current hierarchy:
 1. compact `Thêm sự kiện | AI Import` header;
@@ -105,24 +129,6 @@ Rules:
 - default repeat is 2 additional reminders at 5-minute intervals;
 - disabled reminder persists as `reminderMinutes = 0`.
 
-### Calendar markers
-Calendar event markers are limited to two bars per day.
-
-**Required visual rule:** bars are stacked **vertically**, not diagonally/horizontally inset. Every marker bar must have the same width. Priority only changes the bar color. Do not make the second bar shorter by increasing left/right inset.
-
-### Agenda event time block
-The start/end time and countdown belong to one standardized right-side time block.
-
-Required visual rule:
-- start/end time is visually prominent;
-- start/end text is centered;
-- countdown surface uses the same width as the start/end time block;
-- countdown label and value are centered;
-- spacing and typography should come from shared constants/components rather than scattered magic numbers.
-
-### Editor icon alignment
-`Địa chỉ` and `Ghi chú` icons must align with the other editor leading icons. Avoid the default `TextField.prefixIcon` 48px inset if it causes visual misalignment. Use an explicit shared leading-icon slot/constraint.
-
 ## 5. UI refactoring policy
 
 When touching planner UI, prefer a small design-system layer over repeated ad-hoc values.
@@ -137,7 +143,9 @@ Centralize where practical:
 - common typography roles;
 - countdown surface dimensions.
 
-Remove dead widgets, unused callbacks, duplicated calculations, obsolete comments, and imports made unnecessary by refactoring.
+**Exception:** Calendar and Agenda are locked. Shared constants/components may only be introduced there if they are behavior-neutral and produce no visual change to the locked baseline; do not refactor those screens as part of unrelated work unless explicitly requested.
+
+Remove dead widgets, unused callbacks, duplicated calculations, obsolete comments, and imports made unnecessary by refactoring, while preserving the locked Calendar/Agenda presentation.
 
 Do not refactor business logic merely for style while changing a UI task. Separate structural cleanup from behavior changes and preserve behavior.
 
@@ -155,13 +163,12 @@ These surfaces share semantics but should not be forced into one UI implementati
 ## 7. What remains
 
 Highest-priority work:
-1. Finish UI normalization/refactoring without regressing the current planner.
-2. Verify Calendar marker vertical stacking and Agenda time/countdown sizing on a real device.
-3. Finish series-aware recurrence edit/delete behavior if not already complete in the current branch.
-4. Replace the `AI Import` placeholder with AI-assisted bulk import, including preview and validation.
-5. Add bulk-import integration tests.
-6. Re-verify Home Widget and Focus/Lock Screen after data-model integration.
-7. Perform broader responsive/cross-device verification.
+1. Preserve the locked Calendar and Agenda baseline while completing the remaining product work.
+2. Finish series-aware recurrence edit/delete behavior if not already complete in the current branch.
+3. Replace the `AI Import` placeholder with AI-assisted bulk import, including preview and validation.
+4. Add bulk-import integration tests.
+5. Re-verify Home Widget and Focus/Lock Screen after data-model integration.
+6. Perform broader responsive/cross-device verification outside the locked Calendar/Agenda presentation.
 
 ## 8. Verification discipline
 
