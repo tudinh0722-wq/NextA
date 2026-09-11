@@ -144,20 +144,25 @@ class _EventEditorSheetState extends State<_EventEditorSheet> {
   }
 
   Future<void> _pickRecurrence() async {
-    final value = await showModalBottomSheet<RecurrenceFrequency>(
+    final value = await showDialog<RecurrenceFrequency>(
       context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          for (final frequency in RecurrenceFrequency.values)
-            ListTile(
-              leading: Icon(_recurrenceIcon(frequency)),
-              title: Text(_recurrenceName(frequency)),
-              trailing: frequency == _recurrenceRule.frequency ? const Icon(Icons.check_rounded) : null,
-              onTap: () => Navigator.pop(sheetContext, frequency),
-            ),
-          const SizedBox(height: 8),
-        ]),
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Lặp lại'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final frequency in RecurrenceFrequency.values)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(_recurrenceIcon(frequency)),
+                  title: Text(_recurrenceName(frequency)),
+                  trailing: frequency == _recurrenceRule.frequency ? const Icon(Icons.check_rounded) : null,
+                  onTap: () => Navigator.pop(dialogContext, frequency),
+                ),
+            ],
+          ),
+        ),
       ),
     );
     if (value != null) setState(() => _recurrenceRule = RecurrenceRule(frequency: value));
@@ -389,13 +394,15 @@ class _EventContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(color: scheme.surface, borderRadius: const BorderRadius.vertical(top: Radius.circular(42))),
       child: Column(children: [
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(28, 26, 28, 110),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.fromLTRB(28, 26, 28, 110 + bottomInset),
             child: Column(children: [
               _TitleRow(controller: title, priority: priority, onPriority: onPriority),
               const _Divider(),
