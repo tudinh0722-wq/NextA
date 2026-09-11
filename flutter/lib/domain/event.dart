@@ -19,6 +19,9 @@ class NextAEvent {
     this.priority = 0,
     this.recurrenceId,
     this.recurrenceRule,
+    this.reminderMinutes = 10,
+    this.reminderRepeatCount = 2,
+    this.reminderRepeatIntervalMinutes = 5,
   });
 
   final String id;
@@ -36,6 +39,17 @@ class NextAEvent {
   /// Optional rule metadata carried by concrete occurrences so a series can
   /// be regenerated or edited without introducing a separate rule table.
   final RecurrenceRule? recurrenceRule;
+
+  /// Minutes before the event when the first reminder is raised.
+  /// A value of 0 disables the reminder.
+  final int reminderMinutes;
+
+  /// Number of additional reminders after the first reminder, while the
+  /// reminder remains unacknowledged.
+  final int reminderRepeatCount;
+
+  /// Minutes between repeated reminders.
+  final int reminderRepeatIntervalMinutes;
 }
 
 class RecurrenceRule {
