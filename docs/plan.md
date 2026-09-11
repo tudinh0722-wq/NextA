@@ -19,11 +19,13 @@
 - [x] Calendar quick-tap day selection and long-press Add Event shortcut
 - [x] Non-interactive empty agenda state
 - [x] Compact and balanced Add Event FABs
-- [ ] Normalize Calendar marker layout to vertical equal-width stack
-- [ ] Normalize Agenda event-time/countdown block dimensions and typography
+- [x] Calendar marker layout: vertical equal-width stack, maximum two bars
+- [x] Agenda event-time/countdown block dimensions and typography
 - [ ] Normalize Editor leading icon slots and shared UI spacing
 - [ ] Remove obsolete/duplicated presentation code
 - [ ] Motion polish and cross-device responsive verification
+
+> **UI lock:** Calendar and Agenda are complete screens. Do not modify their visual presentation unless the user explicitly requests it. General cleanup must preserve the locked baseline.
 
 ## Event/data roadmap
 - [x] Recurrence domain metadata and concrete-occurrence expansion policy
