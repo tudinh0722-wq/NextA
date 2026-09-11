@@ -1,12 +1,41 @@
 # NextA Architecture
 
-## Application
+## Current product architecture — Flutter v2
+- `flutter/` on branch `flutter-v2` is the current product implementation.
+- `app/` is legacy Android/Kotlin reference and is not modified for Flutter feature work.
+- Flutter keeps shared event semantics in `domain/`, pure schedule/countdown policies in `application/`, and presentation in `presentation/`.
+- The Add Event surface is a presentation concern. It does not introduce Android/OEM-specific business logic.
+- The editor returns concrete `NextAEvent` occurrences to the planner. A new recurring event is expanded through `application/recurrence_policy.dart` before it is added to the current event collection.
+
+### Flutter event data boundary
+
+```text
+Event editor
+    ↓
+NextAEvent seed + RecurrenceRule
+    ↓
+recurrence_policy.dart
+    ↓
+concrete dated occurrences
+    ↓
+Planner event collection / future persistence adapter
+```
+
+- `NextAEvent` remains a concrete dated occurrence.
+- Recurring occurrences share `recurrenceId`.
+- `RecurrenceRule` metadata is carried on concrete occurrences; no separate recurrence-rule table was introduced.
+- The editor uses explicit start/end date-time values and deliberately has no All-day mode.
+- Priority is represented by the existing `Event.priority` value and exposed in the editor as a semantic Material color dot.
+- Reminder selection is a presentation value for now; persistent alarm configuration remains a separate persistence/runtime concern.
+- The editor header reserves `Sự kiện | Nhắc nhở`; the second segment is the planned bulk-import surface.
+
+## Legacy Android application reference
 - Android application namespace: `com.nexta`.
 - Kotlin + Jetpack Compose + Material 3.
 - Java/Kotlin target: Java 17.
 - Current toolchain: AGP `9.3.2`, Kotlin `2.2.10`, KSP `2.2.10-2.0.2`, Compose BOM `2026.02.01`, Room `2.8.4`, Hilt `2.59.2`, `compileSdk/targetSdk = 37`, `minSdk = 26`.
 
-## Layers
+## Legacy layers
 
 ```text
 Compose UI / Platform Surfaces
@@ -22,7 +51,7 @@ Compose UI / Platform Surfaces
 
 Core Event/countdown semantics stay independent from UI surfaces, Android versions, launchers, and OEMs.
 
-## Data and Persistence
+## Legacy data and persistence reference
 
 `com.nexta.data.model`
 - `Event` is the concrete dated occurrence model.
@@ -43,7 +72,7 @@ Core Event/countdown semantics stay independent from UI surfaces, Android versio
 - `AlarmRepository` reads/updates alarm state and resolves its related Event from Room.
 - `LegacyAlarmMigrator` performs a one-time migration from the old `nexta_alarms` SharedPreferences JSON store into Room, then clears the legacy store.
 
-### Event + Alarm write contract
+### Legacy Event + Alarm write contract
 
 ```text
 Create/Edit Event
@@ -57,7 +86,7 @@ Room transaction
 
 Deleting an event removes its alarm row through the Room foreign-key cascade. The AlarmManager is not a second source of truth; it is only the runtime scheduling layer.
 
-### Alarm runtime contract
+### Legacy Alarm runtime contract
 
 ```text
 Room = source of truth
@@ -71,11 +100,11 @@ TTS / alarm tone / notification
 
 ACK updates `event_alarms.acknowledged` in Room and cancels scheduled repeat PendingIntents. Boot, time changes, timezone changes, and exact-alarm permission changes rebuild runtime alarms from Room.
 
-## Dependency Injection
+## Legacy dependency injection
 - Hilt provides Room database/DAOs and repositories.
 - Platform receivers use Hilt injection for Room-backed repositories.
 
-## Presentation Surfaces
+## Presentation surfaces
 
 NextA intentionally has different presentation surfaces. They share data/domain semantics but are not required to share implementation or pixel-perfect UI.
 
@@ -120,7 +149,7 @@ over device-brand checks. OEM-specific integrations must stay isolated adapters.
 - Countdown is shown only within the supported 14-day horizon; durations of 24 hours or more use days.
 
 ## Important Constraints
-- Room is the only persistent source of Event and alarm state.
+- Room is the persistent source of Event and alarm state in the legacy Android implementation.
 - Do not reintroduce a second alarm store in SharedPreferences/DataStore.
 - Do not duplicate Event title/note/start time inside alarm persistence.
 - Do not merge App Screen, Home Widget, and Focus/Lock Screen into one UI.
