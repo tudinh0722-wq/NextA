@@ -88,14 +88,16 @@ class _PlannerScreenState extends State<PlannerScreen> {
         _events.removeWhere((item) => item.id == event.id);
         return;
       }
-      final updated = result.event;
-      if (updated == null) return;
+
+      if (result.events.isEmpty) return;
+
       if (event == null) {
-        _events.add(updated);
-      } else {
-        final index = _events.indexWhere((item) => item.id == event.id);
-        if (index >= 0) _events[index] = updated;
+        _events.addAll(result.events);
+        return;
       }
+
+      _events.removeWhere((item) => item.id == event.id);
+      _events.addAll(result.events);
     });
   }
 
