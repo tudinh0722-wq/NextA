@@ -14,11 +14,14 @@
 - [x] Database-backed search across title/location/note
 - [x] Samsung-inspired Add Event reference layout
 - [x] Add Event priority, input limits, and recurrence interaction refinement
+- [x] Calendar quick-tap day selection and long-press Add Event shortcut
+- [x] Non-interactive empty agenda state
 - [ ] Motion polish and cross-device responsive verification
 
 ## Event/data roadmap
 - [x] Recurrence domain metadata and concrete-occurrence expansion policy
 - [x] Recurrence controls in event editor
+- [x] Finite recurrence defaults and compact end-branch layout
 - [x] Reminder numeric configuration and repeat metadata in event editor
 - [ ] Series-aware edit/delete
 - [ ] Integrate bulk import into Add Event flow
