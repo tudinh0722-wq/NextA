@@ -1,5 +1,15 @@
 # NextA Changelog
 
+## 2026-09-11 — Dialog and editor keyboard-safety refinement
+
+Decisions:
+- Search now uses a bounded custom dialog layout with an expanded result list so the software keyboard cannot cause `Bottom overflowed` errors.
+- Recurrence selection is now a centered dialog instead of a bottom sheet, matching the reminder editor interaction.
+- The event editor keeps the note field reachable by adding the current keyboard inset to the scrollable content's bottom padding.
+- Agenda start/end time is promoted to a stronger 14sp/800 visual treatment and uses `onSurface` for clearer hierarchy.
+- Removed the redundant priority `!` icon from agenda event rows.
+- Today control is an outline-only cushion/stadium shape around the day number, with no filled background or calendar icon.
+
 ## 2026-09-11 — SQLite persistence and database-backed search
 
 Decisions:
