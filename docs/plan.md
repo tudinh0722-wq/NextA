@@ -15,6 +15,7 @@
 ## Event/data roadmap
 - [x] Recurrence domain metadata and concrete-occurrence expansion policy
 - [x] Recurrence controls in event editor
+- [x] Reminder numeric configuration and repeat metadata in event editor
 - [ ] Series-aware edit/delete
 - [ ] Integrate bulk import into Add Event flow
 - [x] Recurrence policy unit tests
