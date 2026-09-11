@@ -3,8 +3,7 @@ import '../domain/event.dart';
 /// Expands one concrete event into concrete dated occurrences.
 ///
 /// The first occurrence is the supplied event. Every generated occurrence
-/// keeps the same series id and recurrence metadata; no separate recurrence
-/// entity is required by the planner layer.
+/// keeps the same series id, recurrence metadata, and reminder configuration.
 List<NextAEvent> generateOccurrences(
   NextAEvent seed, {
   required RecurrenceRule rule,
@@ -36,6 +35,9 @@ List<NextAEvent> generateOccurrences(
         priority: seed.priority,
         recurrenceId: recurrenceId,
         recurrenceRule: rule,
+        reminderMinutes: seed.reminderMinutes,
+        reminderRepeatCount: seed.reminderRepeatCount,
+        reminderRepeatIntervalMinutes: seed.reminderRepeatIntervalMinutes,
       ),
     );
     index++;
@@ -64,9 +66,6 @@ DateTime _nextStart(
       }
       return candidate;
     case RecurrenceFrequency.monthly:
-      // Anchor monthly recurrences to the original day. A Jan 31 series is
-      // therefore Jan 31, Feb 28, Mar 31, Apr 30 rather than drifting to the
-      // 28th after the first short month.
       final targetMonth = DateTime(
         seedStart.year,
         seedStart.month + (rule.interval * index),
