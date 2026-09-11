@@ -1,6 +1,7 @@
 # NextA Development Plan
 
-> `flutter-v2` is the active product branch. Android/Kotlin is legacy reference only.
+> **`flutter-v2` is the active product branch. `flutter/` is the implementation. `app/` is legacy Android/Kotlin reference only.**
+> See `docs/CLAUDE_FLUTTER_V2.md` for the full AI implementation contract.
 
 ## Flutter planner
 - [x] Core event model and countdown policy
@@ -13,11 +14,15 @@
 - [x] SQLite event persistence
 - [x] Database-backed search across title/location/note
 - [x] Samsung-inspired Add Event reference layout
-- [x] Add Event priority, input limits, and recurrence interaction refinement
+- [x] Add Event priority, input limits, reminder and recurrence interaction refinement
 - [x] Shared priority color persistence across editor, agenda, and calendar
 - [x] Calendar quick-tap day selection and long-press Add Event shortcut
 - [x] Non-interactive empty agenda state
 - [x] Compact and balanced Add Event FABs
+- [ ] Normalize Calendar marker layout to vertical equal-width stack
+- [ ] Normalize Agenda event-time/countdown block dimensions and typography
+- [ ] Normalize Editor leading icon slots and shared UI spacing
+- [ ] Remove obsolete/duplicated presentation code
 - [ ] Motion polish and cross-device responsive verification
 
 ## Event/data roadmap
@@ -25,7 +30,7 @@
 - [x] Recurrence controls in event editor
 - [x] Finite recurrence defaults and compact end-branch layout
 - [x] Reminder numeric configuration and repeat metadata in event editor
-- [ ] Series-aware edit/delete
+- [ ] Series-aware edit/delete verification and edge cases
 - [ ] Integrate bulk import into Add Event flow
 - [x] Recurrence policy unit tests
 - [ ] Bulk-import integration tests
@@ -35,5 +40,12 @@
 - [ ] Focus/Lock Screen real-device capability verification
 - [ ] Broader iOS/widget platform adapters
 
+## Release-readiness
+- [ ] Cross-device responsive pass
+- [ ] Regression pass for persistence/search/recurrence
+- [ ] Regression pass for Home Widget / Focus-Lock
+- [ ] Final dead-code/import/UI cleanup
+- [ ] Release candidate verification
+
 ## Working rule
-Keep shared event/schedule semantics independent from UI surfaces. Do not modify the legacy Android implementation for Flutter work. Do not claim device support without actual verification.
+Keep shared event/schedule semantics independent from UI surfaces. Implement product work in `flutter-v2` only. Do not modify the legacy Android implementation for Flutter work. Do not claim device support or test results without actual verification.
