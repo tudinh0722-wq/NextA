@@ -13,6 +13,9 @@ NextA is a student-focused personal schedule management Android app.
 - Provide a circular `+` floating action button at the bottom-right.
 - Long press an event to delete it.
 - Show event start/end time, title, location, note, and current status where useful.
+- Today control beside search is a compact cushion-shaped day number without a calendar icon.
+- Agenda event cards must not show a redundant priority `!` marker beside the time.
+- Agenda countdown is enclosed in a priority-colored surface using the same semantic severity hierarchy as the editor.
 
 ## Event Management
 - The primary Add Event action opens a full-height Samsung Calendar-inspired event editor for the currently selected day; the default selected day is today when the planner opens.
@@ -31,7 +34,8 @@ NextA is a student-focused personal schedule management Android app.
 - The editor provides recurrence choices: none, daily, weekly, weekdays, and monthly.
 - New recurring events are expanded into concrete dated occurrences sharing a `recurrenceId`.
 - End time must be after start time.
-- Persist events locally through the existing Room repository layer.
+- Persist events locally through the Flutter SQLite database.
+- Search queries the local database across title, location, and note and can navigate to a selected result's date.
 - Keep the existing concrete Event model based on `startDateTime` and `endDateTime` unless an explicit architecture change is approved.
 
 ## Countdown
