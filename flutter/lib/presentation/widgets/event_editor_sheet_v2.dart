@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../../application/priority_color.dart';
 import '../../application/recurrence_policy.dart';
 import '../../domain/event.dart';
 
@@ -210,7 +211,7 @@ class _EventEditorSheetState extends State<_EventEditorSheet> {
       end: _end,
       location: _location.text.trim().isEmpty ? null : _location.text.trim(),
       note: _note.text.trim().isEmpty ? null : _note.text.trim(),
-      priority: _priority,
+      priority: _priority.clamp(0, 2).toInt(),
       recurrenceId: recurring ? (old?.recurrenceId ?? id) : null,
       recurrenceRule: recurring ? _recurrenceRule : null,
       reminderMinutes: _reminderMinutes,
@@ -362,9 +363,9 @@ class _EventContent extends StatelessWidget {
                 const SizedBox(height: 10),
                 _DateTimeColumns(start: start, end: end, date: _date, time: _time, onStartDate: onStartDate, onStartTime: onStartTime, onEndDate: onEndDate, onEndTime: onEndTime),
                 const SizedBox(height: 18),
-                _EditorTextField(controller: location, hintText: 'Địa chỉ', maxLength: 30, textInputAction: TextInputAction.next),
-                const SizedBox(height: 6),
-                _EditorTextField(controller: note, hintText: 'Ghi chú', maxLength: 30, minLines: 1, maxLines: 3, textInputAction: TextInputAction.newline),
+                _EditorTextField(icon: Icons.location_on_outlined, controller: location, hintText: 'Địa chỉ', maxLength: 30, textInputAction: TextInputAction.next),
+                const SizedBox(height: 2),
+                _EditorTextField(icon: Icons.notes_outlined, controller: note, hintText: 'Ghi chú', maxLength: 30, minLines: 1, maxLines: 3, textInputAction: TextInputAction.newline),
                 const SizedBox(height: 14),
                 _EditorOptionTile(icon: Icons.notifications_none_rounded, title: 'Báo trước', subtitle: reminderLabel, onTap: onReminder),
                 _EditorOptionTile(icon: Icons.repeat_rounded, title: 'Báo lại', subtitle: repeatLabel, onTap: onReminder),
@@ -374,7 +375,7 @@ class _EventContent extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
+          padding: const EdgeInsets.fromLTRB(56, 6, 56, 10),
           child: _BottomActionFab(onCancel: onCancel, onSave: onSave),
         ),
       ],
@@ -423,7 +424,7 @@ class _PrioritySelectorState extends State<_PrioritySelector> {
           : InkWell(
               customBorder: const CircleBorder(),
               onTap: () => setState(() => _expanded = true),
-              child: Padding(padding: const EdgeInsets.all(7), child: _PriorityDot(priority: widget.priority, size: 14)),
+              child: Padding(padding: const EdgeInsets.all(7), child: _PriorityDot(priority: widget.priority)),
             ),
     );
   }
@@ -444,7 +445,7 @@ class _DateTimeColumns extends StatelessWidget {
   Widget build(BuildContext context) => Row(
         children: [
           Expanded(child: _DateTimeColumn(value: start, date: date, time: time, onDate: onStartDate, onTime: onStartTime)),
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: const Icon(Icons.arrow_forward_rounded, size: 28)),
+          const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Icon(Icons.arrow_forward_rounded, size: 28)),
           Expanded(child: _DateTimeColumn(value: end, date: date, time: time, onDate: onEndDate, onTime: onEndTime)),
         ],
       );
@@ -469,7 +470,8 @@ class _DateTimeColumn extends StatelessWidget {
 }
 
 class _EditorTextField extends StatelessWidget {
-  const _EditorTextField({required this.controller, required this.hintText, this.maxLength, this.minLines, this.maxLines = 1, this.textInputAction});
+  const _EditorTextField({required this.icon, required this.controller, required this.hintText, this.maxLength, this.minLines, this.maxLines = 1, this.textInputAction});
+  final IconData icon;
   final TextEditingController controller;
   final String hintText;
   final int? maxLength;
@@ -484,7 +486,15 @@ class _EditorTextField extends StatelessWidget {
         minLines: minLines,
         maxLines: maxLines,
         textInputAction: textInputAction,
-        decoration: const InputDecoration(border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none, counterText: '', contentPadding: EdgeInsets.symmetric(vertical: 10)).copyWith(hintText: hintText),
+        decoration: InputDecoration(
+          prefixIcon: Icon(icon),
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          counterText: '',
+          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+          hintText: hintText,
+        ),
       );
 }
 
@@ -523,13 +533,13 @@ class _BottomActionFab extends StatelessWidget {
       color: s.surfaceContainerHigh,
       elevation: 7,
       shadowColor: s.shadow.withValues(alpha: 0.20),
-      borderRadius: BorderRadius.circular(32),
+      borderRadius: BorderRadius.circular(24),
       child: SizedBox(
-        height: 62,
+        height: 31,
         child: Row(
           children: [
-            Expanded(child: InkWell(onTap: onCancel, child: const Center(child: Text('Thoát', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700))))),
-            Expanded(child: InkWell(onTap: onSave, child: const Center(child: Text('Lưu', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700))))),
+            Expanded(child: InkWell(onTap: onCancel, child: const Center(child: Text('Thoát', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700))))),
+            Expanded(child: InkWell(onTap: onSave, child: const Center(child: Text('Lưu', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700))))),
           ],
         ),
       ),
@@ -601,14 +611,12 @@ class _BulkImportSlot extends StatelessWidget {
   Widget build(BuildContext context) => Center(child: Padding(padding: const EdgeInsets.all(24), child: Text('AI Import sẽ hỗ trợ nhập nhiều sự kiện từ nội dung lịch.', textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))));
 }
 
-const _priorityColors = <Color>[Color(0xFF8FC7FF), Color(0xFFFFB36B), Color(0xFFFF8C92)];
-
 class _PriorityDot extends StatelessWidget {
   const _PriorityDot({required this.priority, this.size = 16});
   final int priority;
   final double size;
   @override
-  Widget build(BuildContext context) => Container(width: size, height: size, decoration: BoxDecoration(color: _priorityColors[priority.clamp(0, 2).toInt()], shape: BoxShape.circle));
+  Widget build(BuildContext context) => Container(width: size, height: size, decoration: BoxDecoration(color: nextAPriorityColor(priority), shape: BoxShape.circle));
 }
 
 class _RecurrenceDialog extends StatefulWidget {
@@ -742,20 +750,15 @@ class _RecurrenceDialogState extends State<_RecurrenceDialog> {
     if (_useCount) _until = projected;
 
     return Padding(
-      padding: const EdgeInsets.only(left: 32, right: 4, bottom: 4),
+      padding: const EdgeInsets.only(left: 24, right: 0, bottom: 4),
       child: Column(
         children: [
           Row(
             children: [
+              Radio<bool>(value: true, groupValue: _useCount, onChanged: (_) => setState(() => _useCount = true)),
+              const Expanded(child: Text('Kết thúc sau')),
               SizedBox(
-                width: 32,
-                child: Radio<bool>(value: true, groupValue: _useCount, onChanged: (_) => setState(() => _useCount = true)),
-              ),
-              const SizedBox(width: 4),
-              const Text('Kết thúc sau'),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 54,
+                width: 52,
                 child: TextField(
                   controller: _count,
                   enabled: _useCount,
@@ -765,26 +768,24 @@ class _RecurrenceDialogState extends State<_RecurrenceDialog> {
                   decoration: const InputDecoration(isDense: true, counterText: '', contentPadding: EdgeInsets.symmetric(vertical: 6, horizontal: 4)),
                 ),
               ),
-              const SizedBox(width: 6),
-              const Flexible(child: Text('lần lặp', overflow: TextOverflow.ellipsis)),
+              const SizedBox(width: 5),
+              const Text('lần'),
             ],
           ),
           Row(
             children: [
-              SizedBox(
-                width: 32,
-                child: Radio<bool>(value: false, groupValue: _useCount, onChanged: (_) => setState(() => _useCount = false)),
-              ),
-              const SizedBox(width: 4),
-              const Text('Đến ngày'),
-              const Spacer(),
+              Radio<bool>(value: false, groupValue: _useCount, onChanged: (_) => setState(() => _useCount = false)),
+              const Expanded(child: Text('Đến ngày')),
               TextButton(onPressed: _useCount ? null : _pickUntil, child: Text('${_until.day.toString().padLeft(2, '0')}/${_until.month.toString().padLeft(2, '0')}/${_until.year}', style: TextStyle(color: _useCount ? s.onSurfaceVariant : null))),
             ],
           ),
           if (_useCount)
             Align(
               alignment: Alignment.centerRight,
-              child: Text('Ngày kết thúc: ${projected.day.toString().padLeft(2, '0')}/${projected.month.toString().padLeft(2, '0')}/${projected.year}', style: TextStyle(fontSize: 12, color: s.onSurfaceVariant)),
+              child: Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Text('Ngày kết thúc: ${projected.day.toString().padLeft(2, '0')}/${projected.month.toString().padLeft(2, '0')}/${projected.year}', style: TextStyle(fontSize: 12, color: s.onSurfaceVariant)),
+              ),
             ),
         ],
       ),
@@ -796,7 +797,7 @@ class _RecurrenceDialogState extends State<_RecurrenceDialog> {
     return AlertDialog(
       scrollable: true,
       title: const Text('Lặp lại'),
-      contentPadding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+      contentPadding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
