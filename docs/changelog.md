@@ -1,5 +1,18 @@
 # NextA Changelog
 
+## 2026-09-11 — Samsung-style Flutter event editor
+
+Decisions:
+- Replaced the generic event dialog with a full-height Samsung Calendar-inspired Add/Edit Event surface opened from the planner add-event pill.
+- The editor defaults to the planner's selected day, which is today when the planner first opens.
+- Removed the All-day control; events use explicit start date/time and end date/time fields.
+- Added a compact priority color selector beside the title using Material 3 semantic colors.
+- Added location, reminder, recurrence, and note rows with the same restrained list/divider hierarchy as the reference screen.
+- Added a floating `Thoát | Lưu` action pill at the bottom.
+- Added the `Sự kiện | Nhắc nhở` header; the second segment is reserved for the planned bulk-import workflow.
+- Connected new recurring-event creation to the concrete-occurrence recurrence policy.
+- Kept reminder selection as UI state for now; persistent alarm wiring remains a separate concern.
+
 ## 2026-09-11 — Recurrence foundation
 
 Decisions:
