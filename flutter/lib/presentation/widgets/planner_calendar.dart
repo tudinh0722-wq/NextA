@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/event.dart';
 
-class PlannerCalendar extends StatelessWidget {
+class PlannerCalendar extends StatefulWidget {
   const PlannerCalendar({
     super.key,
     required this.month,
@@ -20,47 +20,145 @@ class PlannerCalendar extends StatelessWidget {
   final ValueChanged<DateTime> onSelect;
   final Duration animationDuration;
 
-  List<DateTime> get _monthDays {
+  @override
+  State<PlannerCalendar> createState() => _PlannerCalendarState();
+}
+
+class _PlannerCalendarState extends State<PlannerCalendar>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _monthController;
+  DateTime? _fromMonth;
+
+  @override
+  void initState() {
+    super.initState();
+    _monthController = AnimationController(
+      vsync: this,
+      duration: widget.animationDuration,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant PlannerCalendar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.animationDuration != widget.animationDuration) {
+      _monthController.duration = widget.animationDuration;
+    }
+
+    if (!_sameMonth(oldWidget.month, widget.month)) {
+      _fromMonth = oldWidget.month;
+      _monthController.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _monthController.dispose();
+    super.dispose();
+  }
+
+  bool get _movingForward {
+    final from = _fromMonth;
+    if (from == null) return true;
+    return widget.month.isAfter(from);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final calendar = _calendarFor(widget.month);
+
+    // The month transition is a page transition, not a rebuild/fade. Keep
+    // both pages alive and move them in opposite directions while applying a
+    // restrained scale/fade so the gesture has spatial continuity.
+    return ClipRect(
+      child: AnimatedBuilder(
+        animation: _monthController,
+        builder: (context, child) {
+          final from = _fromMonth;
+          if (from == null || _monthController.isCompleted) {
+            return calendar;
+          }
+
+          final progress = Curves.easeOutCubic.transform(_monthController.value);
+          final direction = _movingForward ? -1.0 : 1.0;
+          final outgoing = _calendarFor(from);
+
+          return SizedBox(
+            width: double.infinity,
+            child: Stack(
+              clipBehavior: Clip.hardEdge,
+              children: [
+                Transform.translate(
+                  offset: Offset(direction * MediaQuery.sizeOf(context).width * progress, 0),
+                  child: Transform.scale(
+                    scale: 1 - (0.02 * progress),
+                    alignment: Alignment.center,
+                    child: Opacity(
+                      opacity: 1 - (0.18 * progress),
+                      child: outgoing,
+                    ),
+                  ),
+                ),
+                Transform.translate(
+                  offset: Offset(-direction * MediaQuery.sizeOf(context).width * (1 - progress), 0),
+                  child: Transform.scale(
+                    scale: 0.98 + (0.02 * progress),
+                    alignment: Alignment.center,
+                    child: Opacity(
+                      opacity: 0.82 + (0.18 * progress),
+                      child: calendar,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _calendarFor(DateTime month) {
+    final days = _monthDays(month);
+    final weekDays = _weekDays(widget.selected);
+
+    final calendar = widget.expanded
+        ? _MonthGrid(
+            key: ValueKey('month-grid-${month.year}-${month.month}'),
+            days: days,
+            month: month,
+            selected: widget.selected,
+            eventsFor: widget.eventsFor,
+            onSelect: widget.onSelect,
+          )
+        : _WeekGrid(
+            key: ValueKey('week-grid-${weekDays.first}'),
+            days: weekDays,
+            selected: widget.selected,
+            eventsFor: widget.eventsFor,
+            onSelect: widget.onSelect,
+          );
+
+    // Collapse/expand remains a viewport-size animation. The month grid keeps
+    // its natural 5-row geometry instead of being forced into week height.
+    return AnimatedSize(
+      duration: widget.animationDuration,
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: calendar,
+    );
+  }
+
+  List<DateTime> _monthDays(DateTime month) {
     final first = DateTime(month.year, month.month, 1);
     final start = first.subtract(Duration(days: first.weekday - 1));
     return List.generate(35, (index) => start.add(Duration(days: index)));
   }
 
-  List<DateTime> get _weekDays {
+  List<DateTime> _weekDays(DateTime selected) {
     final start = selected.subtract(Duration(days: selected.weekday - 1));
     return List.generate(7, (index) => start.add(Duration(days: index)));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final calendar = expanded
-        ? _MonthGrid(
-            key: const ValueKey('month-grid'),
-            days: _monthDays,
-            month: month,
-            selected: selected,
-            eventsFor: eventsFor,
-            onSelect: onSelect,
-          )
-        : _WeekGrid(
-            key: const ValueKey('week-grid'),
-            days: _weekDays,
-            selected: selected,
-            eventsFor: eventsFor,
-            onSelect: onSelect,
-          );
-
-    // Animate the viewport size, not the child's layout constraints. This
-    // keeps the 5-row month grid at its natural height while the parent clips
-    // it during collapse, avoiding RenderFlex overflow at intermediate sizes.
-    return ClipRect(
-      child: AnimatedSize(
-        duration: animationDuration,
-        curve: Curves.easeOutCubic,
-        alignment: Alignment.topCenter,
-        child: calendar,
-      ),
-    );
   }
 }
 
@@ -222,9 +320,7 @@ class CalendarDayCell extends StatelessWidget {
         decoration: BoxDecoration(
           color: calendarTileColor(context, events, inMonth),
           borderRadius: BorderRadius.circular(8),
-          border: selected
-              ? Border.all(color: scheme.primary, width: 2)
-              : null,
+          border: selected ? Border.all(color: scheme.primary, width: 2) : null,
         ),
         child: Column(
           children: [
@@ -268,11 +364,9 @@ class CalendarDayCell extends StatelessWidget {
 bool _sameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
 
-Color calendarTileColor(
-  BuildContext context,
-  List<NextAEvent> events,
-  bool inMonth,
-) {
+bool _sameMonth(DateTime a, DateTime b) => a.year == b.year && a.month == b.month;
+
+Color calendarTileColor(BuildContext context, List<NextAEvent> events, bool inMonth) {
   final scheme = Theme.of(context).colorScheme;
   if (events.isEmpty) {
     return scheme.surfaceContainerLow.withValues(alpha: inMonth ? 0.55 : 0.20);
