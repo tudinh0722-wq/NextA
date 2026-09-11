@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../application/priority_color.dart';
 import '../../domain/event.dart';
 
 class PlannerCalendar extends StatefulWidget {
@@ -43,11 +44,9 @@ class _PlannerCalendarState extends State<PlannerCalendar>
   @override
   void didUpdateWidget(covariant PlannerCalendar oldWidget) {
     super.didUpdateWidget(oldWidget);
-
     if (oldWidget.animationDuration != widget.animationDuration) {
       _monthController.duration = widget.animationDuration;
     }
-
     if (widget.expanded && !_sameMonth(oldWidget.month, widget.month)) {
       _fromMonth = oldWidget.month;
       _monthController.forward(from: 0);
@@ -69,7 +68,6 @@ class _PlannerCalendarState extends State<PlannerCalendar>
   @override
   Widget build(BuildContext context) {
     final calendar = _calendarFor(widget.month);
-
     return ClipRect(
       child: AnimatedBuilder(
         animation: _monthController,
@@ -78,11 +76,9 @@ class _PlannerCalendarState extends State<PlannerCalendar>
           if (from == null || _monthController.isCompleted || !widget.expanded) {
             return calendar;
           }
-
           final progress = Curves.easeOutCubic.transform(_monthController.value);
           final direction = _movingForward ? -1.0 : 1.0;
           final outgoing = _calendarFor(from);
-
           return SizedBox(
             width: double.infinity,
             child: Stack(
@@ -93,10 +89,7 @@ class _PlannerCalendarState extends State<PlannerCalendar>
                   child: Transform.scale(
                     scale: 1 - (0.02 * progress),
                     alignment: Alignment.center,
-                    child: Opacity(
-                      opacity: 1 - (0.18 * progress),
-                      child: outgoing,
-                    ),
+                    child: Opacity(opacity: 1 - (0.18 * progress), child: outgoing),
                   ),
                 ),
                 Transform.translate(
@@ -104,10 +97,7 @@ class _PlannerCalendarState extends State<PlannerCalendar>
                   child: Transform.scale(
                     scale: 0.98 + (0.02 * progress),
                     alignment: Alignment.center,
-                    child: Opacity(
-                      opacity: 0.82 + (0.18 * progress),
-                      child: calendar,
-                    ),
+                    child: Opacity(opacity: 0.82 + (0.18 * progress), child: calendar),
                   ),
                 ),
               ],
@@ -121,7 +111,6 @@ class _PlannerCalendarState extends State<PlannerCalendar>
   Widget _calendarFor(DateTime month) {
     final days = _monthDays(month);
     final weekDays = _weekDays(widget.selected);
-
     final calendar = widget.expanded
         ? _MonthGrid(
             key: ValueKey('month-grid-${month.year}-${month.month}'),
@@ -140,7 +129,6 @@ class _PlannerCalendarState extends State<PlannerCalendar>
             onSelect: widget.onSelect,
             onLongPress: widget.onLongPress,
           );
-
     return AnimatedSize(
       duration: widget.animationDuration,
       curve: Curves.easeOutCubic,
@@ -319,6 +307,7 @@ class CalendarDayCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final markerEvents = _markerEvents(events);
     return GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
@@ -340,22 +329,35 @@ class CalendarDayCell extends StatelessWidget {
               ),
             ),
             const Spacer(),
-            ...events.take(3).map(
-                  (event) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 1),
-                    child: Container(
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: markerEvents
+                  .map(
+                    (event) => Container(
+                      width: 20,
                       height: 4,
+                      margin: const EdgeInsets.symmetric(horizontal: 1.5),
                       decoration: BoxDecoration(
-                        color: eventColor(context, event),
+                        color: nextAPriorityColor(event.priority),
                         borderRadius: BorderRadius.circular(3),
                       ),
                     ),
-                  ),
-                ),
+                  )
+                  .toList(),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  List<NextAEvent> _markerEvents(List<NextAEvent> source) {
+    final sorted = List<NextAEvent>.of(source)
+      ..sort((a, b) {
+        final priority = b.priority.compareTo(a.priority);
+        return priority != 0 ? priority : a.start.compareTo(b.start);
+      });
+    return sorted.take(2).toList();
   }
 
   TextStyle _dateStyle(ColorScheme scheme) => TextStyle(
@@ -380,21 +382,14 @@ Color calendarTileColor(BuildContext context, List<NextAEvent> events, bool inMo
     return scheme.surfaceContainerLow.withValues(alpha: inMonth ? 0.55 : 0.20);
   }
 
-  var color = scheme.surface;
-  for (final event in events.take(3)) {
-    color = Color.lerp(color, eventColor(context, event), 0.075) ?? color;
+  final important = events.where((event) => event.priority >= 1).toList()
+    ..sort((a, b) {
+      final priority = b.priority.compareTo(a.priority);
+      return priority != 0 ? priority : a.start.compareTo(b.start);
+    });
+  if (important.isNotEmpty) {
+    return Color.lerp(scheme.surface, nextAPriorityColor(important.first.priority), 0.18) ?? scheme.surface;
   }
-  return color;
-}
 
-Color eventColor(BuildContext context, NextAEvent event) {
-  final scheme = Theme.of(context).colorScheme;
-  return switch (event.type) {
-    EventType.classEvent => scheme.primary,
-    EventType.exam => scheme.error,
-    EventType.assignment => scheme.tertiary,
-    EventType.meeting => scheme.secondary,
-    EventType.personal => scheme.primaryContainer,
-    EventType.other => scheme.outline,
-  };
+  return Color.lerp(scheme.surface, nextAPriorityColor(events.first.priority), 0.10) ?? scheme.surface;
 }
