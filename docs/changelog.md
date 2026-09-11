@@ -1,5 +1,15 @@
 # NextA Changelog
 
+## 2026-09-11 — Reminder configuration in Flutter event editor
+
+Decisions:
+- Replaced preset reminder choices with a centered popup containing direct numeric entry.
+- Default reminder is 10 minutes before the event.
+- Added a separate reminder-repeat row directly below the reminder row.
+- Default repeat behavior is 2 additional reminders, 5 minutes apart, while the reminder remains unacknowledged.
+- Added reminder configuration fields to concrete events so recurrence expansion preserves them.
+- Actual acknowledgement and alarm scheduling remain a separate runtime/persistence concern.
+
 ## 2026-09-11 — Samsung-style Flutter event editor
 
 Decisions:
@@ -49,7 +59,7 @@ Decisions:
 - Split the Samsung Calendar-inspired planner into a thin `MainScreen` orchestration layer and dedicated calendar/search UI components.
 - Centralized calendar interaction state in `CalendarState` so month/week navigation, selected date, Today, and search visibility are not mixed with rendering code.
 - Isolated `CalendarSurface`, `Agenda`, `AddEventBar`, and `SearchDialog` as reusable presentation components.
-- Grouped events by date before rendering calendar cells to avoid repeatedly filtering the full event list for every calendar cell.
+- Grouped events by date before rendering calendar cells to avoid repeatedly filtering the full event list for every cell.
 - Kept the existing `MainActivity` → `MainScreen` callback contract and Room-backed data flow unchanged.
 - Centralized the local-midnight Today refresh in the calendar UI layer.
 - Replaced fixed event RGB accents with Material 3 semantic colors.
