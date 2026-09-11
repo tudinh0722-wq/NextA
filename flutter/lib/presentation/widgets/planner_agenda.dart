@@ -6,13 +6,12 @@ import '../../domain/event.dart';
 import 'planner_calendar.dart';
 
 class PlannerAgenda extends StatelessWidget {
-  const PlannerAgenda({super.key, required this.header, required this.events, required this.policy, required this.onEventTap, required this.onEmptyTap});
+  const PlannerAgenda({super.key, required this.header, required this.events, required this.policy, required this.onEventTap});
 
   final String header;
   final List<NextAEvent> events;
   final CountdownPolicy policy;
   final ValueChanged<NextAEvent> onEventTap;
-  final VoidCallback onEmptyTap;
 
   @override
   Widget build(BuildContext context) {
@@ -30,18 +29,14 @@ class PlannerAgenda extends StatelessWidget {
           ),
         ),
         if (events.isEmpty)
-          InkWell(
-            onTap: onEmptyTap,
-            borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.only(top: 28),
-              child: Column(
-                children: [
-                  Icon(Icons.event_available_outlined, size: 34, color: Theme.of(context).colorScheme.primary),
-                  const SizedBox(height: 10),
-                  const Text('Không có sự kiện'),
-                ],
-              ),
+          Padding(
+            padding: const EdgeInsets.only(top: 28),
+            child: Column(
+              children: [
+                Icon(Icons.event_available_outlined, size: 34, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(height: 10),
+                const Text('Không có sự kiện'),
+              ],
             ),
           )
         else
