@@ -1,5 +1,13 @@
 # NextA Changelog
 
+## 2026-09-11 — Event editor UX refinement
+
+Decisions:
+- Compact the `Sự kiện | AI Import` header to reduce vertical footprint and keep the editor safer around camera cutouts and Dynamic Island-style insets.
+- Rename the bulk-import placeholder from `Nhắc nhở` to `AI Import` so its purpose is immediately understandable.
+- Add trailing chevrons to reminder/repeat/recurrence rows so editable rows visibly communicate that they are tappable.
+- Make the reminder popup scrollable so numeric inputs remain usable when the software keyboard reduces available height.
+
 ## 2026-09-11 — Reminder configuration in Flutter event editor
 
 Decisions:
