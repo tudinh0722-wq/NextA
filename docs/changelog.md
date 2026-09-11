@@ -1,5 +1,15 @@
 # NextA Changelog
 
+## 2026-09-11 — Calendar interaction and recurrence layout fix
+
+Decisions:
+- Calendar day tap keeps the existing behavior: a quick tap selects/navigates to that day.
+- Long-pressing a calendar day opens the Add Event shortcut with that exact day preselected.
+- The empty agenda state `Không có sự kiện` is informational and no longer opens Add Event.
+- Recurrence end controls were compacted into an indented layout that avoids horizontal overflow on narrow screens.
+- Recurrence defaults to 10 occurrences; the displayed end date is calculated from the 10th occurrence for the selected frequency.
+- The title area of Add Event no longer has the horizontal divider below the event name.
+
 ## 2026-09-11 — Event editor priority and recurrence refinement
 
 Decisions:
@@ -10,8 +20,8 @@ Decisions:
 - Removed the horizontal divider below the note field.
 - `Lặp lại` is muted when it is `Không lặp lại`.
 - Recurrence opens directly as a radio-choice dialog with `Không lặp lại`, `Hàng ngày`, `Hàng tuần`, and `Hàng tháng`.
-- Selecting a recurring frequency expands an indented section immediately below it with `Kết thúc sau X ngày` or `Đến ngày X` radio branches.
-- The `Sau X ngày` branch is converted to a finite `until` date from the event start, so existing recurrence persistence and bounded generation remain compatible.
+- Selecting a recurring frequency expands an indented section immediately below it with `Kết thúc sau X lần lặp` or `Đến ngày X` radio branches.
+- The default count is 10; its corresponding end date is shown as a preview and the date branch can be selected independently.
 
 ## 2026-09-11 — Add Event reference UI refinement
 
