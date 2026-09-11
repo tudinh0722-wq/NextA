@@ -13,7 +13,7 @@ class EventDatabase {
     final path = p.join(databasesPath, 'nexta.db');
     final db = await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, _) async {
         await db.execute('''
           CREATE TABLE events (
@@ -28,6 +28,8 @@ class EventDatabase {
             recurrence_id TEXT,
             recurrence_frequency INTEGER,
             recurrence_interval INTEGER,
+            recurrence_end_mode INTEGER,
+            recurrence_count INTEGER,
             recurrence_until_ms INTEGER,
             reminder_minutes INTEGER NOT NULL DEFAULT 10,
             reminder_repeat_count INTEGER NOT NULL DEFAULT 2,
@@ -36,6 +38,15 @@ class EventDatabase {
         ''');
         await db.execute('CREATE INDEX idx_events_start ON events(start_ms)');
         await db.execute('CREATE INDEX idx_events_search_title ON events(title)');
+        await db.execute('CREATE INDEX idx_events_recurrence_id ON events(recurrence_id)');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('ALTER TABLE events ADD COLUMN recurrence_end_mode INTEGER');
+          await db.execute('ALTER TABLE events ADD COLUMN recurrence_count INTEGER');
+          await db.execute('UPDATE events SET recurrence_end_mode = 0, recurrence_count = 20 WHERE recurrence_frequency IS NOT NULL AND recurrence_frequency != 0');
+          await db.execute('CREATE INDEX IF NOT EXISTS idx_events_recurrence_id ON events(recurrence_id)');
+        }
       },
     );
     return EventDatabase._(db);
@@ -82,6 +93,14 @@ class EventDatabase {
 
   Future<void> delete(String id) => _db.delete('events', where: 'id = ?', whereArgs: [id]);
 
+  Future<void> deleteSeries(String recurrenceId) => _db.delete('events', where: 'recurrence_id = ?', whereArgs: [recurrenceId]);
+
+  Future<void> deleteSeriesFrom(String recurrenceId, DateTime start) => _db.delete(
+        'events',
+        where: 'recurrence_id = ? AND start_ms >= ?',
+        whereArgs: [recurrenceId, start.millisecondsSinceEpoch],
+      );
+
   Future<void> close() => _db.close();
 
   Map<String, Object?> _toRow(NextAEvent event) => {
@@ -96,6 +115,8 @@ class EventDatabase {
         'recurrence_id': event.recurrenceId,
         'recurrence_frequency': event.recurrenceRule?.frequency.index,
         'recurrence_interval': event.recurrenceRule?.interval,
+        'recurrence_end_mode': event.recurrenceRule?.endMode.index,
+        'recurrence_count': event.recurrenceRule?.count,
         'recurrence_until_ms': event.recurrenceRule?.until?.millisecondsSinceEpoch,
         'reminder_minutes': event.reminderMinutes,
         'reminder_repeat_count': event.reminderRepeatCount,
@@ -109,9 +130,9 @@ class EventDatabase {
         : RecurrenceRule(
             frequency: RecurrenceFrequency.values[frequencyIndex],
             interval: (row['recurrence_interval'] as int?) ?? 1,
-            until: row['recurrence_until_ms'] == null
-                ? null
-                : DateTime.fromMillisecondsSinceEpoch(row['recurrence_until_ms'] as int),
+            endMode: RecurrenceEndMode.values[(row['recurrence_end_mode'] as int?) ?? 0],
+            count: (row['recurrence_count'] as int?) ?? 20,
+            until: row['recurrence_until_ms'] == null ? null : DateTime.fromMillisecondsSinceEpoch(row['recurrence_until_ms'] as int),
           );
     return NextAEvent(
       id: row['id'] as String,
