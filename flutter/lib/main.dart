@@ -1,15 +1,26 @@
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 
+import 'data/event_database.dart';
 import 'domain/event.dart';
 import 'presentation/planner_screen.dart';
 
-void main() {
-  runApp(const NextAApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final database = await EventDatabase.open();
+  var events = await database.getAll();
+  if (events.isEmpty) {
+    events = demoEvents;
+    await database.replaceAll(events);
+  }
+  runApp(NextAApp(database: database, initialEvents: events));
 }
 
 class NextAApp extends StatefulWidget {
-  const NextAApp({super.key});
+  const NextAApp({super.key, required this.database, required this.initialEvents});
+
+  final EventDatabase database;
+  final List<NextAEvent> initialEvents;
 
   @override
   State<NextAApp> createState() => _NextAAppState();
@@ -42,7 +53,8 @@ class _NextAAppState extends State<NextAApp> {
           darkTheme: _theme(dark),
           themeMode: _themeMode,
           home: PlannerScreen(
-            events: demoEvents,
+            events: widget.initialEvents,
+            database: widget.database,
             themeMode: _themeMode,
             seedColor: _seedColor,
             onThemeChanged: (mode) => setState(() => _themeMode = mode),
