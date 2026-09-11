@@ -32,35 +32,29 @@ class NextAEvent {
   final String? location;
   final String? note;
   final int priority;
-
-  /// All concrete occurrences belonging to one series share this id.
   final String? recurrenceId;
-
-  /// Optional rule metadata carried by concrete occurrences so a series can
-  /// be regenerated or edited without introducing a separate rule table.
   final RecurrenceRule? recurrenceRule;
-
-  /// Minutes before the event when the first reminder is raised.
-  /// A value of 0 disables the reminder.
   final int reminderMinutes;
-
-  /// Number of additional reminders after the first reminder, while the
-  /// reminder remains unacknowledged.
   final int reminderRepeatCount;
-
-  /// Minutes between repeated reminders.
   final int reminderRepeatIntervalMinutes;
 }
+
+enum RecurrenceEndMode { count, until }
 
 class RecurrenceRule {
   const RecurrenceRule({
     required this.frequency,
     this.interval = 1,
+    this.endMode = RecurrenceEndMode.count,
+    this.count = 20,
     this.until,
-  }) : assert(interval > 0);
+  })  : assert(interval > 0),
+        assert(frequency == RecurrenceFrequency.none || endMode == RecurrenceEndMode.count ? count != null : true);
 
   final RecurrenceFrequency frequency;
   final int interval;
+  final RecurrenceEndMode endMode;
+  final int? count;
   final DateTime? until;
 }
 
