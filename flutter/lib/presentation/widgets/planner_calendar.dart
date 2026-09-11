@@ -46,7 +46,10 @@ class _PlannerCalendarState extends State<PlannerCalendar>
       _monthController.duration = widget.animationDuration;
     }
 
-    if (!_sameMonth(oldWidget.month, widget.month)) {
+    // Month paging is only a month-view interaction. In week view the
+    // selected date can cross a month boundary while moving by seven days;
+    // that must not trigger a fake month-page transition.
+    if (widget.expanded && !_sameMonth(oldWidget.month, widget.month)) {
       _fromMonth = oldWidget.month;
       _monthController.forward(from: 0);
     }
@@ -76,7 +79,7 @@ class _PlannerCalendarState extends State<PlannerCalendar>
         animation: _monthController,
         builder: (context, child) {
           final from = _fromMonth;
-          if (from == null || _monthController.isCompleted) {
+          if (from == null || _monthController.isCompleted || !widget.expanded) {
             return calendar;
           }
 
