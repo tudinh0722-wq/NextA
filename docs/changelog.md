@@ -1,5 +1,17 @@
 # NextA Changelog
 
+## 2026-09-11 — Add Event reference UI refinement
+
+Decisions:
+- Rebuilt the Add Event content hierarchy to follow the supplied Samsung Calendar reference more closely: title, compact start→end date/time columns, address, note, reminder, reminder-repeat, and recurrence.
+- Title input is limited to 47 characters.
+- Priority is selected only from the small color dot beside the title; the editor does not show a separate priority row or label.
+- Priority uses a fixed pastel blue / orange / red palette for normal / important / very important.
+- Removed the All-day control from the event editor.
+- Location and note are presented as a compact text-input pair without horizontal divider lines crossing through the note field.
+- Bottom `Thoát | Lưu` is a single floating pill with a subtle surface contrast and shadow rather than two visually separated buttons.
+- The top editor switch remains a rounded pill with `Thêm sự kiện` and `AI Import` content.
+
 ## 2026-09-11 — Reminder and event-input refinement
 
 Decisions:
