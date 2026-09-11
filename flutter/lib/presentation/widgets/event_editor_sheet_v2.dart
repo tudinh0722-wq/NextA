@@ -375,7 +375,7 @@ class _EventContent extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(56, 6, 56, 10),
+          padding: const EdgeInsets.fromLTRB(56, 6, 56, 30),
           child: _BottomActionFab(onCancel: onCancel, onSave: onSave),
         ),
       ],
@@ -535,7 +535,7 @@ class _BottomActionFab extends StatelessWidget {
       shadowColor: s.shadow.withValues(alpha: 0.20),
       borderRadius: BorderRadius.circular(24),
       child: SizedBox(
-        height: 31,
+        height: 60,
         child: Row(
           children: [
             Expanded(child: InkWell(onTap: onCancel, child: const Center(child: Text('Thoát', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700))))),
