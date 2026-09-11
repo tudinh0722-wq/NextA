@@ -203,7 +203,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                         child: Stack(
                           children: [
                             PlannerAgenda(header: _selectedHeader(), events: _eventsFor(_selected), policy: _countdownPolicy, onEventTap: _editEvent, onEmptyTap: () {}),
-                            Positioned(left: 72, right: 72, bottom: 14, child: PlannerFab(label: 'Thêm vào ${_selected.day} Th${_selected.month}', onTap: () => _editEvent(null))),
+                            Positioned(left: 72, right: 72, bottom: 30, child: PlannerFab(label: 'Thêm vào ${_selected.day} Th${_selected.month}', onTap: () => _editEvent(null))),
                           ],
                         ),
                       ),
@@ -377,7 +377,7 @@ class PlannerFab extends StatelessWidget {
         onTap: onTap,
         customBorder: const StadiumBorder(),
         child: SizedBox(
-          height: 31,
+          height: 60,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
