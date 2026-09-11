@@ -1,25 +1,40 @@
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 
+import 'application/alarm_scheduler.dart';
 import 'data/event_database.dart';
 import 'domain/event.dart';
 import 'presentation/planner_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialise notification alarm scheduler.
+  final scheduler = await AlarmScheduler.init();
+
   final database = await EventDatabase.open();
   var events = await database.getAll();
   if (events.isEmpty) {
     events = demoEvents;
     await database.replaceAll(events);
   }
-  runApp(NextAApp(database: database, initialEvents: events));
+
+  // Schedule alarms for all future events on startup.
+  await scheduler.scheduleAll(events);
+
+  runApp(NextAApp(database: database, scheduler: scheduler, initialEvents: events));
 }
 
 class NextAApp extends StatefulWidget {
-  const NextAApp({super.key, required this.database, required this.initialEvents});
+  const NextAApp({
+    super.key,
+    required this.database,
+    required this.scheduler,
+    required this.initialEvents,
+  });
 
   final EventDatabase database;
+  final AlarmScheduler scheduler;
   final List<NextAEvent> initialEvents;
 
   @override
@@ -42,10 +57,11 @@ class _NextAAppState extends State<NextAApp> {
     return DynamicColorBuilder(
       builder: (lightDynamic, darkDynamic) {
         final light = lightDynamic ?? ColorScheme.fromSeed(seedColor: _seedColor);
-        final dark = darkDynamic ?? ColorScheme.fromSeed(
-          seedColor: _seedColor,
-          brightness: Brightness.dark,
-        );
+        final dark = darkDynamic ??
+            ColorScheme.fromSeed(
+              seedColor: _seedColor,
+              brightness: Brightness.dark,
+            );
         return MaterialApp(
           title: 'NextA',
           debugShowCheckedModeBanner: false,
@@ -55,6 +71,7 @@ class _NextAAppState extends State<NextAApp> {
           home: PlannerScreen(
             events: widget.initialEvents,
             database: widget.database,
+            scheduler: widget.scheduler,
             themeMode: _themeMode,
             seedColor: _seedColor,
             onThemeChanged: (mode) => setState(() => _themeMode = mode),
@@ -66,12 +83,274 @@ class _NextAAppState extends State<NextAApp> {
   }
 }
 
+// ── Demo data ─────────────────────────────────────────────────────────────────
+//
+// Existing demo events (kept as-is).
+const _kReminderMinutes = 30;
+const _kReminderRepeat = 2;
+const _kReminderInterval = 4;
+
 final List<NextAEvent> demoEvents = [
-  NextAEvent(id: 'math', title: 'Giải tích', type: EventType.classEvent, start: DateTime(2026, 9, 10, 7, 30), end: DateTime(2026, 9, 10, 9), location: 'P. A204'),
-  NextAEvent(id: 'database', title: 'Cơ sở dữ liệu', type: EventType.classEvent, start: DateTime(2026, 9, 10, 9, 15), end: DateTime(2026, 9, 10, 11), location: 'P. B302', priority: 1),
-  NextAEvent(id: 'assignment', title: 'Nộp bài lập trình', type: EventType.assignment, start: DateTime(2026, 9, 10, 23), end: DateTime(2026, 9, 10, 23, 30), priority: 2),
-  NextAEvent(id: 'english', title: 'English presentation', type: EventType.classEvent, start: DateTime(2026, 9, 11, 8), end: DateTime(2026, 9, 11, 9, 30)),
-  NextAEvent(id: 'exam', title: 'Kiểm tra giữa kỳ', type: EventType.exam, start: DateTime(2026, 9, 14, 13, 30), end: DateTime(2026, 9, 14, 15), location: 'Hội trường A', priority: 2),
-  NextAEvent(id: 'meeting', title: 'Họp nhóm NextA', type: EventType.meeting, start: DateTime(2026, 9, 16, 18, 30), end: DateTime(2026, 9, 16, 19, 30)),
-  NextAEvent(id: 'personal', title: 'Tập gym', type: EventType.personal, start: DateTime(2026, 9, 18, 17), end: DateTime(2026, 9, 18, 18)),
+  // ── Original demo events ──────────────────────────────────────────────────
+  const NextAEvent(
+    id: 'math',
+    title: 'Giải tích',
+    type: EventType.classEvent,
+    start: DateTime(2026, 9, 10, 7, 30),
+    end: DateTime(2026, 9, 10, 9),
+    location: 'P. A204',
+    reminderMinutes: 10,
+    reminderRepeatCount: 2,
+    reminderRepeatIntervalMinutes: 5,
+  ),
+  const NextAEvent(
+    id: 'database',
+    title: 'Cơ sở dữ liệu',
+    type: EventType.classEvent,
+    start: DateTime(2026, 9, 10, 9, 15),
+    end: DateTime(2026, 9, 10, 11),
+    location: 'P. B302',
+    priority: 1,
+    reminderMinutes: 10,
+    reminderRepeatCount: 2,
+    reminderRepeatIntervalMinutes: 5,
+  ),
+  const NextAEvent(
+    id: 'assignment',
+    title: 'Nộp bài lập trình',
+    type: EventType.assignment,
+    start: DateTime(2026, 9, 10, 23),
+    end: DateTime(2026, 9, 10, 23, 30),
+    priority: 2,
+    reminderMinutes: 10,
+    reminderRepeatCount: 2,
+    reminderRepeatIntervalMinutes: 5,
+  ),
+  const NextAEvent(
+    id: 'english',
+    title: 'English presentation',
+    type: EventType.classEvent,
+    start: DateTime(2026, 9, 11, 8),
+    end: DateTime(2026, 9, 11, 9, 30),
+    reminderMinutes: 10,
+    reminderRepeatCount: 2,
+    reminderRepeatIntervalMinutes: 5,
+  ),
+  const NextAEvent(
+    id: 'exam',
+    title: 'Kiểm tra giữa kỳ',
+    type: EventType.exam,
+    start: DateTime(2026, 9, 14, 13, 30),
+    end: DateTime(2026, 9, 14, 15),
+    location: 'Hội trường A',
+    priority: 2,
+    reminderMinutes: 10,
+    reminderRepeatCount: 2,
+    reminderRepeatIntervalMinutes: 5,
+  ),
+  const NextAEvent(
+    id: 'meeting',
+    title: 'Họp nhóm NextA',
+    type: EventType.meeting,
+    start: DateTime(2026, 9, 16, 18, 30),
+    end: DateTime(2026, 9, 16, 19, 30),
+    reminderMinutes: 10,
+    reminderRepeatCount: 2,
+    reminderRepeatIntervalMinutes: 5,
+  ),
+  const NextAEvent(
+    id: 'personal',
+    title: 'Tập gym',
+    type: EventType.personal,
+    start: DateTime(2026, 9, 18, 17),
+    end: DateTime(2026, 9, 18, 18),
+    reminderMinutes: 10,
+    reminderRepeatCount: 2,
+    reminderRepeatIntervalMinutes: 5,
+  ),
+
+  // ── PHÁT TRIỂN ỨNG DỤNG TMĐT ─────────────────────────────────────────────
+  // priority=1 (quan trọng), reminder 30 phút trước, lặp 2 lần, interval 4 phút
+  const NextAEvent(
+    id: 'tmdt_20260917',
+    title: 'Phát triển ứng dụng TMĐT',
+    type: EventType.classEvent,
+    start: DateTime(2026, 9, 17, 9, 30),
+    end: DateTime(2026, 9, 17, 12),
+    location: 'P1305-A1',
+    note: 'Thực hành',
+    priority: 1,
+    reminderMinutes: _kReminderMinutes,
+    reminderRepeatCount: _kReminderRepeat,
+    reminderRepeatIntervalMinutes: _kReminderInterval,
+  ),
+  const NextAEvent(
+    id: 'tmdt_20260924',
+    title: 'Phát triển ứng dụng TMĐT',
+    type: EventType.classEvent,
+    start: DateTime(2026, 9, 24, 9, 30),
+    end: DateTime(2026, 9, 24, 12),
+    location: 'P1305-A1',
+    note: 'Thực hành',
+    priority: 1,
+    reminderMinutes: _kReminderMinutes,
+    reminderRepeatCount: _kReminderRepeat,
+    reminderRepeatIntervalMinutes: _kReminderInterval,
+  ),
+  const NextAEvent(
+    id: 'tmdt_20261001',
+    title: 'Phát triển ứng dụng TMĐT',
+    type: EventType.classEvent,
+    start: DateTime(2026, 10, 1, 9, 30),
+    end: DateTime(2026, 10, 1, 12),
+    location: 'P1305-A1',
+    note: 'Thực hành',
+    priority: 1,
+    reminderMinutes: _kReminderMinutes,
+    reminderRepeatCount: _kReminderRepeat,
+    reminderRepeatIntervalMinutes: _kReminderInterval,
+  ),
+  const NextAEvent(
+    id: 'tmdt_20261008',
+    title: 'Phát triển ứng dụng TMĐT',
+    type: EventType.classEvent,
+    start: DateTime(2026, 10, 8, 9, 30),
+    end: DateTime(2026, 10, 8, 12),
+    location: 'P1305-A1',
+    note: 'Thực hành',
+    priority: 1,
+    reminderMinutes: _kReminderMinutes,
+    reminderRepeatCount: _kReminderRepeat,
+    reminderRepeatIntervalMinutes: _kReminderInterval,
+  ),
+  const NextAEvent(
+    id: 'tmdt_20261015',
+    title: 'Phát triển ứng dụng TMĐT',
+    type: EventType.classEvent,
+    start: DateTime(2026, 10, 15, 9, 30),
+    end: DateTime(2026, 10, 15, 12),
+    location: 'P1305-A1',
+    note: 'Thực hành',
+    priority: 1,
+    reminderMinutes: _kReminderMinutes,
+    reminderRepeatCount: _kReminderRepeat,
+    reminderRepeatIntervalMinutes: _kReminderInterval,
+  ),
+  const NextAEvent(
+    id: 'tmdt_20261022',
+    title: 'Phát triển ứng dụng TMĐT',
+    type: EventType.classEvent,
+    start: DateTime(2026, 10, 22, 9, 30),
+    end: DateTime(2026, 10, 22, 12),
+    location: 'P1305-A1',
+    note: 'Thực hành',
+    priority: 1,
+    reminderMinutes: _kReminderMinutes,
+    reminderRepeatCount: _kReminderRepeat,
+    reminderRepeatIntervalMinutes: _kReminderInterval,
+  ),
+  const NextAEvent(
+    id: 'tmdt_20261029',
+    title: 'Phát triển ứng dụng TMĐT',
+    type: EventType.classEvent,
+    start: DateTime(2026, 10, 29, 9, 30),
+    end: DateTime(2026, 10, 29, 12),
+    location: 'P1305-A1',
+    note: 'Thực hành',
+    priority: 1,
+    reminderMinutes: _kReminderMinutes,
+    reminderRepeatCount: _kReminderRepeat,
+    reminderRepeatIntervalMinutes: _kReminderInterval,
+  ),
+  const NextAEvent(
+    id: 'tmdt_20261103',
+    title: 'Phát triển ứng dụng TMĐT',
+    type: EventType.classEvent,
+    start: DateTime(2026, 11, 3, 15, 10),
+    end: DateTime(2026, 11, 3, 17, 45),
+    location: 'P402-A9',
+    note: 'Lý thuyết',
+    priority: 1,
+    reminderMinutes: _kReminderMinutes,
+    reminderRepeatCount: _kReminderRepeat,
+    reminderRepeatIntervalMinutes: _kReminderInterval,
+  ),
+  const NextAEvent(
+    id: 'tmdt_20261110',
+    title: 'Phát triển ứng dụng TMĐT',
+    type: EventType.classEvent,
+    start: DateTime(2026, 11, 10, 15, 10),
+    end: DateTime(2026, 11, 10, 17, 45),
+    location: 'P402-A9',
+    note: 'Lý thuyết',
+    priority: 1,
+    reminderMinutes: _kReminderMinutes,
+    reminderRepeatCount: _kReminderRepeat,
+    reminderRepeatIntervalMinutes: _kReminderInterval,
+  ),
+  const NextAEvent(
+    id: 'tmdt_20261119',
+    title: 'Phát triển ứng dụng TMĐT',
+    type: EventType.classEvent,
+    start: DateTime(2026, 11, 19, 9, 30),
+    end: DateTime(2026, 11, 19, 12),
+    location: 'P1305-A1',
+    note: 'Thực hành',
+    priority: 1,
+    reminderMinutes: _kReminderMinutes,
+    reminderRepeatCount: _kReminderRepeat,
+    reminderRepeatIntervalMinutes: _kReminderInterval,
+  ),
+  const NextAEvent(
+    id: 'tmdt_20261201',
+    title: 'Phát triển ứng dụng TMĐT',
+    type: EventType.classEvent,
+    start: DateTime(2026, 12, 1, 15, 10),
+    end: DateTime(2026, 12, 1, 17, 45),
+    location: 'P402-A9',
+    note: 'Lý thuyết',
+    priority: 1,
+    reminderMinutes: _kReminderMinutes,
+    reminderRepeatCount: _kReminderRepeat,
+    reminderRepeatIntervalMinutes: _kReminderInterval,
+  ),
+  const NextAEvent(
+    id: 'tmdt_20261208',
+    title: 'Phát triển ứng dụng TMĐT',
+    type: EventType.classEvent,
+    start: DateTime(2026, 12, 8, 15, 10),
+    end: DateTime(2026, 12, 8, 17, 45),
+    location: 'P402-A9',
+    note: 'Lý thuyết',
+    priority: 1,
+    reminderMinutes: _kReminderMinutes,
+    reminderRepeatCount: _kReminderRepeat,
+    reminderRepeatIntervalMinutes: _kReminderInterval,
+  ),
+  const NextAEvent(
+    id: 'tmdt_20261231',
+    title: 'Phát triển ứng dụng TMĐT',
+    type: EventType.classEvent,
+    start: DateTime(2026, 12, 31, 9, 30),
+    end: DateTime(2026, 12, 31, 12),
+    location: 'P1305-A1',
+    note: 'Thực hành',
+    priority: 1,
+    reminderMinutes: _kReminderMinutes,
+    reminderRepeatCount: _kReminderRepeat,
+    reminderRepeatIntervalMinutes: _kReminderInterval,
+  ),
+  const NextAEvent(
+    id: 'tmdt_20270107',
+    title: 'Phát triển ứng dụng TMĐT',
+    type: EventType.classEvent,
+    start: DateTime(2027, 1, 7, 9, 30),
+    end: DateTime(2027, 1, 7, 12),
+    location: 'P1305-A1',
+    note: 'Thực hành',
+    priority: 1,
+    reminderMinutes: _kReminderMinutes,
+    reminderRepeatCount: _kReminderRepeat,
+    reminderRepeatIntervalMinutes: _kReminderInterval,
+  ),
 ];

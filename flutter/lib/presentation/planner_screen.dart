@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../application/alarm_scheduler.dart';
 import '../application/countdown_policy.dart';
 import '../data/event_database.dart';
 import '../domain/event.dart';
@@ -10,9 +11,19 @@ import 'widgets/planner_agenda.dart';
 import 'widgets/planner_calendar.dart';
 
 class PlannerScreen extends StatefulWidget {
-  const PlannerScreen({super.key, required this.events, required this.database, this.themeMode = ThemeMode.system, this.seedColor = const Color(0xFF1A73E8), this.onThemeChanged, this.onSeedColorChanged});
+  const PlannerScreen({
+    super.key,
+    required this.events,
+    required this.database,
+    required this.scheduler,
+    this.themeMode = ThemeMode.system,
+    this.seedColor = const Color(0xFF1A73E8),
+    this.onThemeChanged,
+    this.onSeedColorChanged,
+  });
   final List<NextAEvent> events;
   final EventDatabase database;
+  final AlarmScheduler scheduler;
   final ThemeMode themeMode;
   final Color seedColor;
   final ValueChanged<ThemeMode>? onThemeChanged;
@@ -61,7 +72,12 @@ class _PlannerScreenState extends State<PlannerScreen> {
   }
 
   List<NextAEvent> _eventsFor(DateTime day) {
-    final result = _events.where((e) => e.start.year == day.year && e.start.month == day.month && e.start.day == day.day).toList();
+    final result = _events
+        .where((e) =>
+            e.start.year == day.year &&
+            e.start.month == day.month &&
+            e.start.day == day.day)
+        .toList();
     result.sort((a, b) => a.start.compareTo(b.start));
     return result;
   }
@@ -78,11 +94,13 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final maxDay = DateTime(target.year, target.month + 1, 0).day;
     setState(() {
       _month = target;
-      _selected = DateTime(target.year, target.month, _selected.day.clamp(1, maxDay));
+      _selected = DateTime(
+          target.year, target.month, _selected.day.clamp(1, maxDay));
     });
   }
 
-  void _shiftWeek(int delta) => _selectDay(_selected.add(Duration(days: 7 * delta)));
+  void _shiftWeek(int delta) =>
+      _selectDay(_selected.add(Duration(days: 7 * delta)));
 
   void _handleVerticalSwipe(DragEndDetails details) {
     final velocity = details.primaryVelocity ?? 0;
@@ -106,40 +124,86 @@ class _PlannerScreenState extends State<PlannerScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              RadioListTile<String>(value: 'single', title: const Text('Chỉ sự kiện này'), groupValue: 'single', onChanged: (_) => Navigator.pop(c, 'single')),
-              RadioListTile<String>(value: 'future', title: const Text('Sự kiện này và các sự kiện sau'), groupValue: 'single', onChanged: (_) => Navigator.pop(c, 'future')),
-              RadioListTile<String>(value: 'series', title: const Text('Tất cả sự kiện trong chuỗi'), groupValue: 'single', onChanged: (_) => Navigator.pop(c, 'series')),
+              RadioListTile<String>(
+                  value: 'single',
+                  title: const Text('Chỉ sự kiện này'),
+                  groupValue: 'single',
+                  onChanged: (_) => Navigator.pop(c, 'single')),
+              RadioListTile<String>(
+                  value: 'future',
+                  title:
+                      const Text('Sự kiện này và các sự kiện sau'),
+                  groupValue: 'single',
+                  onChanged: (_) => Navigator.pop(c, 'future')),
+              RadioListTile<String>(
+                  value: 'series',
+                  title: const Text('Tất cả sự kiện trong chuỗi'),
+                  groupValue: 'single',
+                  onChanged: (_) => Navigator.pop(c, 'series')),
             ],
           ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('Hủy'))],
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(c),
+              child: const Text('Hủy'))
+        ],
       ),
     );
   }
 
   Future<void> _editEvent(NextAEvent? event) async {
-    final result = await showEventEditor(context, event: event, selectedDay: _selected);
+    final result =
+        await showEventEditor(context, event: event, selectedDay: _selected);
     if (!mounted || result == null) return;
+
     if (result.deleted && event != null) {
       final scope = await _pickDeleteScope(event);
       if (!mounted || scope == null) return;
+
       if (scope == 'series' && event.recurrenceId != null) {
         await widget.database.deleteSeries(event.recurrenceId!);
+        // Cancel alarms for entire series — cancel by id for each removed event.
         if (!mounted) return;
-        setState(() => _events.removeWhere((e) => e.recurrenceId == event.recurrenceId));
+        final removed = _events
+            .where((e) => e.recurrenceId == event.recurrenceId)
+            .toList();
+        for (final e in removed) {
+          await widget.scheduler.cancelEvent(e.id);
+        }
+        setState(
+            () => _events.removeWhere(
+                (e) => e.recurrenceId == event.recurrenceId));
       } else if (scope == 'future' && event.recurrenceId != null) {
-        await widget.database.deleteSeriesFrom(event.recurrenceId!, event.start);
+        await widget.database
+            .deleteSeriesFrom(event.recurrenceId!, event.start);
         if (!mounted) return;
-        setState(() => _events.removeWhere((e) => e.recurrenceId == event.recurrenceId && !e.start.isBefore(event.start)));
+        final removed = _events
+            .where((e) =>
+                e.recurrenceId == event.recurrenceId &&
+                !e.start.isBefore(event.start))
+            .toList();
+        for (final e in removed) {
+          await widget.scheduler.cancelEvent(e.id);
+        }
+        setState(() => _events.removeWhere((e) =>
+            e.recurrenceId == event.recurrenceId &&
+            !e.start.isBefore(event.start)));
       } else {
         await widget.database.delete(event.id);
+        await widget.scheduler.cancelEvent(event.id);
         if (!mounted) return;
         setState(() => _events.removeWhere((e) => e.id == event.id));
       }
       return;
     }
+
     if (result.events.isEmpty) return;
     await widget.database.upsertAll(result.events);
+    // Schedule alarms for all saved/updated events.
+    for (final e in result.events) {
+      await widget.scheduler.scheduleEvent(e);
+    }
     if (!mounted) return;
     setState(() {
       if (event != null) _events.removeWhere((e) => e.id == event.id);
@@ -149,9 +213,14 @@ class _PlannerScreenState extends State<PlannerScreen> {
   }
 
   Future<void> _addEventForDay(DateTime day) async {
-    final result = await showEventEditor(context, selectedDay: DateTime(day.year, day.month, day.day));
+    final result = await showEventEditor(
+        context,
+        selectedDay: DateTime(day.year, day.month, day.day));
     if (!mounted || result == null || result.events.isEmpty) return;
     await widget.database.upsertAll(result.events);
+    for (final e in result.events) {
+      await widget.scheduler.scheduleEvent(e);
+    }
     if (!mounted) return;
     setState(() {
       _events.addAll(result.events);
@@ -170,7 +239,13 @@ class _PlannerScreenState extends State<PlannerScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            PlannerTopBar(monthLabel: 'TH${_month.month}', today: DateTime.now().day, onMenu: () => _showThemeMenu(context), onSearch: () => _showSearch(context), onToday: () => _selectDay(DateTime.now())),
+            PlannerTopBar(
+              monthLabel: 'TH${_month.month}',
+              today: DateTime.now().day,
+              onMenu: () => _showThemeMenu(context),
+              onSearch: () => _showSearch(context),
+              onToday: () => _selectDay(DateTime.now()),
+            ),
             Expanded(
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
@@ -181,7 +256,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
                       behavior: HitTestBehavior.opaque,
                       onHorizontalDragEnd: (details) {
                         final velocity = details.primaryVelocity ?? 0;
-                        if (velocity.abs() > 200) _expanded ? _shiftMonth(velocity < 0 ? 1 : -1) : _shiftWeek(velocity < 0 ? 1 : -1);
+                        if (velocity.abs() > 200) {
+                          _expanded
+                              ? _shiftMonth(velocity < 0 ? 1 : -1)
+                              : _shiftWeek(velocity < 0 ? 1 : -1);
+                        }
                       },
                       child: PlannerCalendar(
                         month: _month,
@@ -198,12 +277,29 @@ class _PlannerScreenState extends State<PlannerScreen> {
                         behavior: HitTestBehavior.opaque,
                         onHorizontalDragEnd: (details) {
                           final velocity = details.primaryVelocity ?? 0;
-                          if (velocity.abs() > 200) _shiftDay(velocity < 0 ? 1 : -1);
+                          if (velocity.abs() > 200) {
+                            _shiftDay(velocity < 0 ? 1 : -1);
+                          }
                         },
                         child: Stack(
                           children: [
-                            PlannerAgenda(header: _selectedHeader(), events: _eventsFor(_selected), policy: _countdownPolicy, onEventTap: _editEvent, onEmptyTap: () {}),
-                            Positioned(left: 72, right: 72, bottom: 30, child: PlannerFab(label: 'Thêm vào ${_selected.day} Th${_selected.month}', onTap: () => _editEvent(null))),
+                            PlannerAgenda(
+                              header: _selectedHeader(),
+                              events: _eventsFor(_selected),
+                              policy: _countdownPolicy,
+                              onEventTap: _editEvent,
+                              onEmptyTap: () {},
+                            ),
+                            Positioned(
+                              left: 72,
+                              right: 72,
+                              bottom: 30,
+                              child: PlannerFab(
+                                label:
+                                    'Thêm vào ${_selected.day} Th${_selected.month}',
+                                onTap: () => _editEvent(null),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -219,7 +315,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
   }
 
   Future<void> _showSearch(BuildContext context) async {
-    final event = await showDialog<NextAEvent>(context: context, builder: (_) => _SearchDialog(database: widget.database));
+    final event = await showDialog<NextAEvent>(
+        context: context,
+        builder: (_) => _SearchDialog(database: widget.database));
     if (!mounted || event == null) return;
     _selectDay(event.start);
   }
@@ -235,15 +333,44 @@ class _PlannerScreenState extends State<PlannerScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Giao diện', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              const Text('Giao diện',
+                  style:
+                      TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
-              SegmentedButton<ThemeMode>(segments: const [ButtonSegment(value: ThemeMode.system, label: Text('Hệ thống')), ButtonSegment(value: ThemeMode.light, label: Text('Sáng')), ButtonSegment(value: ThemeMode.dark, label: Text('Tối'))], selected: {widget.themeMode}, onSelectionChanged: (s) => widget.onThemeChanged?.call(s.first)),
+              SegmentedButton<ThemeMode>(
+                segments: const [
+                  ButtonSegment(
+                      value: ThemeMode.system, label: Text('Hệ thống')),
+                  ButtonSegment(
+                      value: ThemeMode.light, label: Text('Sáng')),
+                  ButtonSegment(
+                      value: ThemeMode.dark, label: Text('Tối')),
+                ],
+                selected: {widget.themeMode},
+                onSelectionChanged: (s) =>
+                    widget.onThemeChanged?.call(s.first),
+              ),
               const SizedBox(height: 18),
-              const Text('Màu chủ đề', style: TextStyle(fontWeight: FontWeight.w600)),
+              const Text('Màu chủ đề',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 10),
-              Wrap(spacing: 10, children: const [Color(0xFF1A73E8), Color(0xFF6750A4), Color(0xFF006A6A), Color(0xFF8E4A2F), Color(0xFF7A4E00)].map((c) => _SeedColorButton(color: c, onSelected: widget.onSeedColorChanged)).toList()),
+              Wrap(
+                spacing: 10,
+                children: const [
+                  Color(0xFF1A73E8),
+                  Color(0xFF6750A4),
+                  Color(0xFF006A6A),
+                  Color(0xFF8E4A2F),
+                  Color(0xFF7A4E00),
+                ]
+                    .map((c) => _SeedColorButton(
+                        color: c,
+                        onSelected: widget.onSeedColorChanged))
+                    .toList(),
+              ),
               const SizedBox(height: 10),
-              const Text('Trên Android có màu động, NextA ưu tiên màu hệ thống theo Material 3.'),
+              const Text(
+                  'Trên Android có màu động, NextA ưu tiên màu hệ thống theo Material 3.'),
             ],
           ),
         ),
@@ -289,7 +416,8 @@ class _SearchDialogState extends State<_SearchDialog> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      insetPadding:
+          const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 430, maxHeight: 560),
         child: SafeArea(
@@ -297,11 +425,55 @@ class _SearchDialogState extends State<_SearchDialog> {
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
             child: Column(
               children: [
-                Row(children: [const Expanded(child: Text('Tìm kiếm', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700))), IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded))]),
+                Row(children: [
+                  const Expanded(
+                      child: Text('Tìm kiếm',
+                          style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700))),
+                  IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close_rounded))
+                ]),
                 const SizedBox(height: 8),
-                TextField(controller: _controller, autofocus: true, onChanged: (_) => _search(), decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: 'Tên, địa điểm hoặc ghi chú')),
+                TextField(
+                  controller: _controller,
+                  autofocus: true,
+                  onChanged: (_) => _search(),
+                  decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search_rounded),
+                      hintText: 'Tên, địa điểm hoặc ghi chú'),
+                ),
                 const SizedBox(height: 12),
-                Expanded(child: _results.isEmpty ? Center(child: Text('Không tìm thấy sự kiện', style: TextStyle(color: scheme.onSurfaceVariant))) : ListView.separated(padding: EdgeInsets.zero, itemCount: _results.length, separatorBuilder: (_, __) => const Divider(height: 1), itemBuilder: (_, i) { final e = _results[i]; return ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2), title: Text(e.title, maxLines: 1, overflow: TextOverflow.ellipsis), subtitle: Text('${e.start.day}/${e.start.month}/${e.start.year} · ${e.location ?? 'Không có địa điểm'}', maxLines: 1, overflow: TextOverflow.ellipsis), onTap: () => Navigator.pop(context, e)); })),
+                Expanded(
+                  child: _results.isEmpty
+                      ? Center(
+                          child: Text('Không tìm thấy sự kiện',
+                              style: TextStyle(
+                                  color: scheme.onSurfaceVariant)))
+                      : ListView.separated(
+                          padding: EdgeInsets.zero,
+                          itemCount: _results.length,
+                          separatorBuilder: (_, __) =>
+                              const Divider(height: 1),
+                          itemBuilder: (_, i) {
+                            final e = _results[i];
+                            return ListTile(
+                              contentPadding:
+                                  const EdgeInsets.symmetric(
+                                      horizontal: 2, vertical: 2),
+                              title: Text(e.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                              subtitle: Text(
+                                  '${e.start.day}/${e.start.month}/${e.start.year} · ${e.location ?? 'Không có địa điểm'}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                              onTap: () =>
+                                  Navigator.pop(context, e),
+                            );
+                          }),
+                ),
               ],
             ),
           ),
@@ -312,15 +484,28 @@ class _SearchDialogState extends State<_SearchDialog> {
 }
 
 class _SeedColorButton extends StatelessWidget {
-  const _SeedColorButton({required this.color, required this.onSelected});
+  const _SeedColorButton(
+      {required this.color, required this.onSelected});
   final Color color;
   final ValueChanged<Color>? onSelected;
   @override
-  Widget build(BuildContext context) => GestureDetector(onTap: () { onSelected?.call(color); Navigator.pop(context); }, child: CircleAvatar(radius: 17, backgroundColor: color));
+  Widget build(BuildContext context) => GestureDetector(
+      onTap: () {
+        onSelected?.call(color);
+        Navigator.pop(context);
+      },
+      child: CircleAvatar(radius: 17, backgroundColor: color));
 }
 
 class PlannerTopBar extends StatelessWidget {
-  const PlannerTopBar({super.key, required this.monthLabel, required this.today, required this.onMenu, required this.onSearch, required this.onToday});
+  const PlannerTopBar({
+    super.key,
+    required this.monthLabel,
+    required this.today,
+    required this.onMenu,
+    required this.onSearch,
+    required this.onToday,
+  });
   final String monthLabel;
   final int today;
   final VoidCallback onMenu, onSearch, onToday;
@@ -332,16 +517,23 @@ class PlannerTopBar extends StatelessWidget {
       height: 64,
       child: Row(
         children: [
-          IconButton(onPressed: onMenu, icon: const Icon(Icons.menu_rounded)),
+          IconButton(
+              onPressed: onMenu,
+              icon: const Icon(Icons.menu_rounded)),
           const Spacer(),
-          Text(monthLabel, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700)),
+          Text(monthLabel,
+              style: const TextStyle(
+                  fontSize: 21, fontWeight: FontWeight.w700)),
           const Spacer(),
-          IconButton(onPressed: onSearch, icon: const Icon(Icons.search_rounded)),
+          IconButton(
+              onPressed: onSearch,
+              icon: const Icon(Icons.search_rounded)),
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: Material(
               color: Colors.transparent,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
               child: InkWell(
                 onTap: onToday,
                 borderRadius: BorderRadius.circular(10),
@@ -349,8 +541,14 @@ class PlannerTopBar extends StatelessWidget {
                   width: 38,
                   height: 38,
                   alignment: Alignment.center,
-                  decoration: BoxDecoration(border: Border.all(color: scheme.outline, width: 1.5), borderRadius: BorderRadius.circular(10)),
-                  child: Text('$today', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                  decoration: BoxDecoration(
+                      border: Border.all(
+                          color: scheme.outline, width: 1.5),
+                      borderRadius: BorderRadius.circular(10)),
+                  child: Text('$today',
+                      style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800)),
                 ),
               ),
             ),
@@ -362,7 +560,8 @@ class PlannerTopBar extends StatelessWidget {
 }
 
 class PlannerFab extends StatelessWidget {
-  const PlannerFab({super.key, required this.label, required this.onTap});
+  const PlannerFab(
+      {super.key, required this.label, required this.onTap});
   final String label;
   final VoidCallback onTap;
   @override
@@ -386,7 +585,12 @@ class PlannerFab extends StatelessWidget {
               children: [
                 const Icon(Icons.add_rounded, size: 18),
                 const SizedBox(width: 6),
-                Flexible(child: Text(label, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
+                Flexible(
+                    child: Text(label,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13))),
               ],
             ),
           ),
