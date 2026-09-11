@@ -25,9 +25,9 @@ Planner event collection / future persistence adapter
 - Recurring occurrences share `recurrenceId`.
 - `RecurrenceRule` metadata is carried on concrete occurrences; no separate recurrence-rule table was introduced.
 - The editor uses explicit start/end date-time values and deliberately has no All-day mode.
-- Priority is represented by the existing `Event.priority` value and exposed in the editor as a semantic Material color dot.
+- Priority is represented by the existing `Event.priority` value and exposed in the editor and agenda through Material 3 semantic color roles: primary for normal, tertiary for important, and error for highest priority.
 - Reminder selection is a presentation value for now; persistent alarm configuration remains a separate persistence/runtime concern.
-- The editor header reserves `Sự kiện | Nhắc nhở`; the second segment is the planned bulk-import surface.
+- The editor header is `Sự kiện | AI Import`; the second segment is reserved for the AI-assisted bulk-import surface.
 
 ## Legacy Android application reference
 - Android application namespace: `com.nexta`.
@@ -145,8 +145,10 @@ over device-brand checks. OEM-specific integrations must stay isolated adapters.
 ## Countdown / Refresh Model
 - No per-event/per-second countdown timers.
 - App countdown refreshes on useful minute boundaries and event transitions.
+- The Flutter planner aligns its countdown ticker to minute boundaries, then refreshes once per minute.
 - Widget providers calculate current/next state from event timestamps and refresh only at useful boundaries.
-- Countdown is shown only within the supported 14-day horizon; durations of 24 hours or more use days.
+- Countdown is shown only within the supported 14-day horizon.
+- Durations below 24 hours use `xh ym`; durations of 24 hours or more use `xd yh` so the hour remainder is not lost.
 
 ## Important Constraints
 - Room is the persistent source of Event and alarm state in the legacy Android implementation.
