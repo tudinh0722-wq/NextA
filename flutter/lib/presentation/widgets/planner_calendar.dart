@@ -10,6 +10,7 @@ class PlannerCalendar extends StatefulWidget {
     required this.expanded,
     required this.eventsFor,
     required this.onSelect,
+    required this.onLongPress,
     this.animationDuration = const Duration(milliseconds: 420),
   });
 
@@ -18,6 +19,7 @@ class PlannerCalendar extends StatefulWidget {
   final bool expanded;
   final List<NextAEvent> Function(DateTime) eventsFor;
   final ValueChanged<DateTime> onSelect;
+  final ValueChanged<DateTime> onLongPress;
   final Duration animationDuration;
 
   @override
@@ -46,9 +48,6 @@ class _PlannerCalendarState extends State<PlannerCalendar>
       _monthController.duration = widget.animationDuration;
     }
 
-    // Month paging is only a month-view interaction. In week view the
-    // selected date can cross a month boundary while moving by seven days;
-    // that must not trigger a fake month-page transition.
     if (widget.expanded && !_sameMonth(oldWidget.month, widget.month)) {
       _fromMonth = oldWidget.month;
       _monthController.forward(from: 0);
@@ -71,9 +70,6 @@ class _PlannerCalendarState extends State<PlannerCalendar>
   Widget build(BuildContext context) {
     final calendar = _calendarFor(widget.month);
 
-    // The month transition is a page transition, not a rebuild/fade. Keep
-    // both pages alive and move them in opposite directions while applying a
-    // restrained scale/fade so the gesture has spatial continuity.
     return ClipRect(
       child: AnimatedBuilder(
         animation: _monthController,
@@ -134,6 +130,7 @@ class _PlannerCalendarState extends State<PlannerCalendar>
             selected: widget.selected,
             eventsFor: widget.eventsFor,
             onSelect: widget.onSelect,
+            onLongPress: widget.onLongPress,
           )
         : _WeekGrid(
             key: ValueKey('week-grid-${weekDays.first}'),
@@ -141,10 +138,9 @@ class _PlannerCalendarState extends State<PlannerCalendar>
             selected: widget.selected,
             eventsFor: widget.eventsFor,
             onSelect: widget.onSelect,
+            onLongPress: widget.onLongPress,
           );
 
-    // Collapse/expand remains a viewport-size animation. The month grid keeps
-    // its natural 5-row geometry instead of being forced into week height.
     return AnimatedSize(
       duration: widget.animationDuration,
       curve: Curves.easeOutCubic,
@@ -173,6 +169,7 @@ class _MonthGrid extends StatelessWidget {
     required this.selected,
     required this.eventsFor,
     required this.onSelect,
+    required this.onLongPress,
   });
 
   final List<DateTime> days;
@@ -180,6 +177,7 @@ class _MonthGrid extends StatelessWidget {
   final DateTime selected;
   final List<NextAEvent> Function(DateTime) eventsFor;
   final ValueChanged<DateTime> onSelect;
+  final ValueChanged<DateTime> onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -207,6 +205,7 @@ class _MonthGrid extends StatelessWidget {
                 selected: _sameDay(day, selected),
                 events: eventsFor(day),
                 onTap: () => onSelect(day),
+                onLongPress: () => onLongPress(day),
               );
             },
           ),
@@ -223,12 +222,14 @@ class _WeekGrid extends StatelessWidget {
     required this.selected,
     required this.eventsFor,
     required this.onSelect,
+    required this.onLongPress,
   });
 
   final List<DateTime> days;
   final DateTime selected;
   final List<NextAEvent> Function(DateTime) eventsFor;
   final ValueChanged<DateTime> onSelect;
+  final ValueChanged<DateTime> onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -250,6 +251,7 @@ class _WeekGrid extends StatelessWidget {
                         selected: _sameDay(day, selected),
                         events: eventsFor(day),
                         onTap: () => onSelect(day),
+                        onLongPress: () => onLongPress(day),
                       ),
                     ),
                   )
@@ -304,6 +306,7 @@ class CalendarDayCell extends StatelessWidget {
     required this.selected,
     required this.events,
     required this.onTap,
+    required this.onLongPress,
   });
 
   final DateTime date;
@@ -311,12 +314,14 @@ class CalendarDayCell extends StatelessWidget {
   final bool selected;
   final List<NextAEvent> events;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Container(
         margin: const EdgeInsets.all(1.5),
         padding: const EdgeInsets.fromLTRB(3, 4, 3, 3),
