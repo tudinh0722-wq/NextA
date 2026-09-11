@@ -2,16 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../application/countdown_policy.dart';
+import '../../application/priority_color.dart';
 import '../../domain/event.dart';
-import 'planner_calendar.dart';
 
 class PlannerAgenda extends StatelessWidget {
-  const PlannerAgenda({super.key, required this.header, required this.events, required this.policy, required this.onEventTap});
+  const PlannerAgenda({super.key, required this.header, required this.events, required this.policy, required this.onEventTap, required this.onEmptyTap});
 
   final String header;
   final List<NextAEvent> events;
   final CountdownPolicy policy;
   final ValueChanged<NextAEvent> onEventTap;
+  final VoidCallback onEmptyTap;
 
   @override
   Widget build(BuildContext context) {
@@ -55,8 +56,7 @@ class PlannerEventRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final countdownColor = _priorityColor(scheme, event.priority);
+    final countdownColor = nextAPriorityColor(event.priority);
     final now = DateTime.now();
     final ongoing = !now.isBefore(event.start) && now.isBefore(event.end);
     final remaining = ongoing ? event.end.difference(now) : policy.remaining(event, now);
@@ -95,7 +95,7 @@ class PlannerEventRow extends StatelessWidget {
                   Text(
                     '${DateFormat.Hm().format(event.start)} – ${DateFormat.Hm().format(event.end)}',
                     textAlign: TextAlign.end,
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: scheme.onSurface),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
                   ),
                   if (remaining != null) ...[
                     const SizedBox(height: 5),
@@ -105,7 +105,7 @@ class PlannerEventRow extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: countdownColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: countdownColor.withValues(alpha: 0.28)),
+                        border: Border.all(color: countdownColor.withValues(alpha: 0.55), width: 1.5),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
@@ -124,10 +124,4 @@ class PlannerEventRow extends StatelessWidget {
       ),
     );
   }
-
-  Color _priorityColor(ColorScheme scheme, int priority) => switch (priority) {
-        2 => scheme.error,
-        1 => scheme.tertiary,
-        _ => scheme.primary,
-      };
 }
