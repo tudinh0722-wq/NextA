@@ -13,6 +13,7 @@
 - [x] SQLite event persistence
 - [x] Database-backed search across title/location/note
 - [x] Samsung-inspired Add Event reference layout
+- [x] Add Event priority, input limits, and recurrence interaction refinement
 - [ ] Motion polish and cross-device responsive verification
 
 ## Event/data roadmap
