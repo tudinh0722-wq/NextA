@@ -12,6 +12,7 @@
 - [x] Directional horizontal month/week navigation
 - [x] SQLite event persistence
 - [x] Database-backed search across title/location/note
+- [x] Samsung-inspired Add Event reference layout
 - [ ] Motion polish and cross-device responsive verification
 
 ## Event/data roadmap
