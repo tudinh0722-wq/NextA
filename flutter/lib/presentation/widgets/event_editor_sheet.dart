@@ -151,10 +151,7 @@ class _EventEditorSheetState extends State<_EventEditorSheet> {
                 child: Row(
                   children: [
                     const Expanded(
-                      child: Text(
-                        'Chọn thời gian',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                      ),
+                      child: Text('Chọn thời gian', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                     ),
                     TextButton(onPressed: () => Navigator.pop(c), child: const Text('Xong')),
                   ],
@@ -209,39 +206,6 @@ class _EventEditorSheetState extends State<_EventEditorSheet> {
       builder: (_) => _RecurrenceDialog(initial: _recurrenceRule, start: _start),
     );
     if (result != null) setState(() => _recurrenceRule = result);
-  }
-
-  Future<void> _pickPriority() async {
-    final value = await showModalBottomSheet<int>(
-      context: context,
-      showDragHandle: true,
-      builder: (c) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(8, 8, 8, 4),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text('Mức độ quan trọng', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                ),
-              ),
-              for (final p in [0, 1, 2])
-                ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                  leading: _PriorityDot(priority: p, size: 18),
-                  title: Text(_priorityName(p)),
-                  trailing: p == _priority ? const Icon(Icons.check_rounded) : null,
-                  onTap: () => Navigator.pop(c, p),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (value != null) setState(() => _priority = value);
   }
 
   void _save() {
@@ -305,7 +269,7 @@ class _EventEditorSheetState extends State<_EventEditorSheet> {
                       reminderRepeatCount: _reminderRepeatCount,
                       reminderRepeatIntervalMinutes: _reminderRepeatIntervalMinutes,
                       recurrence: _recurrenceRule,
-                      onPriority: _pickPriority,
+                      onPriority: (p) => setState(() => _priority = p),
                       onStartDate: () => _pickDate(true),
                       onStartTime: () => _pickTime(true),
                       onEndDate: () => _pickDate(false),
@@ -356,7 +320,7 @@ class _EventContent extends StatelessWidget {
   final int reminderRepeatCount;
   final int reminderRepeatIntervalMinutes;
   final RecurrenceRule recurrence;
-  final VoidCallback onPriority;
+  final ValueChanged<int> onPriority;
   final VoidCallback onStartDate;
   final VoidCallback onStartTime;
   final VoidCallback onEndDate;
@@ -379,17 +343,9 @@ class _EventContent extends StatelessWidget {
     RecurrenceFrequency.none => 'Không lặp lại',
     RecurrenceFrequency.daily => 'Hàng ngày',
     RecurrenceFrequency.weekly => 'Hàng tuần',
-    RecurrenceFrequency.weekdays => 'Thứ 2 – Thứ 6',
+    RecurrenceFrequency.weekdays => 'Hàng tuần',
     RecurrenceFrequency.monthly => 'Hàng tháng',
   };
-
-  String _recurrenceDetail() {
-    if (recurrence.frequency == RecurrenceFrequency.none) return 'Không lặp lại';
-    return switch (recurrence.endMode) {
-      RecurrenceEndMode.count => 'Tối đa ${recurrence.count ?? 20} lần',
-      RecurrenceEndMode.until => 'Đến ngày ${_date(recurrence.until ?? DateTime.now()).substring(3)}',
-    };
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -425,14 +381,8 @@ class _EventContent extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    IconButton(
-                      tooltip: 'Mức độ quan trọng',
-                      onPressed: onPriority,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints.tightFor(width: 32, height: 32),
-                      icon: _PriorityDot(priority: priority, size: 14),
-                    ),
+                    const SizedBox(width: 8),
+                    _PrioritySelector(priority: priority, onSelected: onPriority),
                   ],
                 ),
                 Divider(color: s.outlineVariant),
@@ -450,22 +400,20 @@ class _EventContent extends StatelessWidget {
                 const SizedBox(height: 18),
                 _EditorTextField(
                   controller: location,
-                  icon: Icons.location_on_outlined,
                   hintText: 'Địa chỉ',
+                  maxLength: 30,
                   textInputAction: TextInputAction.next,
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 6),
                 _EditorTextField(
                   controller: note,
-                  icon: Icons.notes_outlined,
                   hintText: 'Ghi chú',
+                  maxLength: 30,
                   minLines: 1,
                   maxLines: 3,
                   textInputAction: TextInputAction.newline,
                 ),
                 const SizedBox(height: 14),
-                Divider(color: s.outlineVariant),
-                const SizedBox(height: 4),
                 _EditorOptionTile(
                   icon: Icons.notifications_none_rounded,
                   title: 'Báo trước',
@@ -481,9 +429,8 @@ class _EventContent extends StatelessWidget {
                 _EditorOptionTile(
                   icon: Icons.sync_rounded,
                   title: 'Lặp lại',
-                  subtitle: _recurrenceLabel() == 'Không lặp lại'
-                      ? _recurrenceLabel()
-                      : '${_recurrenceLabel()} • ${_recurrenceDetail()}',
+                  subtitle: _recurrenceLabel(),
+                  muted: recurrence.frequency == RecurrenceFrequency.none,
                   onTap: onRecurrence,
                 ),
               ],
@@ -496,6 +443,60 @@ class _EventContent extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class _PrioritySelector extends StatefulWidget {
+  const _PrioritySelector({required this.priority, required this.onSelected});
+  final int priority;
+  final ValueChanged<int> onSelected;
+
+  @override
+  State<_PrioritySelector> createState() => _PrioritySelectorState();
+}
+
+class _PrioritySelectorState extends State<_PrioritySelector> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = AnimatedSize(
+      duration: const Duration(milliseconds: 160),
+      child: _expanded
+          ? Material(
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(24),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final p in [0, 1, 2])
+                      InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () {
+                          widget.onSelected(p);
+                          setState(() => _expanded = false);
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(5),
+                          child: _PriorityDot(priority: p, size: p == widget.priority ? 17 : 14),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            )
+          : InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () => setState(() => _expanded = true),
+              child: Padding(
+                padding: const EdgeInsets.all(7),
+                child: _PriorityDot(priority: widget.priority, size: 14),
+              ),
+            ),
+    );
+    return child;
   }
 }
 
@@ -527,28 +528,14 @@ class _DateTimeColumns extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
-          child: _DateTimeColumn(
-            label: 'Bắt đầu',
-            value: start,
-            date: date,
-            time: time,
-            onDate: onStartDate,
-            onTime: onStartTime,
-          ),
+          child: _DateTimeColumn(value: start, date: date, time: time, onDate: onStartDate, onTime: onStartTime),
         ),
         Padding(
-          padding: const EdgeInsets.only(top: 30, left: 6, right: 6),
+          padding: const EdgeInsets.only(left: 8, right: 8),
           child: Icon(Icons.arrow_forward_rounded, size: 28, color: text.bodyMedium?.color),
         ),
         Expanded(
-          child: _DateTimeColumn(
-            label: 'Kết thúc',
-            value: end,
-            date: date,
-            time: time,
-            onDate: onEndDate,
-            onTime: onEndTime,
-          ),
+          child: _DateTimeColumn(value: end, date: date, time: time, onDate: onEndDate, onTime: onEndTime),
         ),
       ],
     );
@@ -556,16 +543,7 @@ class _DateTimeColumns extends StatelessWidget {
 }
 
 class _DateTimeColumn extends StatelessWidget {
-  const _DateTimeColumn({
-    required this.label,
-    required this.value,
-    required this.date,
-    required this.time,
-    required this.onDate,
-    required this.onTime,
-  });
-
-  final String label;
+  const _DateTimeColumn({required this.value, required this.date, required this.time, required this.onDate, required this.onTime});
   final DateTime value;
   final String Function(DateTime) date;
   final String Function(DateTime) time;
@@ -573,105 +551,73 @@ class _DateTimeColumn extends StatelessWidget {
   final VoidCallback onTime;
 
   @override
-  Widget build(BuildContext context) {
-    final s = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: TextStyle(color: s.onSurfaceVariant, fontSize: 14)),
-        const SizedBox(height: 7),
-        InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: onDate,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
-            child: Row(
-              children: [
-                const Icon(Icons.calendar_today_outlined, size: 20),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: Text(
-                    date(value),
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                ),
-                const Icon(Icons.chevron_right_rounded, size: 20),
-              ],
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: onDate,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+              child: Text(date(value), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             ),
           ),
-        ),
-        const SizedBox(height: 3),
-        InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: onTime,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
-            child: Row(
-              children: [
-                const Icon(Icons.schedule_outlined, size: 20),
-                const SizedBox(width: 9),
-                Text(time(value), style: const TextStyle(fontSize: 16)),
-              ],
+          InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: onTime,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+              child: Text(time(value), style: const TextStyle(fontSize: 18)),
             ),
           ),
-        ),
-      ],
-    );
-  }
+        ],
+      );
 }
 
 class _EditorTextField extends StatelessWidget {
-  const _EditorTextField({
-    required this.controller,
-    required this.icon,
-    required this.hintText,
-    this.minLines,
-    this.maxLines = 1,
-    this.textInputAction,
-  });
-
+  const _EditorTextField({required this.controller, required this.hintText, this.maxLength, this.minLines, this.maxLines = 1, this.textInputAction});
   final TextEditingController controller;
-  final IconData icon;
   final String hintText;
+  final int? maxLength;
   final int? minLines;
   final int maxLines;
   final TextInputAction? textInputAction;
 
   @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      minLines: minLines,
-      maxLines: maxLines,
-      textInputAction: textInputAction,
-      decoration: InputDecoration(
-        prefixIcon: Icon(icon),
-        hintText: hintText,
-        border: InputBorder.none,
-        enabledBorder: InputBorder.none,
-        focusedBorder: InputBorder.none,
-        contentPadding: const EdgeInsets.symmetric(vertical: 10),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => TextField(
+        controller: controller,
+        maxLength: maxLength,
+        minLines: minLines,
+        maxLines: maxLines,
+        textInputAction: textInputAction,
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          counterText: '',
+          contentPadding: EdgeInsets.symmetric(vertical: 10),
+        ).copyWith(hintText: hintText),
+      );
 }
 
 class _EditorOptionTile extends StatelessWidget {
-  const _EditorOptionTile({required this.icon, required this.title, required this.subtitle, required this.onTap});
-
+  const _EditorOptionTile({required this.icon, required this.title, required this.subtitle, required this.onTap, this.muted = false});
   final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
+  final bool muted;
 
   @override
   Widget build(BuildContext context) {
+    final s = Theme.of(context).colorScheme;
+    final color = muted ? s.onSurfaceVariant : null;
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 1),
-      leading: Icon(icon),
-      title: Text(title),
-      subtitle: Text(subtitle),
-      trailing: const Icon(Icons.chevron_right_rounded),
+      leading: Icon(icon, color: color),
+      title: Text(title, style: TextStyle(color: color)),
+      subtitle: Text(subtitle, style: TextStyle(color: muted ? s.onSurfaceVariant : null)),
+      trailing: Icon(Icons.chevron_right_rounded, color: color),
       onTap: onTap,
     );
   }
@@ -679,7 +625,6 @@ class _EditorOptionTile extends StatelessWidget {
 
 class _BottomActionFab extends StatelessWidget {
   const _BottomActionFab({required this.onCancel, required this.onSave});
-
   final VoidCallback onCancel;
   final VoidCallback onSave;
 
@@ -691,35 +636,14 @@ class _BottomActionFab extends StatelessWidget {
       elevation: 7,
       shadowColor: s.shadow.withValues(alpha: 0.20),
       borderRadius: BorderRadius.circular(32),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(32),
-        onTap: onSave,
-        child: SizedBox(
-          height: 62,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Expanded(
-                child: InkWell(
-                  borderRadius: const BorderRadius.horizontal(left: Radius.circular(32)),
-                  onTap: onCancel,
-                  child: const Center(
-                    child: Text('Thoát', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 1),
-              Expanded(
-                child: InkWell(
-                  borderRadius: const BorderRadius.horizontal(right: Radius.circular(32)),
-                  onTap: onSave,
-                  child: const Center(
-                    child: Text('Lưu', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                  ),
-                ),
-              ),
-            ],
-          ),
+      child: SizedBox(
+        height: 62,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Expanded(child: InkWell(onTap: onCancel, child: const Center(child: Text('Thoát', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700))))),
+            Expanded(child: InkWell(onTap: onSave, child: const Center(child: Text('Lưu', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700))))),
+          ],
         ),
       ),
     );
@@ -741,22 +665,8 @@ class _EditorTabs extends StatelessWidget {
         height: 58,
         child: Row(
           children: [
-            Expanded(
-              child: _EditorTab(
-                selected: !selectedBulk,
-                label: 'Thêm sự kiện',
-                icon: Icons.event_available_outlined,
-                onTap: () => onChanged(false),
-              ),
-            ),
-            Expanded(
-              child: _EditorTab(
-                selected: selectedBulk,
-                label: 'AI Import',
-                icon: Icons.auto_awesome_outlined,
-                onTap: () => onChanged(true),
-              ),
-            ),
+            Expanded(child: _EditorTab(selected: !selectedBulk, label: 'Thêm sự kiện', icon: Icons.event_available_outlined, onTap: () => onChanged(false))),
+            Expanded(child: _EditorTab(selected: selectedBulk, label: 'AI Import', icon: Icons.auto_awesome_outlined, onTap: () => onChanged(true))),
           ],
         ),
       ),
@@ -788,14 +698,7 @@ class _EditorTab extends StatelessWidget {
               children: [
                 Icon(icon, size: 22, color: selected ? s.onSurface : s.onSurfaceVariant),
                 const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    color: selected ? s.onSurface : s.onSurfaceVariant,
-                  ),
-                ),
+                Text(label, style: TextStyle(fontSize: 17, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? s.onSurface : s.onSurfaceVariant)),
               ],
             ),
           ),
@@ -811,11 +714,7 @@ class _BulkImportSlot extends StatelessWidget {
   Widget build(BuildContext context) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text(
-            'AI Import sẽ hỗ trợ nhập nhiều sự kiện từ nội dung lịch.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-          ),
+          child: Text('AI Import sẽ hỗ trợ nhập nhiều sự kiện từ nội dung lịch.', textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
         ),
       );
 }
@@ -835,18 +734,9 @@ class _PriorityDot extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         width: size,
         height: size,
-        decoration: BoxDecoration(
-          color: _priorityColors[priority.clamp(0, 2)],
-          shape: BoxShape.circle,
-        ),
+        decoration: BoxDecoration(color: _priorityColors[priority.clamp(0, 2)], shape: BoxShape.circle),
       );
 }
-
-String _priorityName(int p) => switch (p) {
-  0 => 'Bình thường',
-  1 => 'Quan trọng',
-  _ => 'Rất quan trọng',
-};
 
 class _RecurrenceDialog extends StatefulWidget {
   const _RecurrenceDialog({required this.initial, required this.start});
@@ -860,22 +750,27 @@ class _RecurrenceDialog extends StatefulWidget {
 class _RecurrenceDialogState extends State<_RecurrenceDialog> {
   late RecurrenceFrequency _frequency;
   late RecurrenceEndMode _endMode;
-  late TextEditingController _count;
+  late TextEditingController _days;
   late DateTime _until;
+  bool _useDays = true;
 
   @override
   void initState() {
     super.initState();
     _frequency = widget.initial.frequency;
     _endMode = widget.initial.endMode;
-    _count = TextEditingController(text: (widget.initial.count ?? 20).toString());
-    _until = widget.initial.until ?? widget.start.add(const Duration(days: 90));
-    if (_until.isBefore(widget.start)) _until = widget.start;
+    _days = TextEditingController(text: '20');
+    _until = widget.initial.until ?? widget.start.add(const Duration(days: 20));
+    if (_frequency == RecurrenceFrequency.none) _useDays = true;
+    if (_endMode == RecurrenceEndMode.until && widget.initial.until != null) {
+      final difference = widget.initial.until!.difference(widget.start).inDays;
+      _days.text = difference.clamp(1, 366).toString();
+    }
   }
 
   @override
   void dispose() {
-    _count.dispose();
+    _days.dispose();
     super.dispose();
   }
 
@@ -883,20 +778,18 @@ class _RecurrenceDialogState extends State<_RecurrenceDialog> {
     RecurrenceFrequency.none => 'Không lặp lại',
     RecurrenceFrequency.daily => 'Hàng ngày',
     RecurrenceFrequency.weekly => 'Hàng tuần',
-    RecurrenceFrequency.weekdays => 'Thứ 2 – Thứ 6',
+    RecurrenceFrequency.weekdays => 'Hàng tuần',
     RecurrenceFrequency.monthly => 'Hàng tháng',
   };
 
   Future<void> _pickUntil() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: _until,
+      initialDate: _until.isBefore(widget.start) ? widget.start : _until,
       firstDate: widget.start,
       lastDate: DateTime(2100),
     );
-    if (picked != null) {
-      setState(() => _until = DateTime(picked.year, picked.month, picked.day, 23, 59, 59));
-    }
+    if (picked != null) setState(() => _until = DateTime(picked.year, picked.month, picked.day, 23, 59, 59));
   }
 
   void _save() {
@@ -904,81 +797,94 @@ class _RecurrenceDialogState extends State<_RecurrenceDialog> {
       Navigator.pop(context, const RecurrenceRule(frequency: RecurrenceFrequency.none));
       return;
     }
-    final count = (int.tryParse(_count.text.trim()) ?? 20).clamp(1, 366).toInt();
+    final until = _useDays
+        ? widget.start.add(Duration(days: (int.tryParse(_days.text.trim()) ?? 20).clamp(1, 366).toInt()))
+        : _until;
     Navigator.pop(
       context,
       RecurrenceRule(
         frequency: _frequency,
-        endMode: _endMode,
-        count: _endMode == RecurrenceEndMode.count ? count : null,
-        until: _endMode == RecurrenceEndMode.until ? _until : null,
+        endMode: RecurrenceEndMode.until,
+        count: null,
+        until: until,
+      ),
+    );
+  }
+
+  Widget _endBranch(BuildContext context) {
+    final s = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(left: 40, right: 8),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Radio<bool>(value: true, groupValue: _useDays, onChanged: (v) => setState(() => _useDays = true)),
+              const Text('Kết thúc sau'),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 60,
+                child: TextField(
+                  controller: _days,
+                  enabled: _useDays,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  decoration: const InputDecoration(isDense: true, counterText: ''),
+                ),
+              ),
+              const SizedBox(width: 6),
+              const Text('ngày'),
+            ],
+          ),
+          Row(
+            children: [
+              Radio<bool>(value: false, groupValue: _useDays, onChanged: (v) => setState(() => _useDays = false)),
+              const Text('Đến ngày'),
+              const Spacer(),
+              TextButton(onPressed: _useDays ? null : _pickUntil, child: Text('${_until.day.toString().padLeft(2, '0')}/${_until.month.toString().padLeft(2, '0')}/${_until.year}', style: TextStyle(color: _useDays ? s.onSurfaceVariant : null))),
+            ],
+          ),
+        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final recurring = _frequency != RecurrenceFrequency.none;
     return AlertDialog(
       scrollable: true,
       title: const Text('Lặp lại'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          DropdownButtonFormField<RecurrenceFrequency>(
-            initialValue: _frequency,
-            decoration: const InputDecoration(labelText: 'Lặp lại'),
-            items: RecurrenceFrequency.values
-                .map((f) => DropdownMenuItem(value: f, child: Text(_name(f))))
-                .toList(),
-            onChanged: (v) => setState(() => _frequency = v ?? _frequency),
+          _RecurrenceRadio(
+            value: RecurrenceFrequency.none,
+            groupValue: _frequency,
+            label: _name(RecurrenceFrequency.none),
+            onChanged: (v) => setState(() => _frequency = v),
           ),
-          if (_frequency != RecurrenceFrequency.none) ...[
-            const SizedBox(height: 16),
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text('Kết thúc lặp', style: TextStyle(fontWeight: FontWeight.w700)),
-            ),
-            RadioListTile<RecurrenceEndMode>(
-              contentPadding: EdgeInsets.zero,
-              value: RecurrenceEndMode.count,
-              groupValue: _endMode,
-              onChanged: (v) => setState(() => _endMode = v!),
-              title: Row(
-                children: [
-                  const Text('Sau'),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: 72,
-                    child: TextField(
-                      controller: _count,
-                      enabled: _endMode == RecurrenceEndMode.count,
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      decoration: const InputDecoration(isDense: true),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text('lần'),
-                ],
-              ),
-            ),
-            RadioListTile<RecurrenceEndMode>(
-              contentPadding: EdgeInsets.zero,
-              value: RecurrenceEndMode.until,
-              groupValue: _endMode,
-              onChanged: (v) => setState(() => _endMode = v!),
-              title: Row(
-                children: [
-                  const Text('Đến ngày'),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: _endMode == RecurrenceEndMode.until ? _pickUntil : null,
-                    child: Text('${_until.day.toString().padLeft(2, '0')}/${_until.month.toString().padLeft(2, '0')}/${_until.year}'),
-                  ),
-                ],
-              ),
-            ),
-          ],
+          _RecurrenceRadio(
+            value: RecurrenceFrequency.daily,
+            groupValue: _frequency,
+            label: _name(RecurrenceFrequency.daily),
+            onChanged: (v) => setState(() => _frequency = v),
+            child: _frequency == RecurrenceFrequency.daily ? _endBranch(context) : null,
+          ),
+          _RecurrenceRadio(
+            value: RecurrenceFrequency.weekly,
+            groupValue: _frequency,
+            label: _name(RecurrenceFrequency.weekly),
+            onChanged: (v) => setState(() => _frequency = v),
+            child: _frequency == RecurrenceFrequency.weekly ? _endBranch(context) : null,
+          ),
+          _RecurrenceRadio(
+            value: RecurrenceFrequency.monthly,
+            groupValue: _frequency,
+            label: _name(RecurrenceFrequency.monthly),
+            onChanged: (v) => setState(() => _frequency = v),
+            child: _frequency == RecurrenceFrequency.monthly ? _endBranch(context) : null,
+          ),
         ],
       ),
       actions: [
@@ -987,6 +893,32 @@ class _RecurrenceDialogState extends State<_RecurrenceDialog> {
       ],
     );
   }
+}
+
+class _RecurrenceRadio extends StatelessWidget {
+  const _RecurrenceRadio({required this.value, required this.groupValue, required this.label, required this.onChanged, this.child});
+  final RecurrenceFrequency value;
+  final RecurrenceFrequency groupValue;
+  final String label;
+  final ValueChanged<RecurrenceFrequency> onChanged;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        children: [
+          RadioListTile<RecurrenceFrequency>(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            value: value,
+            groupValue: groupValue,
+            onChanged: (v) {
+              if (v != null) onChanged(v);
+            },
+            title: Text(label),
+          ),
+          if (child != null) child!,
+        ],
+      );
 }
 
 class _ReminderSettings {
@@ -1030,8 +962,7 @@ class _ReminderDialogState extends State<_ReminderDialog> {
     super.dispose();
   }
 
-  int _value(TextEditingController c, int fallback, int min, int max) =>
-      (int.tryParse(c.text.trim()) ?? fallback).clamp(min, max).toInt();
+  int _value(TextEditingController c, int fallback, int min, int max) => (int.tryParse(c.text.trim()) ?? fallback).clamp(min, max).toInt();
 
   void _save() {
     FocusManager.instance.primaryFocus?.unfocus();
@@ -1053,12 +984,7 @@ class _ReminderDialogState extends State<_ReminderDialog> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Báo trước'),
-              value: _enabled,
-              onChanged: (v) => setState(() => _enabled = v),
-            ),
+            SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Báo trước'), value: _enabled, onChanged: (v) => setState(() => _enabled = v)),
             const SizedBox(height: 4),
             _NumberSetting(label: 'Báo trước', suffix: 'phút', controller: _minutes, enabled: _enabled, autofocus: _enabled),
             const SizedBox(height: 12),
