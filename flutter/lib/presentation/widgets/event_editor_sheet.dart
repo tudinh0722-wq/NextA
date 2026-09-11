@@ -150,7 +150,12 @@ class _EventEditorSheetState extends State<_EventEditorSheet> {
                 padding: const EdgeInsets.fromLTRB(24, 4, 24, 4),
                 child: Row(
                   children: [
-                    const Expanded(child: Text('Chọn thời gian', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700))),
+                    const Expanded(
+                      child: Text(
+                        'Chọn thời gian',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                      ),
+                    ),
                     TextButton(onPressed: () => Navigator.pop(c), child: const Text('Xong')),
                   ],
                 ),
@@ -184,7 +189,11 @@ class _EventEditorSheetState extends State<_EventEditorSheet> {
   Future<void> _pickReminder() async {
     final result = await showDialog<_ReminderSettings>(
       context: context,
-      builder: (_) => _ReminderDialog(minutes: _reminderMinutes, repeatCount: _reminderRepeatCount, interval: _reminderRepeatIntervalMinutes),
+      builder: (_) => _ReminderDialog(
+        minutes: _reminderMinutes,
+        repeatCount: _reminderRepeatCount,
+        interval: _reminderRepeatIntervalMinutes,
+      ),
     );
     if (result == null) return;
     setState(() {
@@ -207,18 +216,28 @@ class _EventEditorSheetState extends State<_EventEditorSheet> {
       context: context,
       showDragHandle: true,
       builder: (c) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final p in [0, 1, 2])
-              ListTile(
-                leading: _PriorityDot(priority: p),
-                title: Text(_priorityName(p)),
-                trailing: p == _priority ? const Icon(Icons.check_rounded) : null,
-                onTap: () => Navigator.pop(c, p),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(8, 8, 8, 4),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Mức độ quan trọng', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                ),
               ),
-            const SizedBox(height: 8),
-          ],
+              for (final p in [0, 1, 2])
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                  leading: _PriorityDot(priority: p, size: 18),
+                  title: Text(_priorityName(p)),
+                  trailing: p == _priority ? const Icon(Icons.check_rounded) : null,
+                  onTap: () => Navigator.pop(c, p),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -226,6 +245,7 @@ class _EventEditorSheetState extends State<_EventEditorSheet> {
   }
 
   void _save() {
+    FocusManager.instance.primaryFocus?.unfocus();
     final title = _title.text.trim();
     if (title.isEmpty) return;
     if (!_end.isAfter(_start)) _end = _start.add(const Duration(hours: 1));
@@ -258,15 +278,18 @@ class _EventEditorSheetState extends State<_EventEditorSheet> {
   Widget build(BuildContext context) {
     final s = Theme.of(context).colorScheme;
     return Material(
-      color: s.surfaceContainerLowest,
+      color: s.surface,
       child: SafeArea(
         top: true,
         bottom: false,
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
-              child: _EditorTabs(selectedBulk: _bulkImportTab, onChanged: (v) => setState(() => _bulkImportTab = v)),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+              child: _EditorTabs(
+                selectedBulk: _bulkImportTab,
+                onChanged: (v) => setState(() => _bulkImportTab = v),
+              ),
             ),
             Expanded(
               child: _bulkImportTab
@@ -299,6 +322,531 @@ class _EventEditorSheetState extends State<_EventEditorSheet> {
     );
   }
 }
+
+class _EventContent extends StatelessWidget {
+  const _EventContent({
+    required this.title,
+    required this.location,
+    required this.note,
+    required this.start,
+    required this.end,
+    required this.priority,
+    required this.reminderMinutes,
+    required this.reminderRepeatCount,
+    required this.reminderRepeatIntervalMinutes,
+    required this.recurrence,
+    required this.onPriority,
+    required this.onStartDate,
+    required this.onStartTime,
+    required this.onEndDate,
+    required this.onEndTime,
+    required this.onReminder,
+    required this.onRecurrence,
+    required this.onCancel,
+    required this.onSave,
+  });
+
+  final TextEditingController title;
+  final TextEditingController location;
+  final TextEditingController note;
+  final DateTime start;
+  final DateTime end;
+  final int priority;
+  final int reminderMinutes;
+  final int reminderRepeatCount;
+  final int reminderRepeatIntervalMinutes;
+  final RecurrenceRule recurrence;
+  final VoidCallback onPriority;
+  final VoidCallback onStartDate;
+  final VoidCallback onStartTime;
+  final VoidCallback onEndDate;
+  final VoidCallback onEndTime;
+  final VoidCallback onReminder;
+  final VoidCallback onRecurrence;
+  final VoidCallback onCancel;
+  final VoidCallback onSave;
+
+  String _date(DateTime d) => 'T.${d.weekday}, ${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+
+  String _time(DateTime d) {
+    final hour = d.hour % 12 == 0 ? 12 : d.hour % 12;
+    final minute = d.minute.toString().padLeft(2, '0');
+    final suffix = d.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $suffix';
+  }
+
+  String _recurrenceLabel() => switch (recurrence.frequency) {
+    RecurrenceFrequency.none => 'Không lặp lại',
+    RecurrenceFrequency.daily => 'Hàng ngày',
+    RecurrenceFrequency.weekly => 'Hàng tuần',
+    RecurrenceFrequency.weekdays => 'Thứ 2 – Thứ 6',
+    RecurrenceFrequency.monthly => 'Hàng tháng',
+  };
+
+  String _recurrenceDetail() {
+    if (recurrence.frequency == RecurrenceFrequency.none) return 'Không lặp lại';
+    return switch (recurrence.endMode) {
+      RecurrenceEndMode.count => 'Tối đa ${recurrence.count ?? 20} lần',
+      RecurrenceEndMode.until => 'Đến ngày ${_date(recurrence.until ?? DateTime.now()).substring(3)}',
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = Theme.of(context).colorScheme;
+    final reminderLabel = reminderMinutes > 0 ? '$reminderMinutes phút' : 'Tắt';
+    final repeatLabel = reminderMinutes > 0 && reminderRepeatCount > 0
+        ? '$reminderRepeatCount lần • mỗi $reminderRepeatIntervalMinutes phút'
+        : 'Không báo lại';
+
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(24, 4, 24, 24 + MediaQuery.viewInsetsOf(context).bottom),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: title,
+                        autofocus: true,
+                        maxLength: 47,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          hintText: 'Tên sự kiện',
+                          border: InputBorder.none,
+                          counterText: '',
+                          hintStyle: TextStyle(fontSize: 25),
+                          contentPadding: EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    IconButton(
+                      tooltip: 'Mức độ quan trọng',
+                      onPressed: onPriority,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+                      icon: _PriorityDot(priority: priority, size: 14),
+                    ),
+                  ],
+                ),
+                Divider(color: s.outlineVariant),
+                const SizedBox(height: 14),
+                _DateTimeColumns(
+                  start: start,
+                  end: end,
+                  date: _date,
+                  time: _time,
+                  onStartDate: onStartDate,
+                  onStartTime: onStartTime,
+                  onEndDate: onEndDate,
+                  onEndTime: onEndTime,
+                ),
+                const SizedBox(height: 18),
+                _EditorTextField(
+                  controller: location,
+                  icon: Icons.location_on_outlined,
+                  hintText: 'Địa chỉ',
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: 10),
+                _EditorTextField(
+                  controller: note,
+                  icon: Icons.notes_outlined,
+                  hintText: 'Ghi chú',
+                  minLines: 1,
+                  maxLines: 3,
+                  textInputAction: TextInputAction.newline,
+                ),
+                const SizedBox(height: 14),
+                Divider(color: s.outlineVariant),
+                const SizedBox(height: 4),
+                _EditorOptionTile(
+                  icon: Icons.notifications_none_rounded,
+                  title: 'Báo trước',
+                  subtitle: reminderLabel,
+                  onTap: onReminder,
+                ),
+                _EditorOptionTile(
+                  icon: Icons.repeat_rounded,
+                  title: 'Báo lại',
+                  subtitle: repeatLabel,
+                  onTap: onReminder,
+                ),
+                _EditorOptionTile(
+                  icon: Icons.sync_rounded,
+                  title: 'Lặp lại',
+                  subtitle: _recurrenceLabel() == 'Không lặp lại'
+                      ? _recurrenceLabel()
+                      : '${_recurrenceLabel()} • ${_recurrenceDetail()}',
+                  onTap: onRecurrence,
+                ),
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
+          child: _BottomActionFab(onCancel: onCancel, onSave: onSave),
+        ),
+      ],
+    );
+  }
+}
+
+class _DateTimeColumns extends StatelessWidget {
+  const _DateTimeColumns({
+    required this.start,
+    required this.end,
+    required this.date,
+    required this.time,
+    required this.onStartDate,
+    required this.onStartTime,
+    required this.onEndDate,
+    required this.onEndTime,
+  });
+
+  final DateTime start;
+  final DateTime end;
+  final String Function(DateTime) date;
+  final String Function(DateTime) time;
+  final VoidCallback onStartDate;
+  final VoidCallback onStartTime;
+  final VoidCallback onEndDate;
+  final VoidCallback onEndTime;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: _DateTimeColumn(
+            label: 'Bắt đầu',
+            value: start,
+            date: date,
+            time: time,
+            onDate: onStartDate,
+            onTime: onStartTime,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 30, left: 6, right: 6),
+          child: Icon(Icons.arrow_forward_rounded, size: 28, color: text.bodyMedium?.color),
+        ),
+        Expanded(
+          child: _DateTimeColumn(
+            label: 'Kết thúc',
+            value: end,
+            date: date,
+            time: time,
+            onDate: onEndDate,
+            onTime: onEndTime,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DateTimeColumn extends StatelessWidget {
+  const _DateTimeColumn({
+    required this.label,
+    required this.value,
+    required this.date,
+    required this.time,
+    required this.onDate,
+    required this.onTime,
+  });
+
+  final String label;
+  final DateTime value;
+  final String Function(DateTime) date;
+  final String Function(DateTime) time;
+  final VoidCallback onDate;
+  final VoidCallback onTime;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(color: s.onSurfaceVariant, fontSize: 14)),
+        const SizedBox(height: 7),
+        InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onDate,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
+            child: Row(
+              children: [
+                const Icon(Icons.calendar_today_outlined, size: 20),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    date(value),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded, size: 20),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 3),
+        InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTime,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
+            child: Row(
+              children: [
+                const Icon(Icons.schedule_outlined, size: 20),
+                const SizedBox(width: 9),
+                Text(time(value), style: const TextStyle(fontSize: 16)),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EditorTextField extends StatelessWidget {
+  const _EditorTextField({
+    required this.controller,
+    required this.icon,
+    required this.hintText,
+    this.minLines,
+    this.maxLines = 1,
+    this.textInputAction,
+  });
+
+  final TextEditingController controller;
+  final IconData icon;
+  final String hintText;
+  final int? minLines;
+  final int maxLines;
+  final TextInputAction? textInputAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      minLines: minLines,
+      maxLines: maxLines,
+      textInputAction: textInputAction,
+      decoration: InputDecoration(
+        prefixIcon: Icon(icon),
+        hintText: hintText,
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
+        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+      ),
+    );
+  }
+}
+
+class _EditorOptionTile extends StatelessWidget {
+  const _EditorOptionTile({required this.icon, required this.title, required this.subtitle, required this.onTap});
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 1),
+      leading: Icon(icon),
+      title: Text(title),
+      subtitle: Text(subtitle),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      onTap: onTap,
+    );
+  }
+}
+
+class _BottomActionFab extends StatelessWidget {
+  const _BottomActionFab({required this.onCancel, required this.onSave});
+
+  final VoidCallback onCancel;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = Theme.of(context).colorScheme;
+    return Material(
+      color: s.surfaceContainerHigh,
+      elevation: 7,
+      shadowColor: s.shadow.withValues(alpha: 0.20),
+      borderRadius: BorderRadius.circular(32),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(32),
+        onTap: onSave,
+        child: SizedBox(
+          height: 62,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Expanded(
+                child: InkWell(
+                  borderRadius: const BorderRadius.horizontal(left: Radius.circular(32)),
+                  onTap: onCancel,
+                  child: const Center(
+                    child: Text('Thoát', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 1),
+              Expanded(
+                child: InkWell(
+                  borderRadius: const BorderRadius.horizontal(right: Radius.circular(32)),
+                  onTap: onSave,
+                  child: const Center(
+                    child: Text('Lưu', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EditorTabs extends StatelessWidget {
+  const _EditorTabs({required this.selectedBulk, required this.onChanged});
+  final bool selectedBulk;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = Theme.of(context).colorScheme;
+    return Material(
+      color: s.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(34),
+      child: SizedBox(
+        height: 58,
+        child: Row(
+          children: [
+            Expanded(
+              child: _EditorTab(
+                selected: !selectedBulk,
+                label: 'Thêm sự kiện',
+                icon: Icons.event_available_outlined,
+                onTap: () => onChanged(false),
+              ),
+            ),
+            Expanded(
+              child: _EditorTab(
+                selected: selectedBulk,
+                label: 'AI Import',
+                icon: Icons.auto_awesome_outlined,
+                onTap: () => onChanged(true),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EditorTab extends StatelessWidget {
+  const _EditorTab({required this.selected, required this.label, required this.icon, required this.onTap});
+  final bool selected;
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.all(3),
+      child: Material(
+        color: selected ? s.surfaceContainerHighest : Colors.transparent,
+        borderRadius: BorderRadius.circular(30),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(30),
+          onTap: onTap,
+          child: Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 22, color: selected ? s.onSurface : s.onSurfaceVariant),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    color: selected ? s.onSurface : s.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BulkImportSlot extends StatelessWidget {
+  const _BulkImportSlot();
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'AI Import sẽ hỗ trợ nhập nhiều sự kiện từ nội dung lịch.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+          ),
+        ),
+      );
+}
+
+const _priorityColors = <Color>[
+  Color(0xFF8FC7FF),
+  Color(0xFFFFB36B),
+  Color(0xFFFF8C92),
+];
+
+class _PriorityDot extends StatelessWidget {
+  const _PriorityDot({required this.priority, this.size = 16});
+  final int priority;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: _priorityColors[priority.clamp(0, 2)],
+          shape: BoxShape.circle,
+        ),
+      );
+}
+
+String _priorityName(int p) => switch (p) {
+  0 => 'Bình thường',
+  1 => 'Quan trọng',
+  _ => 'Rất quan trọng',
+};
 
 class _RecurrenceDialog extends StatefulWidget {
   const _RecurrenceDialog({required this.initial, required this.start});
@@ -339,14 +887,6 @@ class _RecurrenceDialogState extends State<_RecurrenceDialog> {
     RecurrenceFrequency.monthly => 'Hàng tháng',
   };
 
-  IconData _icon(RecurrenceFrequency f) => switch (f) {
-    RecurrenceFrequency.none => Icons.block_outlined,
-    RecurrenceFrequency.daily => Icons.today_outlined,
-    RecurrenceFrequency.weekly => Icons.view_week_outlined,
-    RecurrenceFrequency.weekdays => Icons.work_outline,
-    RecurrenceFrequency.monthly => Icons.calendar_month_outlined,
-  };
-
   Future<void> _pickUntil() async {
     final picked = await showDatePicker(
       context: context,
@@ -384,40 +924,59 @@ class _RecurrenceDialogState extends State<_RecurrenceDialog> {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (final f in RecurrenceFrequency.values)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(_icon(f)),
-              title: Text(_name(f)),
-              trailing: f == _frequency ? const Icon(Icons.check_rounded) : null,
-              onTap: () => setState(() => _frequency = f),
-            ),
+          DropdownButtonFormField<RecurrenceFrequency>(
+            initialValue: _frequency,
+            decoration: const InputDecoration(labelText: 'Lặp lại'),
+            items: RecurrenceFrequency.values
+                .map((f) => DropdownMenuItem(value: f, child: Text(_name(f))))
+                .toList(),
+            onChanged: (v) => setState(() => _frequency = v ?? _frequency),
+          ),
           if (_frequency != RecurrenceFrequency.none) ...[
-            const Divider(height: 16),
-            const Align(alignment: Alignment.centerLeft, child: Text('Kết thúc lặp', style: TextStyle(fontWeight: FontWeight.w700))),
+            const SizedBox(height: 16),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Kết thúc lặp', style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
             RadioListTile<RecurrenceEndMode>(
               contentPadding: EdgeInsets.zero,
               value: RecurrenceEndMode.count,
               groupValue: _endMode,
               onChanged: (v) => setState(() => _endMode = v!),
-              title: Row(children: [
-                const Text('Sau'),
-                const SizedBox(width: 12),
-                SizedBox(width: 72, child: TextField(controller: _count, enabled: _endMode == RecurrenceEndMode.count, keyboardType: TextInputType.number, textAlign: TextAlign.center, decoration: const InputDecoration(isDense: true))),
-                const SizedBox(width: 8),
-                const Text('lần'),
-              ]),
+              title: Row(
+                children: [
+                  const Text('Sau'),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 72,
+                    child: TextField(
+                      controller: _count,
+                      enabled: _endMode == RecurrenceEndMode.count,
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      decoration: const InputDecoration(isDense: true),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text('lần'),
+                ],
+              ),
             ),
             RadioListTile<RecurrenceEndMode>(
               contentPadding: EdgeInsets.zero,
               value: RecurrenceEndMode.until,
               groupValue: _endMode,
               onChanged: (v) => setState(() => _endMode = v!),
-              title: Row(children: [
-                const Text('Đến ngày'),
-                const Spacer(),
-                TextButton(onPressed: _endMode == RecurrenceEndMode.until ? _pickUntil : null, child: Text('${_until.day.toString().padLeft(2, '0')}/${_until.month.toString().padLeft(2, '0')}/${_until.year}')),
-              ]),
+              title: Row(
+                children: [
+                  const Text('Đến ngày'),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: _endMode == RecurrenceEndMode.until ? _pickUntil : null,
+                    child: Text('${_until.day.toString().padLeft(2, '0')}/${_until.month.toString().padLeft(2, '0')}/${_until.year}'),
+                  ),
+                ],
+              ),
             ),
           ],
         ],
@@ -489,30 +1048,30 @@ class _ReminderDialogState extends State<_ReminderDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    scrollable: true,
-    title: const Text('Báo trước'),
-    content: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Báo trước'),
-          value: _enabled,
-          onChanged: (v) => setState(() => _enabled = v),
+        scrollable: true,
+        title: const Text('Báo trước'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Báo trước'),
+              value: _enabled,
+              onChanged: (v) => setState(() => _enabled = v),
+            ),
+            const SizedBox(height: 4),
+            _NumberSetting(label: 'Báo trước', suffix: 'phút', controller: _minutes, enabled: _enabled, autofocus: _enabled),
+            const SizedBox(height: 12),
+            _NumberSetting(label: 'Báo lại', suffix: 'lần', controller: _repeatCount, enabled: _enabled),
+            const SizedBox(height: 12),
+            _NumberSetting(label: 'Khoảng cách', suffix: 'phút', controller: _interval, enabled: _enabled),
+          ],
         ),
-        const SizedBox(height: 4),
-        _NumberSetting(label: 'Báo trước', suffix: 'phút', controller: _minutes, enabled: _enabled, autofocus: _enabled),
-        const SizedBox(height: 12),
-        _NumberSetting(label: 'Lặp lại nếu chưa xác nhận', suffix: 'lần', controller: _repeatCount, enabled: _enabled),
-        const SizedBox(height: 12),
-        _NumberSetting(label: 'Khoảng cách giữa 2 lần', suffix: 'phút', controller: _interval, enabled: _enabled),
-      ],
-    ),
-    actions: [
-      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
-      FilledButton(onPressed: _save, child: const Text('Lưu')),
-    ],
-  );
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
+          FilledButton(onPressed: _save, child: const Text('Lưu')),
+        ],
+      );
 }
 
 class _NumberSetting extends StatelessWidget {
@@ -530,125 +1089,20 @@ class _NumberSetting extends StatelessWidget {
       children: [
         Expanded(child: Text(label, style: TextStyle(color: enabled ? null : s.onSurfaceVariant))),
         const SizedBox(width: 12),
-        SizedBox(width: 64, child: TextField(controller: controller, autofocus: autofocus, enabled: enabled, textAlign: TextAlign.center, keyboardType: const TextInputType.numberWithOptions(decimal: false), decoration: const InputDecoration(isDense: true))),
+        SizedBox(
+          width: 64,
+          child: TextField(
+            controller: controller,
+            autofocus: autofocus,
+            enabled: enabled,
+            textAlign: TextAlign.center,
+            keyboardType: const TextInputType.numberWithOptions(decimal: false),
+            decoration: const InputDecoration(isDense: true),
+          ),
+        ),
         const SizedBox(width: 8),
         SizedBox(width: 42, child: Text(suffix)),
       ],
     );
   }
 }
-
-class _EventContent extends StatelessWidget {
-  const _EventContent({required this.title, required this.location, required this.note, required this.start, required this.end, required this.priority, required this.reminderMinutes, required this.reminderRepeatCount, required this.reminderRepeatIntervalMinutes, required this.recurrence, required this.onPriority, required this.onStartDate, required this.onStartTime, required this.onEndDate, required this.onEndTime, required this.onReminder, required this.onRecurrence, required this.onCancel, required this.onSave});
-  final TextEditingController title;
-  final TextEditingController location;
-  final TextEditingController note;
-  final DateTime start;
-  final DateTime end;
-  final int priority;
-  final int reminderMinutes;
-  final int reminderRepeatCount;
-  final int reminderRepeatIntervalMinutes;
-  final RecurrenceRule recurrence;
-  final VoidCallback onPriority, onStartDate, onStartTime, onEndDate, onEndTime, onReminder, onRecurrence, onCancel, onSave;
-
-  String _date(DateTime d) => '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-  String _time(DateTime d) => '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-  String _recurrenceLabel() => switch (recurrence.frequency) {
-    RecurrenceFrequency.none => 'Không lặp lại',
-    RecurrenceFrequency.daily => 'Hàng ngày',
-    RecurrenceFrequency.weekly => 'Hàng tuần',
-    RecurrenceFrequency.weekdays => 'Thứ 2 – Thứ 6',
-    RecurrenceFrequency.monthly => 'Hàng tháng',
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    final s = Theme.of(context).colorScheme;
-    final endText = recurrence.frequency == RecurrenceFrequency.none ? '' : recurrence.endMode == RecurrenceEndMode.count ? 'Tối đa ${recurrence.count ?? 20} lần' : 'Đến ${_date(recurrence.until ?? DateTime.now())}';
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Expanded(child: TextField(controller: title, autofocus: true, decoration: const InputDecoration(hintText: 'Tên sự kiện', border: InputBorder.none, hintStyle: TextStyle(fontSize: 22)))),
-                const SizedBox(width: 8),
-                IconButton(onPressed: onPriority, icon: _PriorityDot(priority: priority)),
-              ]),
-              const Divider(),
-              _DateTimeRow(icon: Icons.play_arrow_rounded, label: 'Bắt đầu', value: '${_date(start)}  ${_time(start)}', onDate: onStartDate, onTime: onStartTime),
-              _DateTimeRow(icon: Icons.stop_rounded, label: 'Kết thúc', value: '${_date(end)}  ${_time(end)}', onDate: onEndDate, onTime: onEndTime),
-              const SizedBox(height: 8),
-              TextField(controller: location, decoration: const InputDecoration(prefixIcon: Icon(Icons.location_on_outlined), hintText: 'Địa điểm')),
-              const SizedBox(height: 8),
-              TextField(controller: note, maxLines: 3, decoration: const InputDecoration(prefixIcon: Icon(Icons.notes_outlined), hintText: 'Ghi chú')),
-              const SizedBox(height: 8),
-              ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.notifications_none_rounded), title: Text(reminderMinutes > 0 ? 'Báo trước $reminderMinutes phút' : 'Không nhắc nhở'), trailing: const Icon(Icons.chevron_right_rounded), onTap: onReminder),
-              ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.repeat_rounded), title: const Text('Lặp lại'), subtitle: Text(_recurrenceLabel()), trailing: const Icon(Icons.chevron_right_rounded), onTap: onRecurrence),
-              if (endText.isNotEmpty) Padding(padding: const EdgeInsets.only(left: 56, bottom: 8), child: Text(endText, style: TextStyle(color: s.onSurfaceVariant))),
-            ]),
-          ),
-        ),
-        Material(
-          color: s.surfaceContainer,
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-              child: Row(children: [
-                Expanded(child: OutlinedButton(onPressed: onCancel, child: const Text('Thoát'))),
-                const SizedBox(width: 12),
-                Expanded(child: FilledButton(onPressed: onSave, child: const Text('Lưu'))),
-              ]),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DateTimeRow extends StatelessWidget {
-  const _DateTimeRow({required this.icon, required this.label, required this.value, required this.onDate, required this.onTime});
-  final IconData icon;
-  final String label;
-  final String value;
-  final VoidCallback onDate;
-  final VoidCallback onTime;
-
-  @override
-  Widget build(BuildContext context) => ListTile(contentPadding: EdgeInsets.zero, leading: Icon(icon), title: Text(label), subtitle: Text(value, style: const TextStyle(fontWeight: FontWeight.w700)), trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-    IconButton(onPressed: onDate, icon: const Icon(Icons.calendar_today_outlined)),
-    IconButton(onPressed: onTime, icon: const Icon(Icons.schedule_outlined)),
-  ]));
-}
-
-class _EditorTabs extends StatelessWidget {
-  const _EditorTabs({required this.selectedBulk, required this.onChanged});
-  final bool selectedBulk;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) => SegmentedButton<bool>(segments: const [ButtonSegment(value: false, label: Text('Sự kiện')), ButtonSegment(value: true, label: Text('AI Import'))], selected: {selectedBulk}, onSelectionChanged: (s) => onChanged(s.first));
-}
-
-class _BulkImportSlot extends StatelessWidget {
-  const _BulkImportSlot();
-  @override
-  Widget build(BuildContext context) => Center(child: Padding(padding: const EdgeInsets.all(24), child: Text('AI Import sẽ hỗ trợ nhập nhiều sự kiện từ nội dung lịch.', textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))));
-}
-
-class _PriorityDot extends StatelessWidget {
-  const _PriorityDot({required this.priority});
-  final int priority;
-  @override
-  Widget build(BuildContext context) {
-    final s = Theme.of(context).colorScheme;
-    final color = priority == 2 ? s.error : priority == 1 ? s.tertiary : s.primary;
-    return Container(width: 18, height: 18, decoration: BoxDecoration(color: color, shape: BoxShape.circle));
-  }
-}
-
-String _priorityName(int p) => p == 2 ? 'Cao' : p == 1 ? 'Trung bình' : 'Thường';
