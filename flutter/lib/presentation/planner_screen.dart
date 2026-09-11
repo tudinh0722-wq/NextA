@@ -302,46 +302,53 @@ class _SearchDialogState extends State<_SearchDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Tìm kiếm'),
-      content: SizedBox(
-        width: 420,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _controller,
-              autofocus: true,
-              onChanged: (_) => _search(),
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search_rounded),
-                hintText: 'Tên, vị trí hoặc ghi chú',
-              ),
-            ),
-            const SizedBox(height: 12),
-            if (_results.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(20),
-                child: Text('Không tìm thấy sự kiện'),
-              )
-            else
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 360),
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: _results.length,
-                  itemBuilder: (_, index) {
-                    final event = _results[index];
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(event.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      subtitle: Text('${event.start.day}/${event.start.month}/${event.start.year} · ${event.location ?? 'Không có vị trí'}'),
-                      onTap: () => Navigator.pop(context, event),
-                    );
-                  },
+    final viewInsets = MediaQuery.viewInsetsOf(context);
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: AnimatedPadding(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: EdgeInsets.only(bottom: viewInsets.bottom > 0 ? 8 : 0),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: screenHeight - 48 - viewInsets.bottom),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Tìm kiếm', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _controller,
+                  autofocus: true,
+                  onChanged: (_) => _search(),
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search_rounded),
+                    hintText: 'Tên, vị trí hoặc ghi chú',
+                  ),
                 ),
-              ),
-          ],
+                const SizedBox(height: 12),
+                Expanded(
+                  child: _results.isEmpty
+                      ? const Center(child: Text('Không tìm thấy sự kiện'))
+                      : ListView.builder(
+                          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                          itemCount: _results.length,
+                          itemBuilder: (_, index) {
+                            final event = _results[index];
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(event.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                              subtitle: Text('${event.start.day}/${event.start.month}/${event.start.year} · ${event.location ?? 'Không có vị trí'}'),
+                              onTap: () => Navigator.pop(context, event),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -387,14 +394,15 @@ class PlannerTopBar extends StatelessWidget {
             padding: const EdgeInsets.only(right: 8),
             child: InkWell(
               onTap: onToday,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(18),
               child: Container(
                 constraints: const BoxConstraints(minWidth: 38, minHeight: 34),
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.transparent,
+                  border: Border.all(color: scheme.outline, width: 1.4),
+                  borderRadius: BorderRadius.circular(18),
                 ),
                 child: Text('$today', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
               ),
