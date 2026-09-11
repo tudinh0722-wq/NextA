@@ -1,5 +1,18 @@
 # NextA Changelog
 
+## 2026-09-11 — Event editor priority and recurrence refinement
+
+Decisions:
+- Priority is now selected inline from the title dot; tapping it expands a horizontal row of three pastel dots (blue, orange, red) at the same location.
+- Priority names are removed from the main editor UI.
+- Title is capped at 47 characters; address and note are capped at 30 characters.
+- Start/end date-time columns no longer show calendar or clock icons; the date and time text remain directly tappable.
+- Removed the horizontal divider below the note field.
+- `Lặp lại` is muted when it is `Không lặp lại`.
+- Recurrence opens directly as a radio-choice dialog with `Không lặp lại`, `Hàng ngày`, `Hàng tuần`, and `Hàng tháng`.
+- Selecting a recurring frequency expands an indented section immediately below it with `Kết thúc sau X ngày` or `Đến ngày X` radio branches.
+- The `Sau X ngày` branch is converted to a finite `until` date from the event start, so existing recurrence persistence and bounded generation remain compatible.
+
 ## 2026-09-11 — Add Event reference UI refinement
 
 Decisions:
