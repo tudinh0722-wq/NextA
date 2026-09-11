@@ -68,6 +68,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
     });
   }
 
+  void _shiftWeek(int delta) => _selectDay(_selected.add(Duration(days: 7 * delta)));
+
   void _handleVerticalSwipe(DragEndDetails details) {
     final velocity = details.primaryVelocity ?? 0;
     if (velocity.abs() < 220) return;
@@ -126,7 +128,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
                       onHorizontalDragEnd: (details) {
                         final velocity = details.primaryVelocity ?? 0;
                         if (velocity.abs() > 200) {
-                          _shiftMonth(velocity < 0 ? 1 : -1);
+                          if (_expanded) {
+                            _shiftMonth(velocity < 0 ? 1 : -1);
+                          } else {
+                            _shiftWeek(velocity < 0 ? 1 : -1);
+                          }
                         }
                       },
                       child: PlannerCalendar(
