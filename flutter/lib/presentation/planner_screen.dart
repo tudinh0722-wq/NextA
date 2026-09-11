@@ -148,6 +148,20 @@ class _PlannerScreenState extends State<PlannerScreen> {
     });
   }
 
+  Future<void> _addEventForDay(DateTime day) async {
+    final result = await showEventEditor(
+      context,
+      selectedDay: DateTime(day.year, day.month, day.day),
+    );
+    if (!mounted || result == null || result.events.isEmpty) return;
+    await widget.database.upsertAll(result.events);
+    if (!mounted) return;
+    setState(() {
+      _events.addAll(result.events);
+      _events.sort((a, b) => a.start.compareTo(b.start));
+    });
+  }
+
   String _selectedHeader() {
     const weekdays = ['T.2', 'T.3', 'T.4', 'T.5', 'T.6', 'T.7', 'CN'];
     return '${_selected.day}   ${weekdays[_selected.weekday - 1]}';
@@ -172,7 +186,15 @@ class _PlannerScreenState extends State<PlannerScreen> {
                         final velocity = details.primaryVelocity ?? 0;
                         if (velocity.abs() > 200) _expanded ? _shiftMonth(velocity < 0 ? 1 : -1) : _shiftWeek(velocity < 0 ? 1 : -1);
                       },
-                      child: PlannerCalendar(month: _month, selected: _selected, expanded: _expanded, eventsFor: _eventsFor, onSelect: _selectDay, animationDuration: _pageAnimationDuration),
+                      child: PlannerCalendar(
+                        month: _month,
+                        selected: _selected,
+                        expanded: _expanded,
+                        eventsFor: _eventsFor,
+                        onSelect: _selectDay,
+                        onLongPress: _addEventForDay,
+                        animationDuration: _pageAnimationDuration,
+                      ),
                     ),
                     Expanded(
                       child: GestureDetector(
@@ -183,7 +205,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                         },
                         child: Stack(
                           children: [
-                            PlannerAgenda(header: _selectedHeader(), events: _eventsFor(_selected), policy: _countdownPolicy, onEventTap: _editEvent, onEmptyTap: () => _editEvent(null)),
+                            PlannerAgenda(header: _selectedHeader(), events: _eventsFor(_selected), policy: _countdownPolicy, onEventTap: _editEvent),
                             Positioned(left: 28, right: 28, bottom: 14, child: PlannerFab(label: 'Thêm vào ${_selected.day} Th${_selected.month}', onTap: () => _editEvent(null))),
                           ],
                         ),
