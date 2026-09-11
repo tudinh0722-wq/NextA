@@ -13,7 +13,7 @@ class EventDatabase {
     final path = p.join(databasesPath, 'nexta.db');
     final db = await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: (db, _) async {
         await db.execute('''
           CREATE TABLE events (
@@ -46,6 +46,13 @@ class EventDatabase {
           await db.execute('ALTER TABLE events ADD COLUMN recurrence_count INTEGER');
           await db.execute('UPDATE events SET recurrence_end_mode = 0, recurrence_count = 20 WHERE recurrence_frequency IS NOT NULL AND recurrence_frequency != 0');
           await db.execute('CREATE INDEX IF NOT EXISTS idx_events_recurrence_id ON events(recurrence_id)');
+        }
+        if (oldVersion < 3) {
+          final columns = await db.rawQuery('PRAGMA table_info(events)');
+          final hasPriority = columns.any((row) => row['name'] == 'priority');
+          if (!hasPriority) {
+            await db.execute('ALTER TABLE events ADD COLUMN priority INTEGER NOT NULL DEFAULT 0');
+          }
         }
       },
     );
@@ -111,7 +118,7 @@ class EventDatabase {
         'end_ms': event.end.millisecondsSinceEpoch,
         'location': event.location,
         'note': event.note,
-        'priority': event.priority,
+        'priority': event.priority.clamp(0, 2).toInt(),
         'recurrence_id': event.recurrenceId,
         'recurrence_frequency': event.recurrenceRule?.frequency.index,
         'recurrence_interval': event.recurrenceRule?.interval,
@@ -142,7 +149,7 @@ class EventDatabase {
       end: DateTime.fromMillisecondsSinceEpoch(row['end_ms'] as int),
       location: row['location'] as String?,
       note: row['note'] as String?,
-      priority: (row['priority'] as int?) ?? 0,
+      priority: ((row['priority'] as int?) ?? 0).clamp(0, 2).toInt(),
       recurrenceId: row['recurrence_id'] as String?,
       recurrenceRule: recurrenceRule,
       reminderMinutes: (row['reminder_minutes'] as int?) ?? 10,
