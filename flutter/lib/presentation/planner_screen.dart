@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../application/alarm_scheduler.dart';
 import '../application/countdown_policy.dart';
+import '../application/tts_service.dart';
 import '../data/event_database.dart';
 import '../domain/event.dart';
 import 'widgets/event_editor_sheet.dart';
@@ -16,14 +17,17 @@ class PlannerScreen extends StatefulWidget {
     required this.events,
     required this.database,
     required this.scheduler,
+    required this.tts,
     this.themeMode = ThemeMode.system,
     this.seedColor = const Color(0xFF1A73E8),
     this.onThemeChanged,
     this.onSeedColorChanged,
   });
+
   final List<NextAEvent> events;
   final EventDatabase database;
   final AlarmScheduler scheduler;
+  final TtsService tts;
   final ThemeMode themeMode;
   final Color seedColor;
   final ValueChanged<ThemeMode>? onThemeChanged;
@@ -65,7 +69,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
     _countdownTimer = Timer(Duration(seconds: seconds), () {
       if (!mounted) return;
       setState(() {});
-      _countdownTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      _countdownTimer =
+          Timer.periodic(const Duration(minutes: 1), (_) {
         if (mounted) setState(() {});
       });
     });
@@ -87,7 +92,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
         _month = DateTime(day.year, day.month);
       });
 
-  void _shiftDay(int delta) => _selectDay(_selected.add(Duration(days: delta)));
+  void _shiftDay(int delta) =>
+      _selectDay(_selected.add(Duration(days: delta)));
 
   void _shiftMonth(int delta) {
     final target = DateTime(_month.year, _month.month + delta);
@@ -153,8 +159,10 @@ class _PlannerScreenState extends State<PlannerScreen> {
   }
 
   Future<void> _editEvent(NextAEvent? event) async {
-    final result =
-        await showEventEditor(context, event: event, selectedDay: _selected);
+    final result = await showEventEditor(
+        context,
+        event: event,
+        selectedDay: _selected);
     if (!mounted || result == null) return;
 
     if (result.deleted && event != null) {
@@ -163,7 +171,6 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
       if (scope == 'series' && event.recurrenceId != null) {
         await widget.database.deleteSeries(event.recurrenceId!);
-        // Cancel alarms for entire series — cancel by id for each removed event.
         if (!mounted) return;
         final removed = _events
             .where((e) => e.recurrenceId == event.recurrenceId)
@@ -171,9 +178,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
         for (final e in removed) {
           await widget.scheduler.cancelEvent(e.id);
         }
-        setState(
-            () => _events.removeWhere(
-                (e) => e.recurrenceId == event.recurrenceId));
+        setState(() => _events
+            .removeWhere((e) => e.recurrenceId == event.recurrenceId));
       } else if (scope == 'future' && event.recurrenceId != null) {
         await widget.database
             .deleteSeriesFrom(event.recurrenceId!, event.start);
@@ -200,13 +206,14 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
     if (result.events.isEmpty) return;
     await widget.database.upsertAll(result.events);
-    // Schedule alarms for all saved/updated events.
     for (final e in result.events) {
       await widget.scheduler.scheduleEvent(e);
     }
     if (!mounted) return;
     setState(() {
-      if (event != null) _events.removeWhere((e) => e.id == event.id);
+      if (event != null) {
+        _events.removeWhere((e) => e.id == event.id);
+      }
       _events.addAll(result.events);
       _events.sort((a, b) => a.start.compareTo(b.start));
     });
@@ -334,13 +341,14 @@ class _PlannerScreenState extends State<PlannerScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('Giao diện',
-                  style:
-                      TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  style: TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
               SegmentedButton<ThemeMode>(
                 segments: const [
                   ButtonSegment(
-                      value: ThemeMode.system, label: Text('Hệ thống')),
+                      value: ThemeMode.system,
+                      label: Text('Hệ thống')),
                   ButtonSegment(
                       value: ThemeMode.light, label: Text('Sáng')),
                   ButtonSegment(
@@ -378,6 +386,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
     );
   }
 }
+
+// ── Supporting widgets (unchanged visual baseline) ────────────────────────────
 
 class _SearchDialog extends StatefulWidget {
   const _SearchDialog({required this.database});

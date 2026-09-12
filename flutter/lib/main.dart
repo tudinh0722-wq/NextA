@@ -2,6 +2,7 @@ import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 
 import 'application/alarm_scheduler.dart';
+import 'application/tts_service.dart';
 import 'data/event_database.dart';
 import 'domain/event.dart';
 import 'presentation/planner_screen.dart';
@@ -9,8 +10,9 @@ import 'presentation/planner_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialise notification alarm scheduler.
-  final scheduler = await AlarmScheduler.init();
+  // Boot order: TTS → AlarmScheduler (needs TTS instance) → DB.
+  final tts = await TtsService.init();
+  final scheduler = await AlarmScheduler.init(tts);
 
   final database = await EventDatabase.open();
   var events = await database.getAll();
@@ -19,10 +21,15 @@ Future<void> main() async {
     await database.replaceAll(events);
   }
 
-  // Schedule alarms for all future events on startup.
+  // Re-schedule alarms on every cold start (covers reboot / app update).
   await scheduler.scheduleAll(events);
 
-  runApp(NextAApp(database: database, scheduler: scheduler, initialEvents: events));
+  runApp(NextAApp(
+    database: database,
+    scheduler: scheduler,
+    tts: tts,
+    initialEvents: events,
+  ));
 }
 
 class NextAApp extends StatefulWidget {
@@ -30,11 +37,13 @@ class NextAApp extends StatefulWidget {
     super.key,
     required this.database,
     required this.scheduler,
+    required this.tts,
     required this.initialEvents,
   });
 
   final EventDatabase database;
   final AlarmScheduler scheduler;
+  final TtsService tts;
   final List<NextAEvent> initialEvents;
 
   @override
@@ -56,7 +65,8 @@ class _NextAAppState extends State<NextAApp> {
   Widget build(BuildContext context) {
     return DynamicColorBuilder(
       builder: (lightDynamic, darkDynamic) {
-        final light = lightDynamic ?? ColorScheme.fromSeed(seedColor: _seedColor);
+        final light =
+            lightDynamic ?? ColorScheme.fromSeed(seedColor: _seedColor);
         final dark = darkDynamic ??
             ColorScheme.fromSeed(
               seedColor: _seedColor,
@@ -72,10 +82,12 @@ class _NextAAppState extends State<NextAApp> {
             events: widget.initialEvents,
             database: widget.database,
             scheduler: widget.scheduler,
+            tts: widget.tts,
             themeMode: _themeMode,
             seedColor: _seedColor,
             onThemeChanged: (mode) => setState(() => _themeMode = mode),
-            onSeedColorChanged: (color) => setState(() => _seedColor = color),
+            onSeedColorChanged: (color) =>
+                setState(() => _seedColor = color),
           ),
         );
       },
@@ -83,15 +95,14 @@ class _NextAAppState extends State<NextAApp> {
   }
 }
 
-// ── Demo data ─────────────────────────────────────────────────────────────────
-//
-// Existing demo events (kept as-is).
+// ── Demo data ────────────────────────────────────────────────────────────────
+
 const _kReminderMinutes = 30;
 const _kReminderRepeat = 2;
 const _kReminderInterval = 4;
 
 final List<NextAEvent> demoEvents = [
-  // ── Original demo events ──────────────────────────────────────────────────
+  // Original demo events.
   const NextAEvent(
     id: 'math',
     title: 'Giải tích',
@@ -169,8 +180,8 @@ final List<NextAEvent> demoEvents = [
     reminderRepeatIntervalMinutes: 5,
   ),
 
-  // ── PHÁT TRIỂN ỨNG DỤNG TMĐT ─────────────────────────────────────────────
-  // priority=1 (quan trọng), reminder 30 phút trước, lặp 2 lần, interval 4 phút
+  // ── PHÁT TRIỂN ỨNG DỤNG TMĐT ────────────────────────────────────────────
+  // priority=1, reminder 30 phút, lặp 2 lần, interval 4 phút.
   const NextAEvent(
     id: 'tmdt_20260917',
     title: 'Phát triển ứng dụng TMĐT',
