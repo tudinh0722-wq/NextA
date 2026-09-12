@@ -116,39 +116,7 @@ class MainViewModel @Inject constructor(private val repository: EventRepository)
         repository.upsertEvents(events, List(events.size) { AlarmSettings(enabled = false) })
     }
 
-    /**
-     * Debug-only deterministic alarm test.
-     * The fixed id replaces the previous test event on every debug run.
-     */
-    suspend fun ensureDebugAlarmTestEvent(): Pair<Event, AlarmSettings> {
-        val start = LocalDateTime.now().plusMinutes(5).withSecond(0).withNano(0)
-        val event = Event(
-            id = DEBUG_ALARM_TEST_ID,
-            title = "TEST BÁO THỨC · 5 phút",
-            type = EventType.OTHER,
-            startDateTime = start,
-            endDateTime = start.plusMinutes(1),
-            location = "NextA alarm test",
-            note = "Báo trước 4 phút · lặp 2 lần · cách nhau 1 phút",
-            priority = 2
-        )
-        val alarm = AlarmSettings(
-            enabled = true,
-            leadTimeMinutes = 4,
-            repeatEnabled = true,
-            repeatIntervalMinutes = 1,
-            maxRepeats = 2,
-            acknowledged = false
-        )
-        repository.upsertEvent(event, alarm)
-        return event to alarm
-    }
-
     fun clearSaveMessage() {
         _saveMessage.value = null
-    }
-
-    companion object {
-        const val DEBUG_ALARM_TEST_ID = "__nexta_debug_alarm_test__"
     }
 }
