@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 import '../domain/event.dart';
 import 'tts_service.dart';
@@ -23,12 +25,10 @@ class AlarmScheduler {
 
   // ── init ─────────────────────────────────────────────────────────
 
-  /// Initialises the plugin and **awaits** permission resolution before
-  /// returning. This guarantees [scheduleAll] is called only after the
-  /// system has granted (or denied) exact-alarm permission.
   static Future<AlarmScheduler> init(TtsService tts) async {
     if (_instance != null) return _instance!;
 
+    tz.initializeTimeZones();
     final plugin = FlutterLocalNotificationsPlugin();
 
     void onResponse(NotificationResponse r) => _handleResponse(tts, r);
@@ -47,50 +47,30 @@ class AlarmScheduler {
     );
 
     _instance = AlarmScheduler._(plugin, tts);
-
-    // Request permissions and WAIT — scheduleAll must not run until this
-    // completes, otherwise zonedSchedule fails silently on Android 12+.
-    await _instance!._requestPermissions();
+    // Request permissions asynchronously
+    _instance!._requestPermissions();
 
     return _instance!;
   }
 
-  /// Requests POST_NOTIFICATIONS then verifies exact-alarm permission.
-  /// If exact-alarm is not granted, opens the system settings screen and
-  /// waits up to 30 s for the user to grant it before returning.
   Future<void> _requestPermissions() async {
+    // Chờ 1 giây để app ổn định sau Splash Screen
+    await Future<void>.delayed(const Duration(seconds: 1));
+
     final androidImpl = _plugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
-    if (androidImpl == null) return; // non-Android platform
+    if (androidImpl == null) return;
 
-    // 1. POST_NOTIFICATIONS (Android 13+).
     await androidImpl.requestNotificationsPermission();
 
-    // 2. Exact alarm (Android 12+).
     final hasExact = await androidImpl.canScheduleExactNotifications() ?? false;
-    if (hasExact) return; // already granted — nothing to do
-
-    // Open Settings so the user can grant it.
-    const intent = AndroidIntent(
-      action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
-    );
-    await intent.launch();
-
-    // Poll until granted or timeout (30 s, checking every second).
-    // The user is on the Settings screen during this wait.
-    const maxWait = Duration(seconds: 30);
-    const interval = Duration(seconds: 1);
-    final deadline = DateTime.now().add(maxWait);
-    while (DateTime.now().isBefore(deadline)) {
-      await Future<void>.delayed(interval);
-      final granted =
-          await androidImpl.canScheduleExactNotifications() ?? false;
-      if (granted) break;
+    if (!hasExact) {
+      const intent = AndroidIntent(
+        action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
+      );
+      await intent.launch();
     }
-    // Whether granted or not, we continue — scheduleEvent skips past
-    // events silently; future events will be scheduled if permission is
-    // eventually granted on next app start.
   }
 
   // ── Notification response ────────────────────────────────────────────
@@ -146,18 +126,24 @@ class AlarmScheduler {
       final payload =
           '${event.id}|$slot|$minutesBefore|${event.title}|${event.note ?? ''}';
 
-      await _plugin.zonedSchedule(
-        _notifId(event.id, slot),
-        event.title,
-        _notifBody(event, slot),
-        // ignore: deprecated_member_use
-        alarmTime as dynamic,
-        _details(event.priority),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-        payload: payload,
-      );
+      try {
+        await _plugin.zonedSchedule(
+          _notifId(event.id, slot),
+          event.title,
+          _notifBody(event, slot),
+          tz.TZDateTime.from(alarmTime, tz.local),
+          _details(event.priority),
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          payload: payload,
+        );
+      } catch (e) {
+        // This can happen if exact alarm permission is missing on Android 12+
+        // or if the date is in the past (which we checked, but just in case).
+        // We log it and continue so the UI doesn't crash.
+        print('Error scheduling notification: $e');
+      }
     }
   }
 

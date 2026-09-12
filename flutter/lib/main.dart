@@ -1,5 +1,4 @@
 import 'package:dynamic_color/dynamic_color.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'application/alarm_scheduler.dart';
@@ -10,11 +9,42 @@ import 'presentation/planner_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const NextAApp());
+
+  final tts = await TtsService.init();
+  final scheduler = await AlarmScheduler.init(tts);
+
+  final database = await EventDatabase.open();
+  var events = await database.getAll();
+  if (events.isEmpty) {
+    events = _buildDemoEvents();
+    await database.replaceAll(events);
+  }
+
+  // Chạy việc lập lịch trong background, không chặn main thread
+  // ignore: discarded_futures
+  scheduler.scheduleAll(events);
+
+  runApp(NextAApp(
+    database: database,
+    scheduler: scheduler,
+    tts: tts,
+    initialEvents: events,
+  ));
 }
 
 class NextAApp extends StatefulWidget {
-  const NextAApp({super.key});
+  const NextAApp({
+    super.key,
+    required this.database,
+    required this.scheduler,
+    required this.tts,
+    required this.initialEvents,
+  });
+
+  final EventDatabase database;
+  final AlarmScheduler scheduler;
+  final TtsService tts;
+  final List<NextAEvent> initialEvents;
 
   @override
   State<NextAApp> createState() => _NextAAppState();
@@ -23,58 +53,6 @@ class NextAApp extends StatefulWidget {
 class _NextAAppState extends State<NextAApp> {
   ThemeMode _themeMode = ThemeMode.system;
   Color _seedColor = const Color(0xFF1A73E8);
-
-  bool _initialized = false;
-  late TtsService _tts;
-  late AlarmScheduler _scheduler;
-  late EventDatabase _database;
-  late List<NextAEvent> _events;
-
-  @override
-  void initState() {
-    super.initState();
-    _initApp();
-  }
-
-  Future<void> _initApp() async {
-    // Boot order:
-    //   1. TtsService.init
-    //   2. AlarmScheduler.init  ← awaits permission grant before returning
-    //   3. DB + events
-    //   4. scheduleAll          ← runs AFTER permission is confirmed
-    final tts = await TtsService.init();
-    final scheduler = await AlarmScheduler.init(tts); // blocks until permission ok
-
-    final database = await EventDatabase.open();
-
-    late final List<NextAEvent> events;
-    if (kDebugMode) {
-      // Always create a fresh alarm test event in debug builds.
-      // Event starts in 5 minutes; first reminder is 4 minutes before it,
-      // then repeats 2 more times, 1 minute apart.
-      events = _buildAlarmTestEvents();
-      await database.replaceAll(events);
-    } else {
-      events = await database.getAll();
-      if (events.isEmpty) {
-        events = _buildDemoEvents();
-        await database.replaceAll(events);
-      }
-    }
-
-    // Permission is already confirmed — safe to schedule now.
-    await scheduler.scheduleAll(events);
-
-    if (mounted) {
-      setState(() {
-        _tts = tts;
-        _scheduler = scheduler;
-        _database = database;
-        _events = events;
-        _initialized = true;
-      });
-    }
-  }
 
   ThemeData _theme(ColorScheme scheme) => ThemeData(
         useMaterial3: true,
@@ -85,14 +63,6 @@ class _NextAAppState extends State<NextAApp> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_initialized) {
-      return const MaterialApp(
-        home: Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
-      );
-    }
-
     return DynamicColorBuilder(
       builder: (lightDynamic, darkDynamic) {
         final light =
@@ -109,10 +79,10 @@ class _NextAAppState extends State<NextAApp> {
           darkTheme: _theme(dark),
           themeMode: _themeMode,
           home: PlannerScreen(
-            events: _events,
-            database: _database,
-            scheduler: _scheduler,
-            tts: _tts,
+            events: widget.initialEvents,
+            database: widget.database,
+            scheduler: widget.scheduler,
+            tts: widget.tts,
             themeMode: _themeMode,
             seedColor: _seedColor,
             onThemeChanged: (mode) => setState(() => _themeMode = mode),
@@ -125,30 +95,8 @@ class _NextAAppState extends State<NextAApp> {
   }
 }
 
-// ── Alarm test data ─────────────────────────────────────────────────────────
-
-List<NextAEvent> _buildAlarmTestEvents() {
-  final now = DateTime.now();
-  final start = now.add(const Duration(minutes: 5));
-
-  return [
-    NextAEvent(
-      id: 'alarm_test',
-      title: 'TEST ALARM — sau 5 phút',
-      type: EventType.personal,
-      start: start,
-      end: start.add(const Duration(minutes: 30)),
-      location: 'Alarm test',
-      note: 'Báo trước 4 phút • lặp 2 lần • mỗi lần cách 1 phút',
-      priority: 2,
-      reminderMinutes: 4,
-      reminderRepeatCount: 2,
-      reminderRepeatIntervalMinutes: 1,
-    ),
-  ];
-}
-
-// ── Demo data factory ───────────────────────────────────────────────────────
+// ── Demo data factory ──────────────────────────────────────────────────────────────
+// DateTime is not const, so demo events must be created at runtime.
 
 List<NextAEvent> _buildDemoEvents() {
   const r10 = (reminderMinutes: 10, repeatCount: 2, intervalMinutes: 5);
@@ -180,6 +128,7 @@ List<NextAEvent> _buildDemoEvents() {
       );
 
   return [
+    // ── Original events ─────────────────────────────────────────────────────────
     base(id: 'math', title: 'Giải tích', type: EventType.classEvent,
         start: DateTime(2026, 9, 10, 7, 30), end: DateTime(2026, 9, 10, 9),
         location: 'P. A204', r: r10),
@@ -201,6 +150,8 @@ List<NextAEvent> _buildDemoEvents() {
     base(id: 'personal', title: 'Tập gym', type: EventType.personal,
         start: DateTime(2026, 9, 18, 17), end: DateTime(2026, 9, 18, 18),
         r: r10),
+
+    // ── Phát triển ứng dụng TMĐT ──────────────────────────────────────────────
     base(id: 'tmdt_20260917', title: 'Phát triển ứng dụng TMĐT', type: EventType.classEvent,
         start: DateTime(2026, 9, 17, 9, 30), end: DateTime(2026, 9, 17, 12),
         location: 'P1305-A1', note: 'Thực hành', priority: 1, r: rTmdt),
