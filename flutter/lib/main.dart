@@ -1,4 +1,5 @@
 import 'package:dynamic_color/dynamic_color.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'application/alarm_scheduler.dart';
@@ -20,9 +21,17 @@ Future<void> main() async {
     await database.replaceAll(events);
   }
 
-  // Chạy việc lập lịch trong background, không chặn main thread
-  // ignore: discarded_futures
-  scheduler.scheduleAll(events);
+  // Debug builds always get one fresh, deterministic alarm test event.
+  // This is intentionally in Flutter, not the legacy Kotlin app.
+  if (kDebugMode) {
+    final testEvent = _buildDebugAlarmTestEvent();
+    await database.upsert(testEvent);
+    events = await database.getAll();
+  }
+
+  // Wait for scheduling so the first debug build cannot open with an
+  // apparently-created test event whose alarms have not been registered yet.
+  await scheduler.scheduleAll(events);
 
   runApp(NextAApp(
     database: database,
@@ -30,6 +39,26 @@ Future<void> main() async {
     tts: tts,
     initialEvents: events,
   ));
+}
+
+NextAEvent _buildDebugAlarmTestEvent() {
+  final start = DateTime.now()
+      .add(const Duration(minutes: 5))
+      .copyWith(second: 0, millisecond: 0, microsecond: 0);
+
+  return NextAEvent(
+    id: '__nexta_debug_alarm_test__',
+    title: 'TEST BÁO THỨC · 5 phút',
+    type: EventType.other,
+    start: start,
+    end: start.add(const Duration(minutes: 1)),
+    location: 'NextA alarm test',
+    note: 'Báo trước 4 phút · lặp 2 lần · cách nhau 1 phút',
+    priority: 2,
+    reminderMinutes: 4,
+    reminderRepeatCount: 2,
+    reminderRepeatIntervalMinutes: 1,
+  );
 }
 
 class NextAApp extends StatefulWidget {
@@ -128,7 +157,6 @@ List<NextAEvent> _buildDemoEvents() {
       );
 
   return [
-    // ── Original events ─────────────────────────────────────────────────────────
     base(id: 'math', title: 'Giải tích', type: EventType.classEvent,
         start: DateTime(2026, 9, 10, 7, 30), end: DateTime(2026, 9, 10, 9),
         location: 'P. A204', r: r10),
@@ -150,8 +178,6 @@ List<NextAEvent> _buildDemoEvents() {
     base(id: 'personal', title: 'Tập gym', type: EventType.personal,
         start: DateTime(2026, 9, 18, 17), end: DateTime(2026, 9, 18, 18),
         r: r10),
-
-    // ── Phát triển ứng dụng TMĐT ──────────────────────────────────────────────
     base(id: 'tmdt_20260917', title: 'Phát triển ứng dụng TMĐT', type: EventType.classEvent,
         start: DateTime(2026, 9, 17, 9, 30), end: DateTime(2026, 9, 17, 12),
         location: 'P1305-A1', note: 'Thực hành', priority: 1, r: rTmdt),
