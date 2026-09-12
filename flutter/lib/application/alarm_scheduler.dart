@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:android_intent_plus/android_intent.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../domain/event.dart';
@@ -48,17 +49,30 @@ class AlarmScheduler {
       onDidReceiveBackgroundNotificationResponse: _backgroundTap,
     );
 
-    await plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.requestNotificationsPermission();
-    await plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.requestExactAlarmsPermission();
-
     _instance = AlarmScheduler._(plugin, tts);
+    // Request permissions asynchronously to avoid blocking app startup
+    unawaited(_instance!._checkAndRequestPermissions());
+    
     return _instance!;
+  }
+
+  Future<void> _checkAndRequestPermissions() async {
+    // Chờ một chút để app hoàn tất việc vẽ khung hình đầu tiên trước khi yêu cầu quyền
+    await Future<void>.delayed(const Duration(seconds: 1));
+
+    final androidImpl = _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    
+    await androidImpl?.requestNotificationsPermission();
+    
+    final hasExact = await androidImpl?.canScheduleExactNotifications() ?? false;
+    if (!hasExact) {
+      const intent = AndroidIntent(
+        action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
+      );
+      await intent.launch();
+    }
   }
 
   // ── Notification response ───────────────────────────────────────────────

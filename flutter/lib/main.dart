@@ -9,40 +9,11 @@ import 'presentation/planner_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  final tts = await TtsService.init();
-  final scheduler = await AlarmScheduler.init(tts);
-
-  final database = await EventDatabase.open();
-  var events = await database.getAll();
-  if (events.isEmpty) {
-    events = _buildDemoEvents();
-    await database.replaceAll(events);
-  }
-
-  await scheduler.scheduleAll(events);
-
-  runApp(NextAApp(
-    database: database,
-    scheduler: scheduler,
-    tts: tts,
-    initialEvents: events,
-  ));
+  runApp(const NextAApp());
 }
 
 class NextAApp extends StatefulWidget {
-  const NextAApp({
-    super.key,
-    required this.database,
-    required this.scheduler,
-    required this.tts,
-    required this.initialEvents,
-  });
-
-  final EventDatabase database;
-  final AlarmScheduler scheduler;
-  final TtsService tts;
-  final List<NextAEvent> initialEvents;
+  const NextAApp({super.key});
 
   @override
   State<NextAApp> createState() => _NextAAppState();
@@ -51,6 +22,44 @@ class NextAApp extends StatefulWidget {
 class _NextAAppState extends State<NextAApp> {
   ThemeMode _themeMode = ThemeMode.system;
   Color _seedColor = const Color(0xFF1A73E8);
+  
+  bool _initialized = false;
+  late TtsService _tts;
+  late AlarmScheduler _scheduler;
+  late EventDatabase _database;
+  late List<NextAEvent> _events;
+
+  @override
+  void initState() {
+    super.initState();
+    _initApp();
+  }
+
+  Future<void> _initApp() async {
+    final tts = await TtsService.init();
+    final scheduler = await AlarmScheduler.init(tts);
+    final database = await EventDatabase.open();
+    
+    var events = await database.getAll();
+    if (events.isEmpty) {
+      events = _buildDemoEvents();
+      await database.replaceAll(events);
+    }
+
+    // Lập lịch báo thức trong background, không chặn UI
+    // ignore: discarded_futures
+    scheduler.scheduleAll(events);
+
+    if (mounted) {
+      setState(() {
+        _tts = tts;
+        _scheduler = scheduler;
+        _database = database;
+        _events = events;
+        _initialized = true;
+      });
+    }
+  }
 
   ThemeData _theme(ColorScheme scheme) => ThemeData(
         useMaterial3: true,
@@ -61,6 +70,14 @@ class _NextAAppState extends State<NextAApp> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_initialized) {
+      return const MaterialApp(
+        home: Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
     return DynamicColorBuilder(
       builder: (lightDynamic, darkDynamic) {
         final light =
@@ -77,10 +94,10 @@ class _NextAAppState extends State<NextAApp> {
           darkTheme: _theme(dark),
           themeMode: _themeMode,
           home: PlannerScreen(
-            events: widget.initialEvents,
-            database: widget.database,
-            scheduler: widget.scheduler,
-            tts: widget.tts,
+            events: _events,
+            database: _database,
+            scheduler: _scheduler,
+            tts: _tts,
             themeMode: _themeMode,
             seedColor: _seedColor,
             onThemeChanged: (mode) => setState(() => _themeMode = mode),
