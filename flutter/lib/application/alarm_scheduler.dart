@@ -7,18 +7,12 @@ import '../domain/event.dart';
 import 'tts_service.dart';
 
 // Payload format: "eventId|slotIndex|minutesBefore|title|note"
-// Pipe-separated; note may be empty.
 
 /// Schedules local notification alarms for [NextAEvent].
 ///
-/// Alarm flow per slot:
-///   1. Notification fires (device sound/vibration).
-///   2. If app is foreground or user taps notification → TTS announces.
-///   3. On repeat slots → TTS says “Nhắc lại + title + note”.
-///
-/// Android AndroidManifest.xml permissions required (manual — see README):
-///   RECEIVE_BOOT_COMPLETED, SCHEDULE_EXACT_ALARM,
-///   USE_EXACT_ALARM, POST_NOTIFICATIONS
+/// Boot order (enforced by caller):
+///   1. [init] — initialises plugin + requests permissions, waits for result.
+///   2. [scheduleAll] — called only after [init] returns (permission confirmed).
 class AlarmScheduler {
   AlarmScheduler._(this._plugin, this._tts);
 
@@ -27,8 +21,11 @@ class AlarmScheduler {
 
   static AlarmScheduler? _instance;
 
-  // ── init ──────────────────────────────────────────────────────────────
+  // ── init ─────────────────────────────────────────────────────────
 
+  /// Initialises the plugin and **awaits** permission resolution before
+  /// returning. This guarantees [scheduleAll] is called only after the
+  /// system has granted (or denied) exact-alarm permission.
   static Future<AlarmScheduler> init(TtsService tts) async {
     if (_instance != null) return _instance!;
 
@@ -50,32 +47,53 @@ class AlarmScheduler {
     );
 
     _instance = AlarmScheduler._(plugin, tts);
-    // Request permissions asynchronously to avoid blocking app startup
-    unawaited(_instance!._checkAndRequestPermissions());
-    
+
+    // Request permissions and WAIT — scheduleAll must not run until this
+    // completes, otherwise zonedSchedule fails silently on Android 12+.
+    await _instance!._requestPermissions();
+
     return _instance!;
   }
 
-  Future<void> _checkAndRequestPermissions() async {
-    // Chờ một chút để app hoàn tất việc vẽ khung hình đầu tiên trước khi yêu cầu quyền
-    await Future<void>.delayed(const Duration(seconds: 1));
-
+  /// Requests POST_NOTIFICATIONS then verifies exact-alarm permission.
+  /// If exact-alarm is not granted, opens the system settings screen and
+  /// waits up to 30 s for the user to grant it before returning.
+  Future<void> _requestPermissions() async {
     final androidImpl = _plugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
-    
-    await androidImpl?.requestNotificationsPermission();
-    
-    final hasExact = await androidImpl?.canScheduleExactNotifications() ?? false;
-    if (!hasExact) {
-      const intent = AndroidIntent(
-        action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
-      );
-      await intent.launch();
+    if (androidImpl == null) return; // non-Android platform
+
+    // 1. POST_NOTIFICATIONS (Android 13+).
+    await androidImpl.requestNotificationsPermission();
+
+    // 2. Exact alarm (Android 12+).
+    final hasExact = await androidImpl.canScheduleExactNotifications() ?? false;
+    if (hasExact) return; // already granted — nothing to do
+
+    // Open Settings so the user can grant it.
+    const intent = AndroidIntent(
+      action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
+    );
+    await intent.launch();
+
+    // Poll until granted or timeout (30 s, checking every second).
+    // The user is on the Settings screen during this wait.
+    const maxWait = Duration(seconds: 30);
+    const interval = Duration(seconds: 1);
+    final deadline = DateTime.now().add(maxWait);
+    while (DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(interval);
+      final granted =
+          await androidImpl.canScheduleExactNotifications() ?? false;
+      if (granted) break;
     }
+    // Whether granted or not, we continue — scheduleEvent skips past
+    // events silently; future events will be scheduled if permission is
+    // eventually granted on next app start.
   }
 
-  // ── Notification response ───────────────────────────────────────────────
+  // ── Notification response ────────────────────────────────────────────
 
   static Future<void> _handleResponse(
       TtsService tts, NotificationResponse r) async {
@@ -86,7 +104,6 @@ class AlarmScheduler {
     final title = parts[3];
     final note = parts[4].isNotEmpty ? parts[4] : null;
 
-    // TTS pre-announcement.
     final preText = TtsService.buildAnnouncement(
       title: title,
       note: note,
@@ -95,11 +112,10 @@ class AlarmScheduler {
     );
     await tts.speak(preText);
 
-    // Post-announcement (repeat reminder) only for slot 0.
     if (slotIndex == 0) {
       await Future<void>.delayed(const Duration(milliseconds: 800));
-      final postText =
-          TtsService.buildAnnouncement(title: title, note: note, isRepeat: true);
+      final postText = TtsService.buildAnnouncement(
+          title: title, note: note, isRepeat: true);
       await tts.speak(postText);
     }
   }
@@ -109,7 +125,7 @@ class AlarmScheduler {
     // Background TTS requires a native Android Service — future extension.
   }
 
-  // ── Public API ────────────────────────────────────────────────────────────
+  // ── Public API ─────────────────────────────────────────────────────────
 
   Future<void> scheduleEvent(NextAEvent event) async {
     if (event.reminderMinutes <= 0) return;
@@ -134,9 +150,6 @@ class AlarmScheduler {
         _notifId(event.id, slot),
         event.title,
         _notifBody(event, slot),
-        // flutter_local_notifications uses TZDateTime when timezone package is
-        // configured. Passing a plain DateTime works via the local-time fallback
-        // when using AndroidScheduleMode.exactAllowWhileIdle on Android.
         // ignore: deprecated_member_use
         alarmTime as dynamic,
         _details(event.priority),
@@ -161,7 +174,7 @@ class AlarmScheduler {
     }
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // ── Helpers ────────────────────────────────────────────────────────────
 
   int _notifId(String eventId, int slot) =>
       ('$eventId:$slot').hashCode.abs() & 0x7FFFFFFF;

@@ -22,7 +22,7 @@ class NextAApp extends StatefulWidget {
 class _NextAAppState extends State<NextAApp> {
   ThemeMode _themeMode = ThemeMode.system;
   Color _seedColor = const Color(0xFF1A73E8);
-  
+
   bool _initialized = false;
   late TtsService _tts;
   late AlarmScheduler _scheduler;
@@ -36,19 +36,23 @@ class _NextAAppState extends State<NextAApp> {
   }
 
   Future<void> _initApp() async {
+    // Boot order:
+    //   1. TtsService.init
+    //   2. AlarmScheduler.init  ← awaits permission grant before returning
+    //   3. DB + events
+    //   4. scheduleAll          ← runs AFTER permission is confirmed
     final tts = await TtsService.init();
-    final scheduler = await AlarmScheduler.init(tts);
+    final scheduler = await AlarmScheduler.init(tts); // blocks until permission ok
+
     final database = await EventDatabase.open();
-    
     var events = await database.getAll();
     if (events.isEmpty) {
       events = _buildDemoEvents();
       await database.replaceAll(events);
     }
 
-    // Lập lịch báo thức trong background, không chặn UI
-    // ignore: discarded_futures
-    scheduler.scheduleAll(events);
+    // Permission is already confirmed — safe to schedule now.
+    await scheduler.scheduleAll(events);
 
     if (mounted) {
       setState(() {
@@ -110,8 +114,7 @@ class _NextAAppState extends State<NextAApp> {
   }
 }
 
-// ── Demo data factory ──────────────────────────────────────────────────────────────
-// DateTime is not const, so demo events must be created at runtime.
+// ── Demo data factory ───────────────────────────────────────────────────────
 
 List<NextAEvent> _buildDemoEvents() {
   const r10 = (reminderMinutes: 10, repeatCount: 2, intervalMinutes: 5);
@@ -143,7 +146,6 @@ List<NextAEvent> _buildDemoEvents() {
       );
 
   return [
-    // ── Original events ─────────────────────────────────────────────────────────
     base(id: 'math', title: 'Giải tích', type: EventType.classEvent,
         start: DateTime(2026, 9, 10, 7, 30), end: DateTime(2026, 9, 10, 9),
         location: 'P. A204', r: r10),
@@ -165,8 +167,6 @@ List<NextAEvent> _buildDemoEvents() {
     base(id: 'personal', title: 'Tập gym', type: EventType.personal,
         start: DateTime(2026, 9, 18, 17), end: DateTime(2026, 9, 18, 18),
         r: r10),
-
-    // ── Phát triển ứng dụng TMĐT ──────────────────────────────────────────────
     base(id: 'tmdt_20260917', title: 'Phát triển ứng dụng TMĐT', type: EventType.classEvent,
         start: DateTime(2026, 9, 17, 9, 30), end: DateTime(2026, 9, 17, 12),
         location: 'P1305-A1', note: 'Thực hành', priority: 1, r: rTmdt),
