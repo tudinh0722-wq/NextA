@@ -47,8 +47,27 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        lifecycleScope.launch { legacyAlarmMigrator.migrate() }
-        if (BuildConfig.DEBUG) viewModel.seedDemoEventsIfEmpty()
+
+        lifecycleScope.launch {
+            legacyAlarmMigrator.migrate()
+
+            // Debug build: create a deterministic event every run so alarm
+            // delivery can be tested without manually creating an event.
+            if (BuildConfig.DEBUG) {
+                viewModel.seedDemoEventsIfEmpty()
+                val (testEvent, testAlarm) = viewModel.ensureDebugAlarmTestEvent()
+                scheduleAlarm(testEvent, testAlarm)
+            }
+
+            // Restore every enabled alarm from Room on app startup. This is
+            // also what makes alarms survive process death/app restarts.
+            alarmRepository.getPendingAlarms().forEach { record ->
+                if (record.event.id != MainViewModel.DEBUG_ALARM_TEST_ID) {
+                    scheduleAlarm(record.event, record.settings)
+                }
+            }
+        }
+
         setContent {
             NextaTheme {
                 val uiState by viewModel.uiState.collectAsState()
