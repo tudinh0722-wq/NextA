@@ -62,63 +62,93 @@ class MainViewModel @Inject constructor(private val repository: EventRepository)
     }
 
     /** Demo-only data: insert once when the local database is empty. */
-    fun seedDemoEventsIfEmpty() {
-        viewModelScope.launch {
-            if (repository.getAllEvents().first().isNotEmpty()) return@launch
+    suspend fun seedDemoEventsIfEmpty() {
+        if (repository.getAllEvents().first().isNotEmpty()) return
 
-            val raw = listOf(
-                Triple(LocalDate.of(2026, 9, 7), "Tiếng Anh Công nghệ thông tin 1", Pair("12:30", "14:10")),
-                Triple(LocalDate.of(2026, 9, 8), "Phát triển ứng dụng thương mại điện tử", Pair("15:10", "17:45")),
-                Triple(LocalDate.of(2026, 9, 9), "Cơ sở dữ liệu", Pair("08:45", "10:30")),
-                Triple(LocalDate.of(2026, 9, 10), "Tiếng Anh Công nghệ thông tin 1", Pair("12:30", "14:10")),
-                Triple(LocalDate.of(2026, 9, 12), "Kiểm thử phần mềm", Pair("07:00", "09:35")),
-                Triple(LocalDate.of(2026, 9, 14), "Thiết kế phần mềm", Pair("09:40", "11:25")),
-                Triple(LocalDate.of(2026, 9, 14), "Tiếng Anh Công nghệ thông tin 1", Pair("12:30", "14:10")),
-                Triple(LocalDate.of(2026, 9, 15), "Phát triển ứng dụng thương mại điện tử", Pair("15:10", "17:45")),
-                Triple(LocalDate.of(2026, 9, 16), "Cơ sở dữ liệu", Pair("08:45", "10:30")),
-                Triple(LocalDate.of(2026, 9, 17), "Tiếng Anh Công nghệ thông tin 1", Pair("12:30", "14:10")),
-                Triple(LocalDate.of(2026, 9, 19), "Kiểm thử phần mềm", Pair("07:00", "09:35"))
+        val raw = listOf(
+            Triple(LocalDate.of(2026, 9, 7), "Tiếng Anh Công nghệ thông tin 1", Pair("12:30", "14:10")),
+            Triple(LocalDate.of(2026, 9, 8), "Phát triển ứng dụng thương mại điện tử", Pair("15:10", "17:45")),
+            Triple(LocalDate.of(2026, 9, 9), "Cơ sở dữ liệu", Pair("08:45", "10:30")),
+            Triple(LocalDate.of(2026, 9, 10), "Tiếng Anh Công nghệ thông tin 1", Pair("12:30", "14:10")),
+            Triple(LocalDate.of(2026, 9, 12), "Kiểm thử phần mềm", Pair("07:00", "09:35")),
+            Triple(LocalDate.of(2026, 9, 14), "Thiết kế phần mềm", Pair("09:40", "11:25")),
+            Triple(LocalDate.of(2026, 9, 14), "Tiếng Anh Công nghệ thông tin 1", Pair("12:30", "14:10")),
+            Triple(LocalDate.of(2026, 9, 15), "Phát triển ứng dụng thương mại điện tử", Pair("15:10", "17:45")),
+            Triple(LocalDate.of(2026, 9, 16), "Cơ sở dữ liệu", Pair("08:45", "10:30")),
+            Triple(LocalDate.of(2026, 9, 17), "Tiếng Anh Công nghệ thông tin 1", Pair("12:30", "14:10")),
+            Triple(LocalDate.of(2026, 9, 19), "Kiểm thử phần mềm", Pair("07:00", "09:35"))
+        )
+
+        val details = listOf(
+            "308 - A9 - Cơ sở 1 - Khu A" to "Buổi chiều - 7,8 Nguyễn Thị Thảo",
+            "402 - A9 - Cơ sở 1 - Khu A" to "Buổi chiều - 10,11,12 Đỗ Ngọc Sơn",
+            "205 - A9 - Cơ sở 1 - Khu A" to "Buổi sáng - 3,4 Nguyễn Quang Đại",
+            "308 - A9 - Cơ sở 1 - Khu A" to "GV: Bùi Phương Thảo",
+            "Khu A_PH Online 05 - Khu A_Online" to "GV: Nguyễn Ngọc Khải",
+            "302 - A9 - Cơ sở 1 - Khu A" to "GV: Nguyễn Thị Nhung",
+            "308 - A9 - Cơ sở 1 - Khu A" to "GV: Bùi Phương Thảo",
+            "402 - A9 - Cơ sở 1 - Khu A" to "GV: Đỗ Ngọc Sơn",
+            "205 - A9 - Cơ sở 1 - Khu A" to "GV: Nguyễn Quang Đại",
+            "308 - A9 - Cơ sở 1 - Khu A" to "GV: Bùi Phương Thảo",
+            "Khu A_PH Online 05 - Khu A_Online" to "GV: Nguyễn Ngọc Khải"
+        )
+
+        val priorityIndexes = (raw.indices).shuffled().take(5)
+        val veryImportant = priorityIndexes.take(3).toSet()
+        val important = priorityIndexes.drop(3).toSet()
+
+        val events = raw.mapIndexed { index, (date, title, times) ->
+            Event(
+                id = UUID.randomUUID().toString(),
+                title = title,
+                type = EventType.CLASS_OFFLINE,
+                startDateTime = LocalDateTime.of(date, LocalTime.parse(times.first)),
+                endDateTime = LocalDateTime.of(date, LocalTime.parse(times.second)),
+                location = details[index].first,
+                note = details[index].second,
+                priority = when {
+                    index in veryImportant -> 2
+                    index in important -> 1
+                    else -> 0
+                }
             )
-
-            val details = listOf(
-                "308 - A9 - Cơ sở 1 - Khu A" to "Buổi chiều - 7,8 Nguyễn Thị Thảo",
-                "402 - A9 - Cơ sở 1 - Khu A" to "Buổi chiều - 10,11,12 Đỗ Ngọc Sơn",
-                "205 - A9 - Cơ sở 1 - Khu A" to "Buổi sáng - 3,4 Nguyễn Quang Đại",
-                "308 - A9 - Cơ sở 1 - Khu A" to "GV: Bùi Phương Thảo",
-                "Khu A_PH Online 05 - Khu A_Online" to "GV: Nguyễn Ngọc Khải",
-                "302 - A9 - Cơ sở 1 - Khu A" to "GV: Nguyễn Thị Nhung",
-                "308 - A9 - Cơ sở 1 - Khu A" to "GV: Bùi Phương Thảo",
-                "402 - A9 - Cơ sở 1 - Khu A" to "GV: Đỗ Ngọc Sơn",
-                "205 - A9 - Cơ sở 1 - Khu A" to "GV: Nguyễn Quang Đại",
-                "308 - A9 - Cơ sở 1 - Khu A" to "GV: Bùi Phương Thảo",
-                "Khu A_PH Online 05 - Khu A_Online" to "GV: Nguyễn Ngọc Khải"
-            )
-
-            val priorityIndexes = (raw.indices).shuffled().take(5)
-            val veryImportant = priorityIndexes.take(3).toSet()
-            val important = priorityIndexes.drop(3).toSet()
-
-            val events = raw.mapIndexed { index, (date, title, times) ->
-                Event(
-                    id = UUID.randomUUID().toString(),
-                    title = title,
-                    type = EventType.CLASS_OFFLINE,
-                    startDateTime = LocalDateTime.of(date, LocalTime.parse(times.first)),
-                    endDateTime = LocalDateTime.of(date, LocalTime.parse(times.second)),
-                    location = details[index].first,
-                    note = details[index].second,
-                    priority = when {
-                        index in veryImportant -> 2
-                        index in important -> 1
-                        else -> 0
-                    }
-                )
-            }
-            repository.upsertEvents(events, List(events.size) { AlarmSettings(enabled = false) })
         }
+        repository.upsertEvents(events, List(events.size) { AlarmSettings(enabled = false) })
+    }
+
+    /**
+     * Debug-only deterministic alarm test.
+     * The fixed id replaces the previous test event on every debug run.
+     */
+    suspend fun ensureDebugAlarmTestEvent(): Pair<Event, AlarmSettings> {
+        val start = LocalDateTime.now().plusMinutes(5).withSecond(0).withNano(0)
+        val event = Event(
+            id = DEBUG_ALARM_TEST_ID,
+            title = "TEST BÁO THỨC · 5 phút",
+            type = EventType.OTHER,
+            startDateTime = start,
+            endDateTime = start.plusMinutes(1),
+            location = "NextA alarm test",
+            note = "Báo trước 4 phút · lặp 2 lần · cách nhau 1 phút",
+            priority = 2
+        )
+        val alarm = AlarmSettings(
+            enabled = true,
+            leadTimeMinutes = 4,
+            repeatEnabled = true,
+            repeatIntervalMinutes = 1,
+            maxRepeats = 2,
+            acknowledged = false
+        )
+        repository.upsertEvent(event, alarm)
+        return event to alarm
     }
 
     fun clearSaveMessage() {
         _saveMessage.value = null
+    }
+
+    companion object {
+        const val DEBUG_ALARM_TEST_ID = "__nexta_debug_alarm_test__"
     }
 }
