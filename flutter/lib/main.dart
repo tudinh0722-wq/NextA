@@ -1,4 +1,5 @@
 import 'package:dynamic_color/dynamic_color.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'application/alarm_scheduler.dart';
@@ -45,10 +46,20 @@ class _NextAAppState extends State<NextAApp> {
     final scheduler = await AlarmScheduler.init(tts); // blocks until permission ok
 
     final database = await EventDatabase.open();
-    var events = await database.getAll();
-    if (events.isEmpty) {
-      events = _buildDemoEvents();
+
+    late final List<NextAEvent> events;
+    if (kDebugMode) {
+      // Always create a fresh alarm test event in debug builds.
+      // Event starts in 5 minutes; first reminder is 4 minutes before it,
+      // then repeats 2 more times, 1 minute apart.
+      events = _buildAlarmTestEvents();
       await database.replaceAll(events);
+    } else {
+      events = await database.getAll();
+      if (events.isEmpty) {
+        events = _buildDemoEvents();
+        await database.replaceAll(events);
+      }
     }
 
     // Permission is already confirmed — safe to schedule now.
@@ -112,6 +123,29 @@ class _NextAAppState extends State<NextAApp> {
       },
     );
   }
+}
+
+// ── Alarm test data ─────────────────────────────────────────────────────────
+
+List<NextAEvent> _buildAlarmTestEvents() {
+  final now = DateTime.now();
+  final start = now.add(const Duration(minutes: 5));
+
+  return [
+    NextAEvent(
+      id: 'alarm_test',
+      title: 'TEST ALARM — sau 5 phút',
+      type: EventType.personal,
+      start: start,
+      end: start.add(const Duration(minutes: 30)),
+      location: 'Alarm test',
+      note: 'Báo trước 4 phút • lặp 2 lần • mỗi lần cách 1 phút',
+      priority: 2,
+      reminderMinutes: 4,
+      reminderRepeatCount: 2,
+      reminderRepeatIntervalMinutes: 1,
+    ),
+  ];
 }
 
 // ── Demo data factory ───────────────────────────────────────────────────────
