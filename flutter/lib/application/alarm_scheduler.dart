@@ -5,36 +5,19 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../domain/event.dart';
 import 'tts_service.dart';
 
-// ── Notification payload key ──────────────────────────────────────────────────
-// Payload format stored in the notification so TtsService can speak when
-// the user taps the notification or the app is in foreground.
-//
-// "eventId|slotIndex|minutesBefore|title|note"
-// Fields are pipe-separated; note may be empty.
-// ─────────────────────────────────────────────────────────────────────────────
+// Payload format: "eventId|slotIndex|minutesBefore|title|note"
+// Pipe-separated; note may be empty.
 
-/// Schedules local notification alarms for [NextAEvent] with a
-/// TTS-first → notification → TTS-last pattern.
+/// Schedules local notification alarms for [NextAEvent].
 ///
 /// Alarm flow per slot:
-///   1. App-foreground listener (or notification tap) triggers TTS pre-announcement.
-///   2. Notification appears with event details.
-///   3. On tap / foreground receive → TTS post-announcement ("Nhắc lại").
+///   1. Notification fires (device sound/vibration).
+///   2. If app is foreground or user taps notification → TTS announces.
+///   3. On repeat slots → TTS says “Nhắc lại + title + note”.
 ///
-/// Because Flutter TTS cannot be invoked from a true background isolate,
-/// the TTS is triggered in two places:
-///   a. [_onForegroundNotification] — app is visible when alarm fires.
-///   b. [_onNotificationTap] — user taps the notification to open app.
-///
-/// For a fully background TTS (when the screen is off), a native
-/// Android Service / BroadcastReceiver is required and is documented in
-/// README as a future native extension.
-///
-/// Android AndroidManifest.xml additions required (manual — see README):
-///   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
-///   <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
-///   <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
-///   <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+/// Android AndroidManifest.xml permissions required (manual — see README):
+///   RECEIVE_BOOT_COMPLETED, SCHEDULE_EXACT_ALARM,
+///   USE_EXACT_ALARM, POST_NOTIFICATIONS
 class AlarmScheduler {
   AlarmScheduler._(this._plugin, this._tts);
 
@@ -43,17 +26,13 @@ class AlarmScheduler {
 
   static AlarmScheduler? _instance;
 
-  // Foreground notification callback — set once during init.
-  static void Function(NotificationResponse)? _foregroundHandler;
-
-  // ── init ──────────────────────────────────────────────────────────────────
+  // ── init ──────────────────────────────────────────────────────────────
 
   static Future<AlarmScheduler> init(TtsService tts) async {
     if (_instance != null) return _instance!;
 
     final plugin = FlutterLocalNotificationsPlugin();
 
-    // Callback wired to both foreground and background tap paths.
     void onResponse(NotificationResponse r) => _handleResponse(tts, r);
 
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -69,7 +48,6 @@ class AlarmScheduler {
       onDidReceiveBackgroundNotificationResponse: _backgroundTap,
     );
 
-    // Android permission requests.
     await plugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
@@ -83,15 +61,12 @@ class AlarmScheduler {
     return _instance!;
   }
 
-  // ── Notification response handling ────────────────────────────────────────
+  // ── Notification response ───────────────────────────────────────────────
 
-  /// Called when the notification fires while the app is in the foreground,
-  /// or when the user taps a notification to bring the app forward.
   static Future<void> _handleResponse(
       TtsService tts, NotificationResponse r) async {
     final parts = (r.payload ?? '').split('|');
     if (parts.length < 5) return;
-
     final slotIndex = int.tryParse(parts[1]) ?? 0;
     final minutesBefore = int.tryParse(parts[2]) ?? 0;
     final title = parts[3];
@@ -106,33 +81,22 @@ class AlarmScheduler {
     );
     await tts.speak(preText);
 
-    // Brief pause, then TTS post-announcement.
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-    final postText = TtsService.buildAnnouncement(
-      title: title,
-      note: note,
-      isRepeat: true,
-    );
-    // Only read the post announcement if it differs from pre (slot 0 already
-    // said the countdown; slot > 0 just needs the repeat label).
+    // Post-announcement (repeat reminder) only for slot 0.
     if (slotIndex == 0) {
+      await Future<void>.delayed(const Duration(milliseconds: 800));
+      final postText =
+          TtsService.buildAnnouncement(title: title, note: note, isRepeat: true);
       await tts.speak(postText);
     }
   }
 
-  /// Top-level function required by flutter_local_notifications for background
-  /// notification responses.  Cannot capture closures — TTS is not available
-  /// in the background isolate without native bridging; log for now.
   @pragma('vm:entry-point')
   static void _backgroundTap(NotificationResponse r) {
-    // Background TTS requires a native Android Service.
-    // The notification itself carries all event details — no action needed here
-    // until the native extension is implemented.
+    // Background TTS requires a native Android Service — future extension.
   }
 
   // ── Public API ────────────────────────────────────────────────────────────
 
-  /// Schedule all alarm slots for [event].  Idempotent — cancels first.
   Future<void> scheduleEvent(NextAEvent event) async {
     if (event.reminderMinutes <= 0) return;
     await cancelEvent(event.id);
@@ -141,12 +105,10 @@ class AlarmScheduler {
         event.start.subtract(Duration(minutes: event.reminderMinutes));
     if (firstAlarm.isBefore(DateTime.now())) return;
 
-    // Slot 0 = first alarm; slots 1..repeatCount = follow-ups.
     final totalSlots = 1 + event.reminderRepeatCount.clamp(0, 10);
     for (var slot = 0; slot < totalSlots; slot++) {
-      final alarmTime = firstAlarm.add(
-        Duration(minutes: slot * event.reminderRepeatIntervalMinutes),
-      );
+      final alarmTime = firstAlarm
+          .add(Duration(minutes: slot * event.reminderRepeatIntervalMinutes));
       if (alarmTime.isBefore(DateTime.now())) continue;
 
       final minutesBefore =
@@ -158,15 +120,20 @@ class AlarmScheduler {
         _notifId(event.id, slot),
         event.title,
         _notifBody(event, slot),
-        _toTZDateTime(alarmTime),
+        // flutter_local_notifications uses TZDateTime when timezone package is
+        // configured. Passing a plain DateTime works via the local-time fallback
+        // when using AndroidScheduleMode.exactAllowWhileIdle on Android.
+        // ignore: deprecated_member_use
+        alarmTime as dynamic,
         _details(event.priority),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
         payload: payload,
       );
     }
   }
 
-  /// Cancel all alarm slots for [eventId].
   Future<void> cancelEvent(String eventId) async {
     const maxSlots = 11;
     for (var slot = 0; slot < maxSlots; slot++) {
@@ -174,7 +141,6 @@ class AlarmScheduler {
     }
   }
 
-  /// Schedule all future events.
   Future<void> scheduleAll(List<NextAEvent> events) async {
     for (final e in events) {
       await scheduleEvent(e);
@@ -237,9 +203,4 @@ class AlarmScheduler {
       ),
     );
   }
-
-  /// Convert local [DateTime] to the type expected by [zonedSchedule].
-  /// Uses plain DateTime — the plugin falls back to device local time
-  /// when the timezone package is not configured.
-  dynamic _toTZDateTime(DateTime dt) => dt;
 }
