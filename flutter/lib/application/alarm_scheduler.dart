@@ -1,18 +1,13 @@
-import 'dart:async';
-
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 import '../domain/event.dart';
 import 'tts_service.dart';
 
 // Payload format: "eventId|slotIndex|minutesBefore|title|note"
 
-/// Schedules local notification alarms for [NextAEvent].
-///
-/// Boot order (enforced by caller):
-///   1. [init] — initialises plugin + requests permissions, waits for result.
-///   2. [scheduleAll] — called only after [init] returns (permission confirmed).
 class AlarmScheduler {
   AlarmScheduler._(this._plugin, this._tts);
 
@@ -20,15 +15,12 @@ class AlarmScheduler {
   final TtsService _tts;
 
   static AlarmScheduler? _instance;
+  static const _channelId = 'nexta_reminder_v2';
 
-  // ── init ─────────────────────────────────────────────────────────
-
-  /// Initialises the plugin and **awaits** permission resolution before
-  /// returning. This guarantees [scheduleAll] is called only after the
-  /// system has granted (or denied) exact-alarm permission.
   static Future<AlarmScheduler> init(TtsService tts) async {
     if (_instance != null) return _instance!;
 
+    tz.initializeTimeZones();
     final plugin = FlutterLocalNotificationsPlugin();
 
     void onResponse(NotificationResponse r) => _handleResponse(tts, r);
@@ -39,61 +31,53 @@ class AlarmScheduler {
       requestBadgePermission: false,
       requestSoundPermission: true,
     );
+
     await plugin.initialize(
       const InitializationSettings(
-          android: androidInit, iOS: darwinInit, macOS: darwinInit),
+        android: androidInit,
+        iOS: darwinInit,
+        macOS: darwinInit,
+      ),
       onDidReceiveNotificationResponse: onResponse,
       onDidReceiveBackgroundNotificationResponse: _backgroundTap,
     );
 
     _instance = AlarmScheduler._(plugin, tts);
-
-    // Request permissions and WAIT — scheduleAll must not run until this
-    // completes, otherwise zonedSchedule fails silently on Android 12+.
     await _instance!._requestPermissions();
-
     return _instance!;
   }
 
-  /// Requests POST_NOTIFICATIONS then verifies exact-alarm permission.
-  /// If exact-alarm is not granted, opens the system settings screen and
-  /// waits up to 30 s for the user to grant it before returning.
   Future<void> _requestPermissions() async {
-    final androidImpl = _plugin
+    final android = _plugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
-    if (androidImpl == null) return; // non-Android platform
+    if (android == null) return;
 
-    // 1. POST_NOTIFICATIONS (Android 13+).
-    await androidImpl.requestNotificationsPermission();
+    await android.requestNotificationsPermission();
 
-    // 2. Exact alarm (Android 12+).
-    final hasExact = await androidImpl.canScheduleExactNotifications() ?? false;
-    if (hasExact) return; // already granted — nothing to do
+    var exact = await android.canScheduleExactNotifications() ?? false;
+    if (exact) return;
 
-    // Open Settings so the user can grant it.
-    const intent = AndroidIntent(
-      action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
-    );
-    await intent.launch();
-
-    // Poll until granted or timeout (30 s, checking every second).
-    // The user is on the Settings screen during this wait.
-    const maxWait = Duration(seconds: 30);
-    const interval = Duration(seconds: 1);
-    final deadline = DateTime.now().add(maxWait);
-    while (DateTime.now().isBefore(deadline)) {
-      await Future<void>.delayed(interval);
-      final granted =
-          await androidImpl.canScheduleExactNotifications() ?? false;
-      if (granted) break;
+    try {
+      const intent = AndroidIntent(
+        action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
+      );
+      await intent.launch();
+    } catch (e) {
+      print('Unable to open exact alarm settings: $e');
+      return;
     }
-    // Whether granted or not, we continue — scheduleEvent skips past
-    // events silently; future events will be scheduled if permission is
-    // eventually granted on next app start.
-  }
 
-  // ── Notification response ────────────────────────────────────────────
+    // Wait for the user to return from Android Settings and grant the
+    // permission. This prevents scheduleEvent from racing the permission UI.
+    for (var i = 0; i < 30; i++) {
+      await Future<void>.delayed(const Duration(seconds: 1));
+      exact = await android.canScheduleExactNotifications() ?? false;
+      if (exact) return;
+    }
+
+    print('Exact alarm permission was not granted within 30 seconds.');
+  }
 
   static Future<void> _handleResponse(
       TtsService tts, NotificationResponse r) async {
@@ -104,77 +88,78 @@ class AlarmScheduler {
     final title = parts[3];
     final note = parts[4].isNotEmpty ? parts[4] : null;
 
-    final preText = TtsService.buildAnnouncement(
+    await tts.speak(TtsService.buildAnnouncement(
       title: title,
       note: note,
       minutesBefore: minutesBefore,
       isRepeat: slotIndex > 0,
-    );
-    await tts.speak(preText);
+    ));
 
     if (slotIndex == 0) {
       await Future<void>.delayed(const Duration(milliseconds: 800));
-      final postText = TtsService.buildAnnouncement(
-          title: title, note: note, isRepeat: true);
-      await tts.speak(postText);
+      await tts.speak(TtsService.buildAnnouncement(
+        title: title,
+        note: note,
+        isRepeat: true,
+      ));
     }
   }
 
   @pragma('vm:entry-point')
-  static void _backgroundTap(NotificationResponse r) {
-    // Background TTS requires a native Android Service — future extension.
-  }
-
-  // ── Public API ─────────────────────────────────────────────────────────
+  static void _backgroundTap(NotificationResponse r) {}
 
   Future<void> scheduleEvent(NextAEvent event) async {
     if (event.reminderMinutes <= 0) return;
     await cancelEvent(event.id);
 
+    final now = DateTime.now();
     final firstAlarm =
         event.start.subtract(Duration(minutes: event.reminderMinutes));
-    if (firstAlarm.isBefore(DateTime.now())) return;
+    if (!firstAlarm.isAfter(now)) return;
 
     final totalSlots = 1 + event.reminderRepeatCount.clamp(0, 10);
     for (var slot = 0; slot < totalSlots; slot++) {
-      final alarmTime = firstAlarm
-          .add(Duration(minutes: slot * event.reminderRepeatIntervalMinutes));
-      if (alarmTime.isBefore(DateTime.now())) continue;
+      final alarmTime = firstAlarm.add(
+        Duration(minutes: slot * event.reminderRepeatIntervalMinutes),
+      );
+      if (!alarmTime.isAfter(DateTime.now())) continue;
 
       final minutesBefore =
           event.reminderMinutes - slot * event.reminderRepeatIntervalMinutes;
       final payload =
           '${event.id}|$slot|$minutesBefore|${event.title}|${event.note ?? ''}';
 
-      await _plugin.zonedSchedule(
-        _notifId(event.id, slot),
-        event.title,
-        _notifBody(event, slot),
-        // ignore: deprecated_member_use
-        alarmTime as dynamic,
-        _details(event.priority),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-        payload: payload,
-      );
+      try {
+        final scheduled = tz.TZDateTime.from(alarmTime, tz.local);
+        await _plugin.zonedSchedule(
+          _notifId(event.id, slot),
+          event.title,
+          _notifBody(event, slot),
+          scheduled,
+          _details(event.priority),
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          payload: payload,
+        );
+        print('NextA alarm scheduled: ${event.title} slot=$slot at $scheduled');
+      } catch (e, st) {
+        // Never let an alarm failure prevent saving/updating an event.
+        print('NextA alarm scheduling failed for ${event.id} slot=$slot: $e');
+        print(st);
+      }
     }
   }
 
   Future<void> cancelEvent(String eventId) async {
-    const maxSlots = 11;
-    for (var slot = 0; slot < maxSlots; slot++) {
+    for (var slot = 0; slot < 11; slot++) {
       await _plugin.cancel(_notifId(eventId, slot));
     }
   }
 
   Future<void> scheduleAll(List<NextAEvent> events) async {
-    for (final e in events) {
-      await scheduleEvent(e);
+    for (final event in events) {
+      await scheduleEvent(event);
     }
   }
-
-  // ── Helpers ────────────────────────────────────────────────────────────
 
   int _notifId(String eventId, int slot) =>
       ('$eventId:$slot').hashCode.abs() & 0x7FFFFFFF;
@@ -213,10 +198,9 @@ class AlarmScheduler {
 
     return NotificationDetails(
       android: AndroidNotificationDetails(
-        'nexta_reminder',
+        _channelId,
         'Nhắc nhở sự kiện',
-        channelDescription:
-            'Thông báo nhắc nhở trước khi sự kiện bắt đầu',
+        channelDescription: 'Thông báo nhắc nhở trước khi sự kiện bắt đầu',
         importance: importance,
         priority: notifPriority,
         playSound: true,
